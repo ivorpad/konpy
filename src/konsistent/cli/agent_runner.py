@@ -81,13 +81,25 @@ def iter_json_objects(text: str) -> Iterator[dict[str, Any]]:
             yield decoded
 
 
-def first_json_object(text: str) -> dict[str, Any] | None:
-    for match in _FENCE_RE.finditer(text.strip()):
-        for candidate in iter_json_objects(match.group("body")):
-            return candidate
+def first_json_object(
+    text: str,
+    *,
+    predicate: Callable[[dict[str, Any]], bool] | None = None,
+) -> dict[str, Any] | None:
+    candidates: list[dict[str, Any]] = []
 
-    for candidate in iter_json_objects(text):
-        return candidate
+    for match in _FENCE_RE.finditer(text.strip()):
+        candidates.extend(iter_json_objects(match.group("body")))
+
+    candidates.extend(iter_json_objects(text))
+
+    if predicate is not None:
+        for candidate in candidates:
+            if predicate(candidate):
+                return candidate
+
+    if candidates:
+        return candidates[0]
 
     return None
 

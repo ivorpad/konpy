@@ -31,7 +31,9 @@ def _chdir(path: Path) -> Iterator[None]:
         os.chdir(previous)
 
 
-def run_cli(fixture_dir: str | Path, *args: str) -> tuple[int, str, str]:
+def _invoke(
+    fixture_dir: str | Path, args: tuple[str, ...], *, stdin: str | None = None
+) -> tuple[int, str, str]:
     path = Path(fixture_dir)
     argv = _preprocess_argv([str(arg) for arg in args])
 
@@ -39,6 +41,7 @@ def run_cli(fixture_dir: str | Path, *args: str) -> tuple[int, str, str]:
         result = _RUNNER.invoke(
             app,
             argv,
+            input=stdin,
             color=False,
             env={**os.environ, "GITHUB_ACTIONS": ""},
         )
@@ -55,6 +58,15 @@ def run_cli(fixture_dir: str | Path, *args: str) -> tuple[int, str, str]:
     return result.exit_code, stdout, stderr
 
 
+def run_cli(fixture_dir: str | Path, *args: str) -> tuple[int, str, str]:
+    return _invoke(fixture_dir, args)
+
+
+def run_cli_stdin(fixture_dir: str | Path, stdin: str, *args: str) -> tuple[int, str, str]:
+    """Thin additive variant of run_cli that forwards `stdin` to the CLI process."""
+    return _invoke(fixture_dir, args, stdin=stdin)
+
+
 @pytest.fixture
 def fixtures_dir() -> Path:
     return Path(__file__).parent / "fixtures"
@@ -63,3 +75,8 @@ def fixtures_dir() -> Path:
 @pytest.fixture(name="run_cli")
 def run_cli_fixture() -> Callable[..., tuple[int, str, str]]:
     return run_cli
+
+
+@pytest.fixture(name="run_cli_stdin")
+def run_cli_stdin_fixture() -> Callable[..., tuple[int, str, str]]:
+    return run_cli_stdin

@@ -202,6 +202,16 @@ konsistent infer --heuristic export-suffix --heuristic paired-test-file -o propo
 
 The proposed pack goes to stdout (or `--output`); the confidence/violators report goes to stderr (or `--report`). Every proposal is `severity: "warning"` and carries `support`/`total` counts plus a violator list — `infer` never edits `konsistent.json` and never reads an existing one. Guide: [docs/guides/inferring-conventions.md](docs/guides/inferring-conventions.md).
 
+## Agentic verification hooks
+
+`konsistent hook` wires an agentic verifier into Claude Code's or Codex's `PostToolUse` hooks: after a matched write/edit, it spawns a read-only verifier agent (`claude -p` or `codex exec`) with a natural-language `--prompt` and turns its pass/fail verdict into the hook exit-code contract (0 pass/skip, 2 fail, 1 infra fail-open), with sentinel-based recursion guards so the verifier can't re-trigger the hook that spawned it.
+
+```bash
+konsistent hook --agent claude --match 'src/**/*.py' --prompt 'Docstrings are not aspirational: verify each function body actually does what its docstring claims.'
+```
+
+This is **not** the same mechanism as the [`--files` diff-scoped hook recipe](#diff-scoped-checking---files----changed) below — that one runs `konsistent check` directly (deterministic, no LLM call, verifies `konsistent.json` structural conventions). `konsistent hook` is for checks a structural predicate can't express; use it for the subset of your review that needs judgment, and the deterministic recipe for everything else. Both are docs-only in this repo — no live `.claude/settings.json` is installed. Guide: [docs/guides/hooks.md](docs/guides/hooks.md).
+
 ## CLI
 
 | Command | Purpose |
@@ -211,6 +221,7 @@ The proposed pack goes to stdout (or `--output`); the confidence/violators repor
 | `konsistent explain` | render resolved conventions as agent guidance (see above) |
 | `konsistent extract-rules <src>` | agent-assisted rule extraction (see above) |
 | `konsistent infer` | mine the codebase for candidate conventions (see above) |
+| `konsistent hook` | agentic PostToolUse verification hook (see above) |
 | `konsistent version` | print version |
 
 Useful flags: `--config-path`, `--placeholder name:value`, `--max-diagnostics`, `--format json`, `--show-suppressed`. Full reference: [docs/reference/cli.md](docs/reference/cli.md).

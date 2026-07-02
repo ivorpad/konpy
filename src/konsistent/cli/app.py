@@ -9,13 +9,23 @@ from konsistent._version import __version__
 from konsistent.cli.check import DiagnosticLevel, OutputFormat, run_check_command
 from konsistent.cli.explain import ExplainFormat, run_explain_command
 from konsistent.cli.extract_rules import ExtractAgent, run_extract_rules_command
+from konsistent.cli.hook import DEFAULT_TIMEOUT, run_hook_command
 from konsistent.cli.infer import InferReportFormat, run_infer_command
 from konsistent.config.cli_placeholders import normalize_placeholder_arg, parse_cli_placeholders
 from konsistent.config.deprecation_warnings import collect_deprecation_warnings
 from konsistent.config.errors import Err
 from konsistent.config.loader import load_config_runtime
 
-_KNOWN_SUBCOMMANDS = {"check", "validate", "extract-rules", "infer", "explain", "version", "help"}
+_KNOWN_SUBCOMMANDS = {
+    "check",
+    "validate",
+    "extract-rules",
+    "infer",
+    "explain",
+    "hook",
+    "version",
+    "help",
+}
 
 _MULTI_VALUE_OPTIONS = ("--files",)
 
@@ -454,6 +464,58 @@ def infer(
         raise typer.Exit(exit_code)
 
 
+@app.command()
+def hook(
+    match: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--match",
+            help="Glob pattern to filter written/edited files against. May be repeated.",
+        ),
+    ] = None,
+    prompt: Annotated[
+        str | None,
+        typer.Option(
+            "--prompt",
+            help=(
+                "Natural-language verification instruction for the agent. "
+                "Required; a missing value fails open with exit code 1 rather "
+                "than a CLI usage error, so exit code 2 stays reserved for a "
+                "verified fail verdict."
+            ),
+        ),
+    ] = None,
+    agent: Annotated[
+        str | None,
+        typer.Option(
+            "--agent",
+            help=(
+                "Verifier agent CLI to use: claude or codex. Required; a "
+                "missing or invalid value fails open with exit code 1 rather "
+                "than a CLI usage error, so exit code 2 stays reserved for a "
+                "verified fail verdict."
+            ),
+        ),
+    ] = None,
+    timeout: Annotated[
+        float,
+        typer.Option(
+            "--timeout",
+            help="Timeout in seconds for the verifier agent subprocess.",
+        ),
+    ] = DEFAULT_TIMEOUT,
+) -> None:
+    """Run an agentic PostToolUse verification hook for Claude Code or Codex."""
+    exit_code = run_hook_command(
+        match=match or [],
+        prompt=prompt,
+        agent=agent,
+        timeout=timeout,
+    )
+    if exit_code != 0:
+        raise typer.Exit(exit_code)
+
+
 @app.command(name="help")
 def help_command() -> None:
     """Show this help message."""
@@ -469,6 +531,7 @@ Commands:
   extract-rules  Extract reusable convention proposals from prose rules
   infer          Mine the codebase for candidate structural conventions
   explain        Render resolved conventions as agent guidance (markdown/text)
+  hook           Run an agentic PostToolUse verification hook
   version        Print the version number
   help           Show this help message
 
@@ -513,6 +576,18 @@ Explain options:
   --config-package <pkg>     Unsupported in the Python port
   --format <format>          Output format: md, text
   --placeholder <name:value> Inject a placeholder value; may be repeated
+
+Hook options:
+  --match <glob>             Glob pattern to filter written/edited files; may be repeated
+  --prompt <text>            Natural-language verification instruction (required)
+  --agent <agent>            Verifier agent CLI to use: claude or codex (required)
+  --timeout <seconds>        Timeout for the verifier agent subprocess (default: 300.0)
+
+Exit codes (hook):
+  0  pass, or skipped (no match, non-write tool, sentinel active, unparseable payload)
+  1  infra fail-open (missing/invalid --prompt or --agent, agent missing,
+     subprocess error, unparseable agent output) -- never a CLI usage error
+  2  verdict is fail; reasons are written to stderr
 
 Global options:
   --help, -h                 Show help

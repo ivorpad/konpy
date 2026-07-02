@@ -2,6 +2,8 @@
 
 Run `konsistent check --files <edited-file>` automatically every time Claude Code edits or writes a Python file, using a Claude Code `PostToolUse` hook. This gives fast, scoped feedback without waiting for a full `konsistent check` run, and without requiring Claude to remember to run it. "Scoped" means *which conventions get selected*, not a promise that only the edited file gets checked — see the note on convention-level selection below.
 
+This is the **deterministic** hook: it runs the linter directly, no LLM call. If you need to verify something a `konsistent.json` structural predicate can't express — a semantic/judgment check like "docstrings aren't aspirational" — see the separate, **agentic** [`konsistent hook`](hooks.md) subcommand instead, which spawns a read-only verifier agent per matched write. The two are independent and can be used together.
+
 For flags and scoping semantics, see [Diff-scoped checking](../reference/cli.md#diff-scoped-checking---files----changed) in the CLI reference.
 
 ## Why `PostToolUse`, not `PreToolUse`

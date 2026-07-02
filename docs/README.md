@@ -21,7 +21,8 @@ This is the Python port of [vercel-labs/konsistent](https://github.com/vercel-la
 - [Authoring reusable conventions](./guides/authoring-reusable-conventions.md) — publish a convention package others can consume.
 - [Extracting rules](./guides/extracting-rules.md) — use an explicit local agent command to draft reusable conventions from prose.
 - [Inferring conventions](./guides/inferring-conventions.md) — mine an existing codebase for candidate conventions with `konsistent infer`.
-- [Claude Code hook integration](./guides/claude-code-hook.md) — run `konsistent check --files` automatically after Claude edits a file.
+- [Claude Code hook integration](./guides/claude-code-hook.md) — deterministic hook: run `konsistent check --files` automatically after Claude edits a file, no LLM call.
+- [Agentic verification hooks](./guides/hooks.md) — `konsistent hook`: spawn a read-only verifier agent from a Claude Code/Codex `PostToolUse` hook for checks a structural predicate can't express. See that guide's "Which hook mechanism should I use?" for how it differs from the deterministic recipe above.
 - [Agent evaluation](./guides/agent-eval.md) — A/B-compare agent runs using konsistent's own diagnostics as the metric.
 
 ## Reference

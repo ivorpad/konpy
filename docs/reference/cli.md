@@ -21,12 +21,13 @@ pip install konsistent       # or install with pip
 | `konsistent extract-rules` | Explicitly ask a local agent CLI to draft a reusable convention pack from prose rules |
 | `konsistent infer` | Mine the codebase for candidate structural conventions and emit a reviewable proposal |
 | `konsistent explain` | Render the resolved config as prevention-side guidance markdown/text for a code-writing agent |
+| `konsistent hook` | Run an agentic `PostToolUse` verification hook for Claude Code or Codex |
 | `konsistent help` | Show a quick reference of all commands and options |
 | `konsistent version` | Print the version number |
 
 `konsistent` invoked without a subcommand runs `check`. `konsistent --help` runs `help`. `konsistent --version` prints the version. There is no `update` command.
 
-Rule extraction is never implicit: `konsistent` only shells out to an agent when you run `konsistent extract-rules` directly.
+Rule extraction is never implicit: `konsistent` only shells out to an agent when you run `konsistent extract-rules` directly, or when a `konsistent hook` invocation actually matches a write event.
 
 ## `check`
 
@@ -327,6 +328,56 @@ Suppression comments (`konsistent: ignore[rule]`) are for approved exceptions on
 ```
 
 Each convention bullet shows its resolved name (generated the same way `check`'s suppression-comment matching would name it, when no explicit `name` is set), paths, `description`, `hint`, and `severity`, followed by its `must`/`mustNot` predicates. Conventions with multiple `must` blocks label each block by name (or `block N`) so conditional (`if`/`for`/`excludeFiles`) rules stay unambiguous. When `unusedCode` is configured, a `## Unused code` section lists the fully resolved include/exclude globs, entrypoint files, registry decorators, hook names, model base classes, and any explicit `allow` list — including framework presets, not just what you wrote in `konsistent.json`. Every render ends with a standing `## Suppressions` note reiterating the [suppression consent policy](./suppressions.md#ai-agents): agents must never add a `# konsistent: ignore[...]` comment without explicit human approval.
+
+## `hook`
+
+Runs an agentic `PostToolUse` verification hook for Claude Code or Codex. Unlike every other command, `hook` reads its input as a JSON hook payload on stdin rather than operating on `konsistent.json` or the filesystem directly, and it is the only subcommand that ever shells out to an agent as a side effect of normal use (`extract-rules` only does so when invoked explicitly).
+
+```bash
+konsistent hook --agent claude --match 'src/**/*.py' --prompt 'Docstrings are not aspirational: verify each function body actually does what its docstring claims.'
+konsistent hook --agent codex --match 'src/**/*.py' --match 'tests/**/*.py' --prompt '...' --timeout 120
+```
+
+It is meant to be wired into a coding agent's own hook config (Claude Code `.claude/settings.json`, Codex `.codex/hooks.json`), not run interactively — see [Agentic verification hooks](../guides/hooks.md) for setup snippets and worked examples.
+
+### What it does
+
+1. Reads a hook payload as JSON from stdin (the shape Claude Code and Codex both send to hook commands).
+2. Skips silently (exit 0) unless the payload is a write-shaped tool call (`Write`/`Edit`/`MultiEdit` for Claude, `apply_patch` for Codex) on a path matching `--match`.
+3. Builds a verification prompt from `--prompt` plus the matched file path and spawns the chosen `--agent` read-only, asking it to return one JSON verdict object.
+4. Turns that verdict into a hook-protocol exit code.
+
+### Flags
+
+| Flag | Type | Default | Description |
+| --- | --- | --- | --- |
+| `--match <glob>` | string (repeatable) | — (matches nothing) | Glob pattern(s) to filter the written/edited file path against |
+| `--prompt <text>` | string | — | Natural-language verification instruction for the agent. Required; a missing value fails open with exit code 1 rather than a CLI usage error, so exit code 2 stays reserved for a verified fail verdict |
+| `--agent <claude\|codex>` | string | — | Verifier agent CLI to use. Required; a missing or invalid value (including a stale `auto` copied from `extract-rules`, which isn't accepted here) fails open with exit code 1 |
+| `--timeout <seconds>` | float | `300.0` | Timeout for the verifier agent subprocess |
+
+### Exit-code contract
+
+| Exit | Meaning | Output |
+| --- | --- | --- |
+| `0` | pass, or skipped — sentinel env set, non-write tool, no extractable path, no `--match` hit, blank/unparseable payload | silent |
+| `2` | verdict is **fail** — reserved exclusively for this | reasons written to stderr (the host feeds this back to the model) |
+| `1` | infra fail-open — agent binary not on `PATH`, subprocess timeout or nonzero exit, unparseable agent output, missing/bad `--prompt`/`--agent` | one line on stderr, non-blocking |
+
+Exit `2` is never used for infra trouble, and exit `1` is never used for an actual fail verdict.
+
+### Recursion guards
+
+A `claude -p` or `codex exec` spawned from inside the hook would, by default, inherit the very same hooks — including this one. Two guards prevent that:
+
+- **Sentinel env var.** `konsistent hook` sets `KONSISTENT_HOOK_ACTIVE=1` in the child agent's environment before spawning it. If `konsistent hook` ever sees that variable already set — because it's running inside a nested agent invocation — it exits 0 immediately without doing any work.
+- **Read-only child.** The verifier agent is invoked with flags that keep it from writing anything: `claude` gets `--allowedTools Read Grep Glob` plus an inline `--settings '{"hooks":{}}'` (no temp file; unlisted tools are auto-denied in `-p` mode); `codex` gets `--sandbox read-only`. A child that can't write can't re-trigger a `PostToolUse` write hook in the first place.
+
+### Suppressions
+
+A fail verdict's reasons are self-correction feedback, same as any other linter/test failure surfaced through a hook. Nothing about `hook`'s prompt or exit-code contract instructs an agent to add a `# konsistent: ignore[...]` comment — see the [suppression consent policy](./suppressions.md#ai-agents), which still applies in full if the feedback ever seems to call for a suppression rather than a fix.
+
+`konsistent hook` never invokes `konsistent check` or `konsistent validate`, and vice versa; the two are independent mechanisms. See [Which hook mechanism should I use?](../guides/hooks.md#which-hook-mechanism-should-i-use) for the comparison with the deterministic `check --files` `PostToolUse` recipe.
 
 ## Output formats
 
