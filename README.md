@@ -172,6 +172,17 @@ It is read-only: no filesystem scan, no diagnostics, no `--fix`. Every render en
 
 Useful flags: `--config-path`, `--placeholder name:value`, `--max-diagnostics`, `--format json`, `--show-suppressed`. Full reference: [docs/reference/cli.md](docs/reference/cli.md).
 
+## Diff-scoped checking (`--files` / `--changed`)
+
+Scope a run to files an agent just touched — `konsistent check --files src/service.py` or `konsistent check --changed` (tracked changes since `HEAD` plus untracked files, per `git diff`/`git ls-files`). `--changed` **requires a git repository**: outside one it prints a single clear message to stderr (not a raw git error dump) and exits `1` — it never silently falls back to a full scan. Scoping is **convention-level**, not file-level: a convention is selected as soon as any file in scope falls in its matched set, and then it's evaluated over its *entire* matched set — so a violation on a sibling file the agent didn't touch can still surface. `havePairedFile` and `unusedCode` are whole-graph predicates; see [Full semantics and edge cases](docs/reference/cli.md#diff-scoped-checking---files----changed) below for exactly how each is handled under scoping.
+
+```bash
+konsistent check --files src/service.py
+konsistent check --changed
+```
+
+This is what powers the [Claude Code `PostToolUse` hook recipe](docs/guides/claude-code-hook.md): run `konsistent check --files <edited-file> --format json` after every `Edit`/`Write` so an agent gets scoped, structured feedback on the file it just changed without waiting for a full check. Full semantics and edge cases: [docs/reference/cli.md#diff-scoped-checking---files----changed](docs/reference/cli.md#diff-scoped-checking---files----changed).
+
 ## Diagnostic intent and fix direction
 
 Diagnostics can carry more than a message: an optional convention-level `description`/`hint` (inherited by every diagnostic the convention produces) and predicate-specific `expected`/`found`/`fix_hint` fields, so an agent's next edit doesn't need to be re-derived from a message string.

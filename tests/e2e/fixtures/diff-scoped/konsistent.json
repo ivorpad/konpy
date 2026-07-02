@@ -1,0 +1,10 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "service-must-export-process",
+      "paths": "src/*.py",
+      "must": { "export": ["process"] }
+    }
+  ]
+}

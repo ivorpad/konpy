@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -105,6 +106,227 @@ def make_unused_suppression_project(tmp_path: Path) -> None:
             "unusedCode": {},
         },
     )
+
+
+def make_two_file_error_project(tmp_path: Path) -> None:
+    (tmp_path / "src" / "a.py").mkdir(parents=True)
+    (tmp_path / "src" / "b.py").mkdir(parents=True)
+    write_config(
+        tmp_path,
+        [
+            {
+                "name": "a-file",
+                "paths": "src/a.py",
+                "must": {"haveType": "file"},
+            },
+            {
+                "name": "b-file",
+                "paths": "src/b.py",
+                "must": {"haveType": "file"},
+            },
+        ],
+    )
+
+
+def _init_git_repo(repo: Path) -> None:
+    subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "init"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+
+
+class TestDiffScopedCheck:
+    def test_check_files_flag_restricts_output_to_named_file(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ) -> None:
+        make_two_file_error_project(tmp_path)
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "--no-colors", "--files", "src/a.py"])
+
+        assert result.exit_code == 1
+        assert "src/a.py" in result.output
+        assert "src/b.py" not in result.output
+        assert "Checked 1 file" in result.output
+
+    def test_check_files_flag_repeated_occurrences(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ) -> None:
+        make_two_file_error_project(tmp_path)
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(
+            app,
+            ["check", "--no-colors", "--files", "src/a.py", "--files", "src/b.py"],
+        )
+
+        assert result.exit_code == 1
+        assert "src/a.py" in result.output
+        assert "src/b.py" in result.output
+        assert "Checked 2 file" in result.output
+
+    def test_check_files_flag_single_occurrence_space_list(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ) -> None:
+        make_two_file_error_project(tmp_path)
+        monkeypatch.chdir(tmp_path)
+
+        repeated_argv = ["check", "--no-colors", "--files", "src/a.py", "--files", "src/b.py"]
+        space_list_argv = ["check", "--no-colors", "--files", "src/a.py", "src/b.py"]
+
+        repeated = runner.invoke(app, repeated_argv)
+        # `_preprocess_argv` (invoked by `main()` in real usage) is what
+        # expands the single space-separated occurrence into repeated
+        # `--files` tokens before Click ever sees them.
+        space_list = runner.invoke(app, _preprocess_argv(space_list_argv))
+
+        assert space_list.exit_code == repeated.exit_code == 1
+        assert space_list.output == repeated.output
+
+    def test_check_files_and_changed_together_errors(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ) -> None:
+        make_two_file_error_project(tmp_path)
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(
+            app,
+            ["check", "--files", "src/a.py", "--changed"],
+        )
+
+        assert result.exit_code == 1
+        assert "--files" in result.output
+        assert "--changed" in result.output
+
+    def test_check_changed_flag_uses_git_scope(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ) -> None:
+        # Two independent, single-file conventions: only the one whose
+        # matched file (src/a.py) intersects the git-changed scope is
+        # selected. The b-file convention's matched set (src/b.py) has zero
+        # intersection with the changed scope, so it is skipped entirely --
+        # unlike a shared-glob convention, where any overlap pulls in the
+        # whole matched set.
+        write_config(
+            tmp_path,
+            [
+                {
+                    "name": "a-file-must-export-process",
+                    "paths": "src/a.py",
+                    "must": {"export": ["process"]},
+                },
+                {
+                    "name": "b-file-must-export-process",
+                    "paths": "src/b.py",
+                    "must": {"export": ["process"]},
+                },
+            ],
+        )
+        write_file(tmp_path / "src" / "a.py", "VALUE = 1\n")
+        write_file(tmp_path / "src" / "b.py", "VALUE = 1\n")
+        _init_git_repo(tmp_path)
+        # Both files violate their convention from the start; only src/a.py
+        # is touched after the commit, so `--changed` should scope the run
+        # to the a-file convention alone and leave src/b.py's (also-real)
+        # violation unreported.
+        write_file(tmp_path / "src" / "a.py", "VALUE = 2\n")
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "--no-colors", "--changed"])
+
+        assert result.exit_code == 1
+        assert "src/a.py" in result.output
+        assert "src/b.py" not in result.output
+        assert "Checked 1 file" in result.output
+
+    def test_check_changed_flag_no_changes_is_clean_and_zero_exit(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ) -> None:
+        make_clean_project(tmp_path)
+        _init_git_repo(tmp_path)
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "--no-colors", "--changed"])
+
+        assert result.exit_code == 0
+        assert "Checked 0 file" in result.output
+
+    def test_check_files_flag_nonexistent_path_is_silently_a_no_op(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ) -> None:
+        make_two_file_error_project(tmp_path)
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(
+            app,
+            ["check", "--no-colors", "--files", "does-not-exist.py"],
+        )
+
+        assert result.exit_code == 0
+        assert "Checked 0 file" in result.output
+
+
+class TestPreprocessArgvFilesExpansion:
+    def test_preprocess_expands_files_space_separated_before_next_flag(self) -> None:
+        assert _preprocess_argv(["check", "--files", "a.py", "b.py", "--format", "json"]) == [
+            "check",
+            "--files",
+            "a.py",
+            "--files",
+            "b.py",
+            "--format",
+            "json",
+        ]
+
+    def test_preprocess_files_expansion_stops_at_next_flag_token(self) -> None:
+        assert _preprocess_argv(["check", "--files", "a.py", "--no-colors"]) == [
+            "check",
+            "--files",
+            "a.py",
+            "--no-colors",
+        ]
+
+    def test_preprocess_files_equals_form_untouched(self) -> None:
+        assert _preprocess_argv(["check", "--files=a.py"]) == ["check", "--files=a.py"]
+
+    def test_preprocess_bare_files_flag_with_no_values_left_for_click_to_reject(
+        self,
+    ) -> None:
+        assert _preprocess_argv(["check", "--files"]) == ["check", "--files"]
+
+        result = runner.invoke(app, ["check", "--files"])
+
+        assert result.exit_code != 0
 
 
 class TestCheckCommand:

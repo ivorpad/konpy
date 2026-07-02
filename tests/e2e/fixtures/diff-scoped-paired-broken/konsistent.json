@@ -1,0 +1,10 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "service-needs-test",
+      "paths": "src/{name}.py",
+      "must": { "havePairedFile": "tests/test_${name}.py" }
+    }
+  ]
+}

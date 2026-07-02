@@ -8,6 +8,7 @@ from konsistent.config.cli_placeholders import normalize_placeholder_arg, parse_
 from konsistent.config.errors import Err
 from konsistent.config.loader import load_config_runtime
 from konsistent.config.schema import ConfigV1
+from konsistent.core.diff_scope import resolve_diff_scope
 from konsistent.core.filesystem import RealFileSystem
 from konsistent.core.reporters import (
     format_default,
@@ -44,6 +45,8 @@ def run_check_command(
     diagnostic_level: DiagnosticLevel | str,
     placeholder: list[str] | None,
     show_suppressed: bool = False,
+    files: list[str] | None = None,
+    changed: bool = False,
 ) -> int:
     del verbose
 
@@ -53,6 +56,12 @@ def run_check_command(
     if isinstance(cli_placeholders_result, Err):
         _write_error(cli_placeholders_result.error)
         return 1
+
+    scope_result = resolve_diff_scope(files=files, changed=changed, cwd=Path.cwd())
+    if isinstance(scope_result, Err):
+        _write_error(scope_result.error)
+        return 1
+    target_files = scope_result.value
 
     loaded_result = load_config_runtime(
         config_path=config_path,
@@ -74,6 +83,7 @@ def run_check_command(
         file_system=RealFileSystem(cwd=Path.cwd()),
         predicate_registry=loaded.predicate_registry,
         report_suppression_warnings=diagnostic_level_value != "error",
+        target_files=target_files,
     )
 
     truncation = truncate_diagnostics(

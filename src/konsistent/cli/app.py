@@ -16,25 +16,72 @@ from konsistent.config.loader import load_config_runtime
 
 _KNOWN_SUBCOMMANDS = {"check", "validate", "extract-rules", "explain", "version", "help"}
 
+_MULTI_VALUE_OPTIONS = ("--files",)
+
 app = typer.Typer(
     help="Enforce structural conventions in Python codebases.",
     add_completion=False,
 )
 
 
+def _expand_multi_value_options(argv: list[str]) -> list[str]:
+    """Expand a single `--files a.py b.py` occurrence into repeated
+    `--files a.py --files b.py` tokens, so `--files` supports both the
+    already-native repeated-flag form and a single space-separated list.
+
+    Expansion stops at the first following token that starts with `-`
+    (treated as the next option) or at end of argv. Tokens after a literal
+    `--` separator are never expanded. `--files=value` (single value via
+    `=`) is left untouched — it is already exactly one value and is handled
+    natively by Click.
+    """
+    expanded: list[str] = []
+    index = 0
+    saw_double_dash = False
+    while index < len(argv):
+        token = argv[index]
+        if token == "--":
+            saw_double_dash = True
+            expanded.append(token)
+            index += 1
+            continue
+        if saw_double_dash or token not in _MULTI_VALUE_OPTIONS:
+            expanded.append(token)
+            index += 1
+            continue
+
+        index += 1
+        values: list[str] = []
+        while index < len(argv) and not argv[index].startswith("-"):
+            values.append(argv[index])
+            index += 1
+
+        if not values:
+            expanded.append(token)  # bare flag; let Click raise its own error
+            continue
+
+        for value in values:
+            expanded.append(token)
+            expanded.append(value)
+
+    return expanded
+
+
 def _preprocess_argv(argv: list[str]) -> list[str]:
     if argv == ["--version"]:
         return ["version"]
 
+    expanded = _expand_multi_value_options(argv)
+
     has_subcommand = any(
-        not arg.startswith("-") and arg in _KNOWN_SUBCOMMANDS for arg in argv
+        not arg.startswith("-") and arg in _KNOWN_SUBCOMMANDS for arg in expanded
     )
-    has_help_flag = "--help" in argv or "-h" in argv
+    has_help_flag = "--help" in expanded or "-h" in expanded
 
     if has_subcommand or has_help_flag:
-        return argv
+        return expanded
 
-    return ["check", *argv]
+    return ["check", *expanded]
 
 
 @app.callback()
@@ -126,6 +173,30 @@ def check(
             help="List diagnostics suppressed by source comments.",
         ),
     ] = False,
+    files: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--files",
+            help=(
+                "Restrict checking to these files. Repeatable "
+                "(--files a.py --files b.py) or a single space-separated "
+                "occurrence (--files a.py b.py). Mutually exclusive with "
+                "--changed. See docs/reference/cli.md for scoping semantics."
+            ),
+        ),
+    ] = None,
+    changed: Annotated[
+        bool,
+        typer.Option(
+            "--changed",
+            help=(
+                "Restrict checking to files changed since HEAD "
+                "(git diff --name-only HEAD) plus untracked files "
+                "(git ls-files --others --exclude-standard). Mutually "
+                "exclusive with --files. Does not reduce unusedCode scan time."
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Check structural conventions."""
     exit_code = run_check_command(
@@ -139,6 +210,8 @@ def check(
         diagnostic_level=diagnostic_level,
         placeholder=placeholder,
         show_suppressed=show_suppressed,
+        files=files,
+        changed=changed,
     )
     if exit_code != 0:
         raise typer.Exit(exit_code)
@@ -309,6 +382,8 @@ Check options:
   --diagnostic-level <level> Minimum severity to evaluate: warning or error
   --placeholder <name:value> Inject a placeholder value; may be repeated
   --show-suppressed          List diagnostics suppressed by source comments
+  --files <path...>          Restrict checking to these files; repeatable or space-separated
+  --changed                  Restrict checking to files changed since HEAD (git diff + untracked)
 
 Validate options:
   --config-path <path>       Path to konsistent.json config file

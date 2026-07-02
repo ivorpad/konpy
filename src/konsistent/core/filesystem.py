@@ -34,6 +34,9 @@ def _normalize_relative_path(path: str | Path) -> str:
     return text
 
 
+normalize_relative_path = _normalize_relative_path
+
+
 def _parent_paths(path: str) -> list[str]:
     parts = path.split("/")[:-1]
     parents: list[str] = []
@@ -184,4 +187,4 @@ class FakeFileSystem:
             raise FileNotFoundError(normalized) from error
 
 
-__all__ = ["FakeFileSystem", "FileSystem", "RealFileSystem"]
+__all__ = ["FakeFileSystem", "FileSystem", "RealFileSystem", "normalize_relative_path"]

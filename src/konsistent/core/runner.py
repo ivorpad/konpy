@@ -622,6 +622,58 @@ def _to_list(value: str | list[str]) -> list[str]:
     return value if isinstance(value, list) else [value]
 
 
+def _path_in_scope(*, path: str, target_files: frozenset[str]) -> bool:
+    return any(
+        path == target or path.startswith(f"{target}/") or target.startswith(f"{path}/")
+        for target in target_files
+    )
+
+
+def _paired_file_templates(block: MustBlockV1) -> list[str]:
+    templates: list[str] = []
+    if block.must is not None and block.must.havePairedFile:
+        templates.append(block.must.havePairedFile)
+    if block.mustNot is not None and block.mustNot.havePairedFile:
+        templates.append(block.mustNot.havePairedFile)
+    return templates
+
+
+def _convention_in_scope(
+    *,
+    matched: list[MatchedPath],
+    blocks: list[MustBlockV1],
+    static_placeholders: dict[str, PlaceholderValue],
+    file_system: FileSystem,
+    target_files: frozenset[str],
+) -> bool:
+    # `havePairedFile` is cross-file: whether the anchor file (matched by
+    # `convention.paths`) is compliant depends on whether its companion
+    # file exists, so editing *only* the companion must still bring this
+    # convention into scope -- otherwise a broken pairing produced by
+    # deleting/editing just the companion goes unreported under
+    # `--files`/`--changed` (see docs/reference/cli.md).
+    templates = [template for block in blocks for template in _paired_file_templates(block)]
+
+    for entry in matched:
+        if _path_in_scope(path=entry.path, target_files=target_files):
+            return True
+
+        if not templates:
+            continue
+
+        merged_entry = MatchedPath(
+            path=entry.path,
+            placeholders={**static_placeholders, **entry.placeholders},
+        )
+        context = build_context(matched=merged_entry, file_system=file_system)
+        for template in templates:
+            companion_path = context.resolve_template(template)
+            if _path_in_scope(path=companion_path, target_files=target_files):
+                return True
+
+    return False
+
+
 def _build_case_maps(config: ConfigV1) -> CaseMaps:
     kebab_to_pascal_map = config.kebabToPascalMap
     kebab_to_camel_map = config.kebabToCamelMap
@@ -649,6 +701,7 @@ def run(
     file_system: FileSystem,
     predicate_registry: PredicateRegistry | None = None,
     report_suppression_warnings: bool = True,
+    target_files: frozenset[str] | None = None,
 ) -> RunResult:
     registry = predicate_registry or builtin_predicate_registry()
     start_time = time.perf_counter()
@@ -682,11 +735,28 @@ def run(
             blocks=blocks,
         )
 
-        severity: DiagnosticSeverity = convention.severity or "error"
         static_placeholders = _build_static_placeholders(
             raw=convention.placeholders,
             case_maps=case_maps,
         )
+
+        # Diff-scoped selection is convention-level: if none of this
+        # convention's matched files (or, for `havePairedFile` predicates,
+        # their resolved companion paths) are in scope, skip the
+        # convention entirely. Otherwise, evaluate its FULL matched set --
+        # never narrow to only the in-scope subset, since predicates like
+        # `haveType`/`havePairedFile` need the whole convention evaluated
+        # to stay correct (see docs/reference/cli.md).
+        if target_files is not None and not _convention_in_scope(
+            matched=matched,
+            blocks=blocks,
+            static_placeholders=static_placeholders,
+            file_system=file_system,
+            target_files=target_files,
+        ):
+            continue
+
+        severity: DiagnosticSeverity = convention.severity or "error"
 
         for entry in matched:
             checked_paths.add(entry.path)
@@ -736,6 +806,13 @@ def run(
             file_system=file_system,
             source_cache=source_cache,
         )
+        # `unusedCode` requires whole-project reference-graph context to
+        # classify anything correctly, so under `--files`/`--changed` it
+        # is always run -- and reported -- in full. Diff-scoping never
+        # narrows unusedCode's diagnostics or files_scanned; doing so
+        # silently would hide dead code in files outside the requested
+        # scope without any indication that happened. (See
+        # docs/reference/cli.md.)
         diagnostics.extend(unused_result.diagnostics)
         unused_files_scanned = unused_result.files_scanned
 

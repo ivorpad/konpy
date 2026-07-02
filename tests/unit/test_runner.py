@@ -991,6 +991,245 @@ class TestMustNot:
         assert result.diagnostics[0].message == "Forbidden function annotation coverage"
 
 
+class TestDiffScope:
+    def test_target_files_none_checks_everything(self) -> None:
+        conventions = [
+            {
+                "name": "source-files",
+                "paths": "src/*.py",
+                "must": {"haveType": "file"},
+            }
+        ]
+        file_system = FakeFileSystem(files=["src/a.py"], directories=["src/b.py"])
+
+        omitted = run(config=config(conventions), file_system=file_system)
+        explicit_none = run(
+            config=config(conventions),
+            file_system=file_system,
+            target_files=None,
+        )
+
+        assert omitted.diagnostics == explicit_none.diagnostics
+        assert omitted.files_checked == explicit_none.files_checked == 2
+
+    def test_target_files_selected_convention_evaluates_full_matched_set(self) -> None:
+        # Selection is convention-level: once any of a convention's matched
+        # files intersects target_files, the WHOLE matched set is evaluated
+        # -- src/b.py is checked too, even though only src/a.py is in scope.
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "source-files",
+                        "paths": "src/*.py",
+                        "must": {"haveType": "file"},
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(
+                directories=["src/a.py"],
+                files=["src/b.py"],
+            ),
+            target_files=frozenset({"src/a.py"}),
+        )
+
+        assert result.files_checked == 2
+        assert len(result.diagnostics) == 1
+        assert result.diagnostics[0].file_path == "src/a.py"
+
+    def test_target_files_empty_set_checks_nothing(self) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "source-files",
+                        "paths": "src/*.py",
+                        "must": {"haveType": "file"},
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(directories=["src/a.py"]),
+            target_files=frozenset(),
+        )
+
+        assert result.diagnostics == []
+        assert result.files_checked == 0
+
+    def test_target_files_directory_convention_matches_when_child_file_in_scope(
+        self,
+    ) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "pkg-dir",
+                        "paths": "src/pkg",
+                        "must": {"haveType": "file"},
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(
+                directories=["src/pkg"],
+                files=["src/pkg/inner.py"],
+            ),
+            target_files=frozenset({"src/pkg/inner.py"}),
+        )
+
+        assert len(result.diagnostics) == 1
+        assert result.diagnostics[0].file_path == "src/pkg"
+
+    def test_target_files_scoped_convention_ignores_unrelated_directory(self) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "pkg-dir",
+                        "paths": "src/pkg",
+                        "must": {"haveType": "file"},
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(
+                directories=["src/pkg"],
+                files=["src/pkg/inner.py"],
+            ),
+            target_files=frozenset({"other/pkg/inner.py"}),
+        )
+
+        assert result.diagnostics == []
+        assert result.files_checked == 0
+
+    def test_target_files_have_paired_file_checks_full_filesystem_for_companion(
+        self,
+    ) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "paired-tests",
+                        "paths": "src/service.py",
+                        "must": {"havePairedFile": "tests/test_service.py"},
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(files=["src/service.py"]),
+            target_files=frozenset({"src/service.py"}),
+        )
+
+        assert len(result.diagnostics) == 1
+        assert result.diagnostics[0].message == "Missing paired file: tests/test_service.py"
+
+    def test_target_files_have_paired_file_evaluated_when_only_companion_in_scope(
+        self,
+    ) -> None:
+        # `havePairedFile` is cross-file: scoping to only the companion side
+        # of a declared pair must still bring the convention anchored at the
+        # source file's `paths` into scope, so editing/deleting just the
+        # companion still surfaces a "missing paired file" diagnostic.
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "paired-tests",
+                        "paths": "src/service.py",
+                        "must": {"havePairedFile": "tests/test_service.py"},
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(files=["src/service.py"]),
+            target_files=frozenset({"tests/test_service.py"}),
+        )
+
+        assert len(result.diagnostics) == 1
+        assert result.diagnostics[0].message == "Missing paired file: tests/test_service.py"
+
+    def test_target_files_unused_code_runs_and_reports_whole_project(
+        self,
+    ) -> None:
+        # unusedCode requires whole-project reference-graph context to
+        # classify anything correctly, so under --files it is never
+        # narrowed: it is both scanned AND reported in full, never
+        # silently filtered down to the requested scope.
+        result = run(
+            config=config([], unusedCode={}),
+            file_system=FakeFileSystem(
+                contents={
+                    "src/a.py": (
+                        "from src.b import used\n\n"
+                        "def dead_a():\n"
+                        "    return 1\n\n"
+                        "used()\n"
+                    ),
+                    "src/b.py": ("def used():\n    return 1\n\ndef dead_b():\n    return 2\n"),
+                },
+            ),
+            target_files=frozenset({"src/a.py"}),
+        )
+
+        messages = [diagnostic.message for diagnostic in result.diagnostics]
+        assert any("dead_a" in message for message in messages)
+        # dead_b lives in src/b.py, which is outside target_files -- but it
+        # is still reported, because unusedCode is never silently partial.
+        assert any("dead_b" in message for message in messages)
+        # `used` (src/b.py) is referenced only from src/a.py: it is not
+        # flagged dead, proving the reference index saw the whole project.
+        assert not any('"used"' in message for message in messages)
+        file_paths = {diagnostic.file_path for diagnostic in result.diagnostics}
+        assert file_paths == {"src/a.py", "src/b.py"}
+
+    def test_target_files_unused_code_files_scanned_is_unfiltered(self) -> None:
+        result = run(
+            config=config([], unusedCode={}),
+            file_system=FakeFileSystem(
+                contents={
+                    "src/a.py": "def dead_a():\n    return 1\n",
+                    "src/b.py": (
+                        "# konsistent: ignore[unused-code] -- legacy\n"
+                        "def dead_b():\n"
+                        "    return 1\n"
+                    ),
+                },
+            ),
+            target_files=frozenset({"src/a.py"}),
+        )
+
+        # src/b.py's diagnostic is still produced (whole-project scan), and
+        # its inline suppression comment is honored because src/b.py
+        # remains a suppression candidate even though it is out of scope.
+        assert len(result.suppressed_diagnostics) == 1
+        assert "dead_b" in result.suppressed_diagnostics[0].diagnostic.message
+        messages = [diagnostic.message for diagnostic in result.diagnostics]
+        assert any("dead_a" in message for message in messages)
+        assert not any("dead_b" in message for message in messages)
+
+    def test_target_files_known_rule_names_unaffected_by_scoping(self) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "a-rule",
+                        "paths": "src/a.py",
+                        "must": {"haveType": "file"},
+                    },
+                    {
+                        "name": "b-rule",
+                        "paths": "src/b.py",
+                        "must": {"haveType": "file"},
+                    },
+                ]
+            ),
+            file_system=FakeFileSystem(
+                files=["src/b.py"],
+                contents={"src/a.py": '# konsistent: ignore[b-rule] -- reason\nVALUE = 1\n'},
+            ),
+            target_files=frozenset({"src/a.py"}),
+        )
+
+        messages = [diagnostic.message for diagnostic in result.diagnostics]
+        assert not any("Unknown suppression rule" in message for message in messages)
+        assert any('Unused suppression for "b-rule"' in message for message in messages)
+
+
 class TestAstIntegration:
     def test_runs_ast_predicates_end_to_end(self) -> None:
         result = run(

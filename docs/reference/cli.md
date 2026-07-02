@@ -36,6 +36,8 @@ konsistent check
 konsistent check --format=json --max-diagnostics=1000
 konsistent check --error-on-warnings --diagnostic-level error
 konsistent check --show-suppressed
+konsistent check --files src/service.py
+konsistent check --changed
 ```
 
 ### Flags
@@ -52,10 +54,38 @@ konsistent check --show-suppressed
 | `--diagnostic-level <level>` | `warning` \| `error` | `warning` | Minimum severity to evaluate. `error` skips warning-severity conventions and suppression hygiene warnings |
 | `--placeholder <name:value>` | string (repeatable) | — | Inject a placeholder into every convention's `placeholders` map, overriding any entry already there. May be passed multiple times. See [Static placeholder values](./path-patterns.md#static-placeholder-values) |
 | `--show-suppressed` | boolean | `false` | List diagnostics suppressed by source comments in human-readable output |
+| `--files <path> [<path> ...]` | string (repeatable or space list) | — | Restrict checking to these files. May be repeated (`--files a.py --files b.py`) or given as one space-separated occurrence (`--files a.py b.py`). Mutually exclusive with `--changed` |
+| `--changed` | boolean | `false` | Restrict checking to files changed since `HEAD` (`git diff --name-only HEAD`) plus untracked files (`git ls-files --others --exclude-standard`). Mutually exclusive with `--files` |
 
 `--config-package` is still unsupported. Installed Python distribution names are supported inside a local `konsistent.json` for `conventionSources` and `extends`; they do not enable loading the root config itself from a package.
 
+`--changed` shells out to `git` and **requires a git repository**: if the working directory is not inside one, `check` prints a single, deliberate message (`--changed requires a git repository (none found at <cwd>).`) to stderr and exits `1` — it never relays git's raw stderr/usage output for this case. If the underlying `git` invocation otherwise fails, `check` prints that git error to stderr and exits `1`. Neither case falls back to a full, unscoped scan. Only rely on `--changed` where a git repository is guaranteed, e.g. a CI job or a hook running inside a checked-out repo.
+
 Source-comment suppressions are documented in [Suppressions](./suppressions.md). Suppressed findings are still counted in summaries and included in JSON output.
+
+### Diff-scoped checking (`--files` / `--changed`)
+
+`--files` and `--changed` restrict *which conventions get selected*, not which files a selected convention evaluates. Selection is convention-level: a convention is selected when **any** file in its `paths` matched set is in scope, and once selected it is evaluated over its **entire** matched set — never just the in-scope subset. A convention whose matched set has zero intersection with the requested scope is skipped entirely and produces no diagnostics for that run.
+
+This matters because several predicates are cross-file: e.g. a `paths: "src/*.py"` convention where `src/a.py` and `src/b.py` both match is a single unit of evaluation. Scoping to `src/a.py` alone still selects that convention, and the run still reports a pre-existing violation on `src/b.py` — scoping never naively narrows a selected convention down to only the literally-passed files. Everything else (config validation, suppression hygiene checks, exit-code semantics) behaves the same as an unscoped run.
+
+Path matching uses prefix intersection, not just exact equality: a directory-scoped convention (`paths` matching a directory) is selected when a file *inside* that directory is in scope, and vice versa.
+
+Two predicates need whole-project context and are handled specially:
+
+- **`havePairedFile`** always checks the *entire* filesystem for the companion file, so it stays fully correct for every file it evaluates under scoping. Selection also accounts for this predicate being cross-file: if *only* the companion side of a declared pair is in scope (e.g. only `tests/test_service.py` changed, not the `src/service.py` the convention's `paths` targets), the convention is still selected and evaluated over its full matched set — so a broken pairing produced by editing or deleting just the companion is still reported, not silently missed.
+- **`unusedCode`** always scans the *entire* project to build its reference index (required for correct dead/test-only classification), and, unlike ordinary conventions, is never filtered by `--files`/`--changed` at all: every run reports its full, whole-project diagnostics regardless of scope. Filtering `unusedCode` output down to the requested scope would silently hide dead code living outside it, so scoping simply does not apply to it — `--files`/`--changed` do **not** speed up or narrow `unusedCode` checks.
+
+Examples:
+
+```bash
+konsistent check --files src/service.py
+konsistent check --files src/service.py src/other.py
+konsistent check --files src/service.py --files src/other.py
+konsistent check --changed
+```
+
+See also: the [Claude Code hook integration guide](../guides/claude-code-hook.md), which uses `--files` to check a single edited file after every `Edit`/`Write` tool call. Because selection is convention-level, this still gives full-fidelity feedback: if the edited file shares a convention with other files, violations on those other files are reported too, not silently missed.
 
 ### Exit codes
 
