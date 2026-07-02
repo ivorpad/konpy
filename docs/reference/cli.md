@@ -19,6 +19,7 @@ pip install konsistent       # or install with pip
 | `konsistent check` | Check structural conventions against your `konsistent.json` |
 | `konsistent validate` | Validate the `konsistent.json` configuration file |
 | `konsistent extract-rules` | Explicitly ask a local agent CLI to draft a reusable convention pack from prose rules |
+| `konsistent explain` | Render the resolved config as prevention-side guidance markdown/text for a code-writing agent |
 | `konsistent help` | Show a quick reference of all commands and options |
 | `konsistent version` | Print the version number |
 
@@ -196,6 +197,52 @@ Wrote unmapped-rules report to unmapped.md
 - `pack` fails `ReusableConventionsPackageV1` validation.
 
 Invalid packs report pydantic validation issues in the same style as other config errors.
+
+## `explain`
+
+Loads `konsistent.json`, resolves it exactly like `check`/`validate` do (after `extends`/`disable`/`conventionSources`/`plugins`), and renders every configured convention plus the `unusedCode` settings as concise Markdown (default) or plain-text guidance — suitable for pasting into `CLAUDE.md` or an equivalent agent instructions file so a code-writing agent follows the rules *before* writing code, instead of only being caught by `konsistent check` afterwards.
+
+`explain` never touches the filesystem being linted and performs no diagnostic evaluation: it does not glob files, parse Python source, or run any predicate. `--diagnostic-level`, `--max-diagnostics`, `--colors`, `--error-on-warnings`, and `--show-suppressed` do not apply to it and are not accepted. It always renders every configured convention regardless of severity.
+
+```bash
+konsistent explain
+konsistent explain --format text
+konsistent explain --config-path path/to/konsistent.json > CLAUDE.md
+```
+
+### Flags
+
+| Flag | Type | Default | Description |
+| --- | --- | --- | --- |
+| `--config-path <path>` | string | `konsistent.json` (project root) | Path to the config file |
+| `--config-package <pkg>` | string | — | Accepted for upstream compatibility, but **always errors as unsupported** in the Python port. Use `--config-path` instead |
+| `--format <md\|text>` | `md` \| `text` | `md` | Output format |
+| `--placeholder <name:value>` | string (repeatable) | — | Inject a placeholder into every convention's `placeholders` map, overriding any entry already there. May be passed multiple times |
+
+Output is written to stdout only; there is no `--fix`/`--emit-patch`/file-write flag. Redirect it (`konsistent explain > CLAUDE.md`) or copy/paste the relevant sections into your agent instructions file.
+
+Template placeholders (`${name}`, `${name.method(...)}`) inside `paths` or predicate values are rendered **verbatim, unresolved** — there is no per-file match context at explain time, only the resolved config. This is a deliberate scope decision, not a bug.
+
+Sample Markdown output:
+
+```md
+# Project conventions
+
+Structural conventions enforced by `konsistent`. Follow these before writing or editing Python files in this repository.
+
+## Conventions
+
+- **`documented-service`** (severity: `error`) — paths: `src/service.py`
+  - Service modules must be paired and documented.
+  - hint: Create the paired test file next to the service module.
+  - must: `havePairedFile` tests/test_{name}.py
+
+## Suppressions
+
+Suppression comments (`konsistent: ignore[rule]`) are for approved exceptions only. Never add one without explicit human approval -- see `docs/reference/suppressions.md`. Fix the violation, or ask a human to approve a suppression with a reason.
+```
+
+Each convention bullet shows its resolved name (generated the same way `check`'s suppression-comment matching would name it, when no explicit `name` is set), paths, `description`, `hint`, and `severity`, followed by its `must`/`mustNot` predicates. Conventions with multiple `must` blocks label each block by name (or `block N`) so conditional (`if`/`for`/`excludeFiles`) rules stay unambiguous. When `unusedCode` is configured, a `## Unused code` section lists the fully resolved include/exclude globs, entrypoint files, registry decorators, hook names, model base classes, and any explicit `allow` list — including framework presets, not just what you wrote in `konsistent.json`. Every render ends with a standing `## Suppressions` note reiterating the [suppression consent policy](./suppressions.md#ai-agents): agents must never add a `# konsistent: ignore[...]` comment without explicit human approval.
 
 ## Output formats
 

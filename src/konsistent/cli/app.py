@@ -7,13 +7,14 @@ import typer
 
 from konsistent._version import __version__
 from konsistent.cli.check import DiagnosticLevel, OutputFormat, run_check_command
+from konsistent.cli.explain import ExplainFormat, run_explain_command
 from konsistent.cli.extract_rules import ExtractAgent, run_extract_rules_command
 from konsistent.config.cli_placeholders import normalize_placeholder_arg, parse_cli_placeholders
 from konsistent.config.deprecation_warnings import collect_deprecation_warnings
 from konsistent.config.errors import Err
 from konsistent.config.loader import load_config_runtime
 
-_KNOWN_SUBCOMMANDS = {"check", "validate", "extract-rules", "version", "help"}
+_KNOWN_SUBCOMMANDS = {"check", "validate", "extract-rules", "explain", "version", "help"}
 
 app = typer.Typer(
     help="Enforce structural conventions in Python codebases.",
@@ -196,6 +197,48 @@ def validate(
     typer.echo("Configuration is valid.")
 
 
+@app.command()
+def explain(
+    config_path: Annotated[
+        str | None,
+        typer.Option(
+            "--config-path",
+            help="Path to konsistent.json config file.",
+        ),
+    ] = None,
+    config_package: Annotated[
+        str | None,
+        typer.Option(
+            "--config-package",
+            help="NPM package name to load config from. Unsupported in the Python port.",
+        ),
+    ] = None,
+    format_: Annotated[
+        ExplainFormat,
+        typer.Option(
+            "--format",
+            help="Output format: md or text.",
+        ),
+    ] = ExplainFormat.MD,
+    placeholder: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--placeholder",
+            help='Inject a placeholder value. Format: "name:value". May be repeated.',
+        ),
+    ] = None,
+) -> None:
+    """Render resolved conventions as prevention-side guidance for a code-writing agent."""
+    exit_code = run_explain_command(
+        config_path=config_path,
+        config_package=config_package,
+        placeholder=placeholder,
+        format=format_,
+    )
+    if exit_code != 0:
+        raise typer.Exit(exit_code)
+
+
 @app.command(name="extract-rules")
 def extract_rules(
     source_file: Annotated[
@@ -251,6 +294,7 @@ Commands:
   check          Check structural conventions (default)
   validate       Validate configuration
   extract-rules  Extract reusable convention proposals from prose rules
+  explain        Render resolved conventions as agent guidance (markdown/text)
   version        Print the version number
   help           Show this help message
 
@@ -275,6 +319,12 @@ Extract-rules options:
   -o, --output <path>        Path for generated reusable convention pack proposal
   --agent <agent>            Agent CLI to use: auto, claude, or codex
   --report <path>            Write unmapped-rules report to this path
+
+Explain options:
+  --config-path <path>       Path to konsistent.json config file
+  --config-package <pkg>     Unsupported in the Python port
+  --format <format>          Output format: md, text
+  --placeholder <name:value> Inject a placeholder value; may be repeated
 
 Global options:
   --help, -h                 Show help

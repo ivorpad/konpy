@@ -149,12 +149,24 @@ konsistent extract-rules style-guide.md -o packs/team-style.json --agent codex -
 
 It shells out to a local agent CLI (`claude -p` or `codex exec`; `--agent auto` is the default and prefers `claude`), embeds the predicate vocabulary and pack format in the prompt, and **validates the result against the pack schema before writing anything**. Rules that aren't structurally expressible are never silently dropped — they land in an unmapped-rules report with reasons (that's your ruff/mypy/plugin backlog). The output is a proposal for human review; `extract-rules` never edits `konsistent.json`. Guide: [docs/guides/extracting-rules.md](docs/guides/extracting-rules.md).
 
+## Explaining rules to an agent
+
+`konsistent explain` renders your fully resolved `konsistent.json` (after `extends`/`disable`/`conventionSources`/`plugins`) as concise Markdown or plain-text guidance — one bullet per convention with its name, paths, description, `hint`, and severity — so you can paste it into `CLAUDE.md` and have a code-writing agent follow the rules *before* writing code, not just get caught by `check` afterwards:
+
+```bash
+konsistent explain > CLAUDE.md
+konsistent explain --format text
+```
+
+It is read-only: no filesystem scan, no diagnostics, no `--fix`. Every render ends with a standing reminder of the [suppression consent policy](docs/reference/suppressions.md#ai-agents) — agents must never add a `# konsistent: ignore[...]` comment without explicit human approval.
+
 ## CLI
 
 | Command | Purpose |
 | --- | --- |
 | `konsistent` / `konsistent check` | scan and report violations (exit 1 on errors) |
 | `konsistent validate` | validate the config only |
+| `konsistent explain` | render resolved conventions as agent guidance (see above) |
 | `konsistent extract-rules <src>` | agent-assisted rule extraction (see above) |
 | `konsistent version` | print version |
 

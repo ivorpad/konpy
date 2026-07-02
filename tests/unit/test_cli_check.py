@@ -582,3 +582,12 @@ def test_preprocess_leaves_extract_rules_subcommand_unchanged() -> None:
         "-o",
         "packs/rules.json",
     ]
+
+
+def test_preprocess_leaves_explain_subcommand_unchanged() -> None:
+    assert _preprocess_argv(["explain"]) == ["explain"]
+    assert _preprocess_argv(["explain", "--format", "text"]) == [
+        "explain",
+        "--format",
+        "text",
+    ]
