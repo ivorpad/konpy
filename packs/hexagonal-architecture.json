@@ -1,0 +1,44 @@
+{
+  "conventionSpecVersion": "v1",
+  "conventions": [
+    {
+      "name": "domain-does-not-import-adapters-or-infrastructure",
+      "description": "Domain modules must stay framework-free: they must not import adapters or infrastructure code.",
+      "hint": "Move the framework-specific logic behind a port and inject it into the domain, instead of importing adapters/infrastructure directly.",
+      "paths": "src/domain/**/*.py",
+      "mustNot": {
+        "matchContent": [
+          "^\\s*(?:from|import)\\s+[.\\w]*\\badapters\\b",
+          "^\\s*(?:from|import)\\s+[.\\w]*\\binfrastructure\\b"
+        ]
+      }
+    },
+    {
+      "name": "ports-are-protocols-or-abcs",
+      "description": "Port modules define the boundary between domain and adapters as a Protocol or ABC.",
+      "hint": "Define this port as a typing.Protocol or abc.ABC subclass so adapters can be swapped without changing the domain.",
+      "paths": ["src/ports/**/*.py", "!src/ports/**/__init__.py"],
+      "must": {
+        "matchContent": ["^class\\s+\\w+\\([^)]*\\b(?:Protocol|ABC)\\b[^)]*\\)"]
+      }
+    },
+    {
+      "name": "adapters-export-adapter-suffix",
+      "description": "Adapter modules implement a port and export a class whose name ends in Adapter.",
+      "hint": "Name the implementing class with an Adapter suffix (e.g. PostgresOrderRepositoryAdapter) so it's identifiable as a port implementation.",
+      "paths": ["src/adapters/**/*.py", "!src/adapters/**/__init__.py"],
+      "must": {
+        "matchContent": ["^class\\s+[A-Za-z_][A-Za-z0-9_]*Adapter\\b"]
+      }
+    },
+    {
+      "name": "use-cases-paired-with-tests",
+      "description": "Each use-case module has a matching test module.",
+      "hint": "Add a tests/use_cases/test_<name>.py covering this use case's application logic.",
+      "paths": ["src/use_cases/{name}.py", "!src/use_cases/__init__.py"],
+      "must": {
+        "havePairedFile": "tests/use_cases/test_${name}.py"
+      }
+    }
+  ]
+}

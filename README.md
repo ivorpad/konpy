@@ -68,6 +68,37 @@ Rules can be packaged once and consumed everywhere. This repo ships a starter pa
 
 String form uses the pack rule's own paths; `use` form supplies (or overrides) paths, placeholders, and severity. Authoring guide: [docs/guides/authoring-reusable-conventions.md](docs/guides/authoring-reusable-conventions.md). Copy-paste templates for project-specific rules (layered import bans, DDD layouts, test-suite layout): [docs/guides/templates.md](docs/guides/templates.md).
 
+### More packs: hexagonal architecture and src layout
+
+Two additional off-the-shelf packs live alongside the best-practices one:
+
+- [`packs/hexagonal-architecture.json`](packs/hexagonal-architecture.json) — ports-and-adapters layering: domain modules stay free of adapter/infrastructure imports, ports are `Protocol`/`ABC` boundaries, adapters export an `*Adapter`-suffixed class, and each use case has a paired test. Assumes `src/domain/`, `src/ports/`, `src/adapters/`, `src/use_cases/`.
+- [`packs/src-layout.json`](packs/src-layout.json) — `src/` layout hygiene: the project root has `src/` + `pyproject.toml`, every top-level `src/` package has an `__init__.py`, and both flat and one-level-nested modules mirror into `tests/`.
+
+Consume either one the same way, via `conventionSources`:
+
+```json
+{
+  "version": "v1",
+  "conventionSources": {
+    "hex": "./packs/hexagonal-architecture.json",
+    "layout": "./packs/src-layout.json"
+  },
+  "conventions": [
+    "hex/domain-does-not-import-adapters-or-infrastructure",
+    "hex/ports-are-protocols-or-abcs",
+    "hex/adapters-export-adapter-suffix",
+    "hex/use-cases-paired-with-tests",
+    "layout/project-root-uses-src-layout",
+    "layout/top-level-src-packages-have-init",
+    "layout/top-level-modules-mirror-into-tests",
+    "layout/nested-modules-mirror-into-tests"
+  ]
+}
+```
+
+Full per-convention reference, including the layout assumptions each pack makes: [docs/reference/packs.md](docs/reference/packs.md).
+
 ### Distributing packs on PyPI
 
 A convention source can be a **bare Python distribution name**. Ship a `konsistent.json` (reusable-package format) as package data, publish, and consumers write:

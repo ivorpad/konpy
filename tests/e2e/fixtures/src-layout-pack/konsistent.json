@@ -1,0 +1,12 @@
+{
+  "version": "v1",
+  "conventionSources": {
+    "layout": "../../../../packs/src-layout.json"
+  },
+  "conventions": [
+    "layout/project-root-uses-src-layout",
+    "layout/top-level-src-packages-have-init",
+    "layout/top-level-modules-mirror-into-tests",
+    "layout/nested-modules-mirror-into-tests"
+  ]
+}

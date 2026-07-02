@@ -1,0 +1,43 @@
+{
+  "conventionSpecVersion": "v1",
+  "conventions": [
+    {
+      "name": "project-root-uses-src-layout",
+      "description": "The project root places importable code under src/ and keeps pyproject.toml at the top level.",
+      "hint": "Move importable code into a src/ directory and keep pyproject.toml at the project root.",
+      "paths": ".",
+      "must": {
+        "haveType": "directory",
+        "haveFiles": ["pyproject.toml", "src"]
+      }
+    },
+    {
+      "name": "top-level-src-packages-have-init",
+      "description": "Each top-level package under src/ is a real package with an __init__.py.",
+      "hint": "Add an __init__.py to this directory so it's importable as a package.",
+      "paths": "src/{name}",
+      "must": {
+        "haveType": "directory",
+        "haveFiles": ["__init__.py"]
+      }
+    },
+    {
+      "name": "top-level-modules-mirror-into-tests",
+      "description": "Every top-level src/ module has a matching tests/test_<module>.py file.",
+      "hint": "Add a tests/test_<module>.py covering this module's public behavior.",
+      "paths": ["src/{name}.py", "!src/__init__.py"],
+      "must": {
+        "havePairedFile": "tests/test_${name}.py"
+      }
+    },
+    {
+      "name": "nested-modules-mirror-into-tests",
+      "description": "Every module nested one level under a src/ package has a matching tests/<package>/test_<module>.py file.",
+      "hint": "Add a tests/<package>/test_<module>.py mirroring this module's location under src/.",
+      "paths": ["src/{package}/{name}.py", "!src/*/__init__.py"],
+      "must": {
+        "havePairedFile": "tests/${package}/test_${name}.py"
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "version": "v1",
+  "conventionSources": {
+    "hex": "../../../../packs/hexagonal-architecture.json"
+  },
+  "conventions": [
+    "hex/domain-does-not-import-adapters-or-infrastructure",
+    "hex/ports-are-protocols-or-abcs",
+    "hex/adapters-export-adapter-suffix",
+    "hex/use-cases-paired-with-tests"
+  ]
+}

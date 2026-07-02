@@ -45,6 +45,8 @@ For paths-less pack rules, use the object form and supply your project paths:
 
 ## Layered import-direction bans
 
+> If your project already follows a ports-and-adapters (hexagonal) layout with `src/domain/`, `src/ports/`, `src/adapters/`, and `src/use_cases/`, the off-the-shelf [`packs/hexagonal-architecture.json`](../reference/packs.md#hexagonal-architecturejson) covers this and the DDD layout below — no hand-written rules needed. Use the template below only when your layer/package names diverge from that shape.
+
 A layered architecture often allows imports downward but not upward. Adjust package names to match your app.
 
 ```json
@@ -152,6 +154,8 @@ If your contexts use a flat module layout instead of folders, make the file cont
 ```
 
 ## Test-suite layout
+
+> For the conventional `src/`-root layout (`pyproject.toml` + `src/` at the root, `tests/` mirroring `src/` one-to-one), the off-the-shelf [`packs/src-layout.json`](../reference/packs.md#src-layoutjson) already covers both the flat and one-level-nested cases below, plus the `src/` root shape itself. Use the templates below when your source root or nesting is named differently (e.g. `src/myapp/...` instead of `src/...`).
 
 Require paired tests for top-level source modules:
 

@@ -34,12 +34,19 @@ This is the Python port of [vercel-labs/konsistent](https://github.com/vercel-la
 - [Conditional rules](./reference/conditional-rules.md) — `if`, `for`, `excludeFiles` blocks inside `must` arrays.
 - [Case maps](./reference/case-maps.md) — `kebabToPascalMap`, `kebabToCamelMap` for acronyms and special casing.
 - [Reusable conventions](./reference/reusable-conventions.md) — `conventionSources`, string and `use` references, merge semantics, error reference.
+- [Reusable packs](./reference/packs.md) — per-convention reference for the shipped packs (`python-best-practices.json`, `hexagonal-architecture.json`, `src-layout.json`), including each pack's layout assumptions and hints.
 - [Unused-code detection](./reference/unused-code.md) — the optional `unusedCode` classifier: taxonomy, config keys, framework presets, limitations.
 - [Suppressions](./reference/suppressions.md) — inline `# konsistent: ignore[...]` comments for approved exceptions, visibility guarantees, and the rules AI agents must follow.
 
 ## Reusable packs
 
-The repo includes a Python best-practices reusable convention pack at [`../packs/python-best-practices.json`](../packs/python-best-practices.json).
+The repo includes reusable convention packs under [`../packs/`](../packs/):
+
+- [`python-best-practices.json`](../packs/python-best-practices.json) — general Python structural conventions: barrel `__init__.py` files, absolute imports, docstrings, annotations, paired tests, `__all__` discipline, TODO hygiene, README-per-component.
+- [`hexagonal-architecture.json`](../packs/hexagonal-architecture.json) — ports-and-adapters layering: domain purity (no adapter/infrastructure imports), Protocol/ABC ports, `*Adapter`-suffixed adapter exports, use-case/test pairing. Assumes a single-package `src/domain/`, `src/ports/`, `src/adapters/`, `src/use_cases/` layout.
+- [`src-layout.json`](../packs/src-layout.json) — `src/` layout conventions and tests mirroring, both flat (`src/<module>.py` → `tests/test_<module>.py`) and one level nested (`src/<package>/<module>.py` → `tests/<package>/test_<module>.py`).
+
+Full per-convention reference for all three: [Reusable packs](./reference/packs.md).
 
 ## Schema
 

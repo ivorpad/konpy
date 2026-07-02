@@ -1,0 +1,12 @@
+{
+  "version": "v1",
+  "conventionSources": {
+    "bp": "../../../../packs/python-best-practices.json"
+  },
+  "conventions": [
+    "bp/no-todo-comments",
+    "bp/public-api-modules-declare-all",
+    "bp/package-inits-have-docstrings",
+    "bp/component-packages-have-readme"
+  ]
+}

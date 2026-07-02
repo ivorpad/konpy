@@ -4,6 +4,7 @@
     {
       "name": "init-files-are-barrels",
       "description": "Package __init__.py files should only define the package public API through docstrings, imports, __all__, and re-export aliases.",
+      "hint": "Move non-barrel logic (functions, classes, business logic) out of this __init__.py into a dedicated module and re-export it here instead.",
       "paths": "**/__init__.py",
       "must": {
         "areBarrelFiles": true
@@ -12,6 +13,7 @@
     {
       "name": "absolute-imports-only",
       "description": "Non-barrel Python modules should use absolute imports instead of relative imports.",
+      "hint": "Rewrite relative imports (from . import x, from .. import y) as absolute imports rooted at the top-level package.",
       "paths": ["**/*.py", "!**/__init__.py"],
       "mustNot": {
         "importFromCurrentDir": true,
@@ -21,6 +23,7 @@
     {
       "name": "no-underscore-exports",
       "description": "Modules should not list underscore-prefixed names in __all__.",
+      "hint": "Drop the underscore-prefixed name from __all__, or rename it without the leading underscore if it's meant to be public.",
       "paths": "**/*.py",
       "mustNot": {
         "matchContent": ["^__all__\\s*=\\s*(?:\\[[\\s\\S]*?[\"']_[A-Za-z0-9_]+[\"']|\\([\\s\\S]*?[\"']_[A-Za-z0-9_]+[\"'])"]
@@ -29,6 +32,7 @@
     {
       "name": "class-name-matches-filename",
       "description": "A *_service.py module should export a PascalCase Service class matching the file stem.",
+      "hint": "Export a PascalCase Service class named after this file's stem, e.g. order_service.py should export OrderService.",
       "must": {
         "exportClasses": ["${name.toPascalCase()}Service"]
       }
@@ -36,6 +40,7 @@
     {
       "name": "exported-constants-are-upper-case",
       "description": "A constant module should export an uppercase constant derived from the file name.",
+      "hint": "Export a CONSTANT_CASE constant named after this file, e.g. max_retries.py should export MAX_RETRIES.",
       "must": {
         "exportConstants": ["${name.toConstantCase()}"]
       }
@@ -43,6 +48,7 @@
     {
       "name": "docstrings-on-public-api",
       "description": "Public classes and functions should have docstrings.",
+      "hint": "Add a docstring explaining what this public class or function does, its parameters, and what it returns.",
       "paths": "**/*.py",
       "must": {
         "haveDocstrings": {
@@ -56,6 +62,7 @@
     {
       "name": "annotated-public-functions",
       "description": "Public functions and methods should annotate parameters and return values.",
+      "hint": "Add type annotations to this public function's parameters and return value.",
       "paths": "**/*.py",
       "must": {
         "annotateFunctions": {
@@ -68,9 +75,52 @@
     {
       "name": "paired-test-files",
       "description": "Top-level source modules should have matching tests/test_<module>.py files.",
+      "hint": "Add a tests/test_<module>.py covering this module's public behavior.",
       "paths": ["src/{name}.py", "!src/__init__.py"],
       "must": {
         "havePairedFile": "tests/test_${name}.py"
+      }
+    },
+    {
+      "name": "no-todo-comments",
+      "description": "Source modules should not contain TODO/FIXME/XXX markers; track work in the issue tracker instead.",
+      "hint": "Remove the marker and file a tracked issue for the remaining work instead of leaving it in a comment.",
+      "paths": "**/*.py",
+      "mustNot": {
+        "matchContent": ["(?i)\\b(?:TODO|FIXME|XXX)\\b"]
+      }
+    },
+    {
+      "name": "public-api-modules-declare-all",
+      "description": "Non-package-root modules that expose a public API should declare __all__ explicitly.",
+      "hint": "Add an explicit __all__ list naming the names this module intends to expose publicly.",
+      "paths": ["src/**/*.py", "!src/**/__init__.py"],
+      "must": {
+        "matchContent": ["^__all__\\s*="]
+      }
+    },
+    {
+      "name": "package-inits-have-docstrings",
+      "description": "Package __init__.py files should document the package's public API with a module docstring.",
+      "hint": "Add a module docstring to this __init__.py summarizing what the package exposes and why.",
+      "paths": "**/__init__.py",
+      "must": {
+        "haveDocstrings": {
+          "modules": true,
+          "classes": false,
+          "functions": false,
+          "publicOnly": true
+        }
+      }
+    },
+    {
+      "name": "component-packages-have-readme",
+      "description": "Each top-level component package under packages/ should include a README describing its purpose.",
+      "hint": "Add a README.md to this package describing its purpose, ownership, and how to use it.",
+      "paths": "packages/{name}",
+      "must": {
+        "haveType": "directory",
+        "haveFiles": ["README.md"]
       }
     }
   ]
