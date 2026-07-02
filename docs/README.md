@@ -20,6 +20,7 @@ This is the Python port of [vercel-labs/konsistent](https://github.com/vercel-la
 - [CI integration](./guides/ci-integration.md) — GitHub Actions, output formats, PR comments.
 - [Authoring reusable conventions](./guides/authoring-reusable-conventions.md) — publish a convention package others can consume.
 - [Extracting rules](./guides/extracting-rules.md) — use an explicit local agent command to draft reusable conventions from prose.
+- [Inferring conventions](./guides/inferring-conventions.md) — mine an existing codebase for candidate conventions with `konsistent infer`.
 - [Claude Code hook integration](./guides/claude-code-hook.md) — run `konsistent check --files` automatically after Claude edits a file.
 
 ## Reference

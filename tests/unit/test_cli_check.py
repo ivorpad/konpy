@@ -806,6 +806,15 @@ def test_preprocess_leaves_extract_rules_subcommand_unchanged() -> None:
     ]
 
 
+def test_preprocess_leaves_infer_subcommand_unchanged() -> None:
+    assert _preprocess_argv(["infer"]) == ["infer"]
+    assert _preprocess_argv(["infer", "--min-confidence", "0.5"]) == [
+        "infer",
+        "--min-confidence",
+        "0.5",
+    ]
+
+
 def test_preprocess_leaves_explain_subcommand_unchanged() -> None:
     assert _preprocess_argv(["explain"]) == ["explain"]
     assert _preprocess_argv(["explain", "--format", "text"]) == [

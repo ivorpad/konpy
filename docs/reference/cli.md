@@ -19,6 +19,7 @@ pip install konsistent       # or install with pip
 | `konsistent check` | Check structural conventions against your `konsistent.json` |
 | `konsistent validate` | Validate the `konsistent.json` configuration file |
 | `konsistent extract-rules` | Explicitly ask a local agent CLI to draft a reusable convention pack from prose rules |
+| `konsistent infer` | Mine the codebase for candidate structural conventions and emit a reviewable proposal |
 | `konsistent explain` | Render the resolved config as prevention-side guidance markdown/text for a code-writing agent |
 | `konsistent help` | Show a quick reference of all commands and options |
 | `konsistent version` | Print the version number |
@@ -227,6 +228,59 @@ Wrote unmapped-rules report to unmapped.md
 - `pack` fails `ReusableConventionsPackageV1` validation.
 
 Invalid packs report pydantic validation issues in the same style as other config errors.
+
+## `infer`
+
+Mines the current repository for candidate structural conventions using deterministic heuristics over the same AST/filesystem walkers `check` uses, and emits a reviewable proposal — no agent call, no existing-config awareness, and it never touches `konsistent.json`.
+
+```bash
+konsistent infer
+konsistent infer -o konsistent.infer.pack.json -r infer-report.md
+konsistent infer --heuristic export-suffix --heuristic paired-test-file
+konsistent infer --min-confidence 0.8 --min-support 5
+```
+
+Six independent heuristics each look for a statistical regularity — a suffix/export pattern, a test-pairing convention, docstring coverage, type-annotation coverage, `__init__.py` barrel purity, and absolute-vs-relative import dominance — and, for every signal whose sample size and pass-rate clear the configured thresholds, propose one `severity: "warning"` convention. The emitted proposal is validated against `ReusableConventionsPackageV1` — the same reviewable-pack contract `extract-rules` emits (`{"conventionSpecVersion": "v1", "conventions": [...]}`) — never a `RawConfigV1`/`konsistent.json`-shaped document. See [Inferring conventions](../guides/inferring-conventions.md) for the full heuristic reference and tuning guidance.
+
+### Output-channel contract
+
+The **proposed pack** is the primary artifact: stdout by default, or the `--output`/`-o` path. The **confidence/violators report** is secondary: stderr by default, or the `--report`/`-r` path. This makes `konsistent infer > konsistent.infer.pack.json` always work, and keeps the two artifacts independently redirectable:
+
+```bash
+konsistent infer > konsistent.infer.pack.json      # pack on stdout, report on stderr
+konsistent infer -o konsistent.infer.pack.json     # confirmation on stdout, report on stderr
+konsistent infer -o out.json -r report.md          # confirmations on stdout, both bodies in files
+```
+
+### Flags
+
+| Flag | Type | Default | Description |
+| --- | --- | --- | --- |
+| `--include <glob>` | string (repeatable) | `**/*.py` | Glob(s) of files to scan |
+| `--exclude <glob>` | string (repeatable) | — | Glob(s) to exclude from scanning |
+| `--test-glob <glob>` | string (repeatable) | `tests/**`, `test_*.py`, `*_test.py`, `conftest.py` | Glob(s) identifying test files |
+| `--min-confidence <n>` | float in `[0.0, 1.0]` | `0.9` | Minimum support/total ratio required to emit a proposal (`>=`, inclusive) |
+| `--min-support <n>` | integer `>= 1` | `3` | Minimum sample size (denominator) required before a signal is considered at all |
+| `--max-violators <n>` | integer `>= 0` | `10` | Maximum violator paths listed per proposal in the report (full-precision internally; only display is truncated) |
+| `--heuristic <name>` | string (repeatable) | all six | Restrict to specific heuristics: `export-suffix`, `paired-test-file`, `docstring-coverage`, `annotate-functions-coverage`, `barrel-usage`, `import-dominance` |
+| `--format <format>` | `text` \| `markdown` \| `json` | `text` | Report format |
+| `-o, --output <path>` | string | — (stdout) | Write the proposed pack here instead of stdout |
+| `-r, --report <path>` | string | — (stderr) | Write the report here instead of stderr |
+
+### Exit codes
+
+- `0` — a normal run, including a run that proposes zero conventions (e.g. nothing cleared the thresholds, or `--include` matched no files).
+- `1` — invalid flags (out-of-range `--min-confidence`/`--min-support`/`--max-violators`, an unknown `--heuristic` name), or an I/O/internal-validation failure writing `--output`/`--report`.
+
+### Review workflow
+
+`infer` never edits `konsistent.json`. After generation:
+
+1. inspect the proposed pack and the report side by side — every proposal lists its `support/total` counts and the (possibly truncated) violator file list;
+2. delete or narrow any proposal that does not reflect an intentional convention;
+3. only then merge the surviving conventions into your real `konsistent.json` (e.g. via `extends`, or by hand-copying entries).
+
+Every emitted convention hard-codes `severity: "warning"`, so once you have copied surviving conventions into a real `konsistent.json` (directly, or via `conventionSources`/`extends` pointing at the saved pack file), a first `konsistent check` never hard-fails CI before you have reviewed it. The pack itself is not a valid `konsistent.json` and `check`/`validate` will reject it if pointed at it directly — that rejection is intentional, not a bug.
 
 ## `explain`
 

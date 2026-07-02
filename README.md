@@ -160,6 +160,17 @@ konsistent explain --format text
 
 It is read-only: no filesystem scan, no diagnostics, no `--fix`. Every render ends with a standing reminder of the [suppression consent policy](docs/reference/suppressions.md#ai-agents) — agents must never add a `# konsistent: ignore[...]` comment without explicit human approval.
 
+## Mining a codebase for conventions
+
+`konsistent infer` scans an existing codebase for statistical regularities — "94% of modules under `adapters/` export `*Adapter`; here are the 3 violators" — and proposes a reviewable `ReusableConventionsPackageV1`-shaped pack (the same output contract as `extract-rules`: `{"conventionSpecVersion": "v1", "conventions": [...]}`, never a `konsistent.json`-shaped document) plus a confidence/violators report, using six deterministic heuristics (no agent call):
+
+```bash
+konsistent infer > konsistent.infer.pack.json
+konsistent infer --heuristic export-suffix --heuristic paired-test-file -o proposal.json -r report.md
+```
+
+The proposed pack goes to stdout (or `--output`); the confidence/violators report goes to stderr (or `--report`). Every proposal is `severity: "warning"` and carries `support`/`total` counts plus a violator list — `infer` never edits `konsistent.json` and never reads an existing one. Guide: [docs/guides/inferring-conventions.md](docs/guides/inferring-conventions.md).
+
 ## CLI
 
 | Command | Purpose |
@@ -168,6 +179,7 @@ It is read-only: no filesystem scan, no diagnostics, no `--fix`. Every render en
 | `konsistent validate` | validate the config only |
 | `konsistent explain` | render resolved conventions as agent guidance (see above) |
 | `konsistent extract-rules <src>` | agent-assisted rule extraction (see above) |
+| `konsistent infer` | mine the codebase for candidate conventions (see above) |
 | `konsistent version` | print version |
 
 Useful flags: `--config-path`, `--placeholder name:value`, `--max-diagnostics`, `--format json`, `--show-suppressed`. Full reference: [docs/reference/cli.md](docs/reference/cli.md).

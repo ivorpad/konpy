@@ -9,12 +9,13 @@ from konsistent._version import __version__
 from konsistent.cli.check import DiagnosticLevel, OutputFormat, run_check_command
 from konsistent.cli.explain import ExplainFormat, run_explain_command
 from konsistent.cli.extract_rules import ExtractAgent, run_extract_rules_command
+from konsistent.cli.infer import InferReportFormat, run_infer_command
 from konsistent.config.cli_placeholders import normalize_placeholder_arg, parse_cli_placeholders
 from konsistent.config.deprecation_warnings import collect_deprecation_warnings
 from konsistent.config.errors import Err
 from konsistent.config.loader import load_config_runtime
 
-_KNOWN_SUBCOMMANDS = {"check", "validate", "extract-rules", "explain", "version", "help"}
+_KNOWN_SUBCOMMANDS = {"check", "validate", "extract-rules", "infer", "explain", "version", "help"}
 
 _MULTI_VALUE_OPTIONS = ("--files",)
 
@@ -354,6 +355,105 @@ def extract_rules(
         raise typer.Exit(exit_code)
 
 
+@app.command()
+def infer(
+    include: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--include",
+            help="Glob(s) of files to scan. May be repeated. Default: **/*.py",
+        ),
+    ] = None,
+    exclude: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--exclude",
+            help="Glob(s) to exclude from scanning. May be repeated.",
+        ),
+    ] = None,
+    test_glob: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--test-glob",
+            help=(
+                "Glob(s) identifying test files. May be repeated. Default: "
+                "tests/**, test_*.py, *_test.py, conftest.py"
+            ),
+        ),
+    ] = None,
+    min_confidence: Annotated[
+        float,
+        typer.Option(
+            "--min-confidence",
+            help="Minimum support/total ratio required to emit a proposal.",
+        ),
+    ] = 0.9,
+    min_support: Annotated[
+        int,
+        typer.Option(
+            "--min-support",
+            help="Minimum sample size (denominator) required before a signal is considered.",
+        ),
+    ] = 3,
+    max_violators: Annotated[
+        int,
+        typer.Option(
+            "--max-violators",
+            help="Maximum violator paths listed per proposal in the report.",
+        ),
+    ] = 10,
+    heuristic: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--heuristic",
+            help=(
+                "Restrict to specific heuristics (repeatable): export-suffix, "
+                "paired-test-file, docstring-coverage, annotate-functions-coverage, "
+                "barrel-usage, import-dominance. Default: all."
+            ),
+        ),
+    ] = None,
+    format_: Annotated[
+        InferReportFormat,
+        typer.Option(
+            "--format",
+            help="Report format: text, markdown, or json.",
+        ),
+    ] = InferReportFormat.TEXT,
+    output_path: Annotated[
+        str | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Write the proposed reusable convention pack here instead of stdout.",
+        ),
+    ] = None,
+    report_path: Annotated[
+        str | None,
+        typer.Option(
+            "--report",
+            "-r",
+            help="Write the confidence/violators report here instead of stderr.",
+        ),
+    ] = None,
+) -> None:
+    """Mine the codebase for candidate structural conventions."""
+    exit_code = run_infer_command(
+        include=include,
+        exclude=exclude,
+        test_glob=test_glob,
+        min_confidence=min_confidence,
+        min_support=min_support,
+        max_violators=max_violators,
+        heuristic=heuristic,
+        format=format_,
+        output_path=output_path,
+        report_path=report_path,
+    )
+    if exit_code != 0:
+        raise typer.Exit(exit_code)
+
+
 @app.command(name="help")
 def help_command() -> None:
     """Show this help message."""
@@ -367,6 +467,7 @@ Commands:
   check          Check structural conventions (default)
   validate       Validate configuration
   extract-rules  Extract reusable convention proposals from prose rules
+  infer          Mine the codebase for candidate structural conventions
   explain        Render resolved conventions as agent guidance (markdown/text)
   version        Print the version number
   help           Show this help message
@@ -394,6 +495,18 @@ Extract-rules options:
   -o, --output <path>        Path for generated reusable convention pack proposal
   --agent <agent>            Agent CLI to use: auto, claude, or codex
   --report <path>            Write unmapped-rules report to this path
+
+Infer options:
+  --include <glob>           Glob(s) of files to scan; repeatable (default: **/*.py)
+  --exclude <glob>           Glob(s) to exclude from scanning; repeatable
+  --test-glob <glob>         Glob(s) identifying test files; repeatable
+  --min-confidence <n>       Minimum support/total ratio required to propose (default: 0.9)
+  --min-support <n>          Minimum sample size required to consider a signal (default: 3)
+  --max-violators <n>        Maximum violator paths listed per proposal (default: 10)
+  --heuristic <name>         Restrict to specific heuristics; repeatable
+  --format <format>          Report format: text, markdown, json
+  -o, --output <path>        Write the proposed reusable convention pack here instead of stdout
+  -r, --report <path>        Write the confidence/violators report here instead of stderr
 
 Explain options:
   --config-path <path>       Path to konsistent.json config file
