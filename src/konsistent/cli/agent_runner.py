@@ -40,6 +40,8 @@ AGENT_COMMANDS: dict[str, tuple[str, tuple[str, ...]]] = {
     "codex": ("codex", ("exec",)),
 }
 
+DEFAULT_MODEL = "sonnet"
+
 _FENCE_RE = re.compile(r"```(?:json|JSON)?[^\n]*\n(?P<body>.*?)```", re.DOTALL)
 
 
@@ -111,8 +113,16 @@ def run_agent_subprocess(
     timeout: float | None = None,
     env: dict[str, str] | None = None,
     extra_args: Sequence[str] = (),
+    model: str | None = None,
 ) -> AgentRunResult:
-    command = [invocation.executable, *invocation.prefix_args, *extra_args, prompt]
+    model_args = ("--model", model) if model else ()
+    command = [
+        invocation.executable,
+        *invocation.prefix_args,
+        *model_args,
+        *extra_args,
+        prompt,
+    ]
 
     try:
         completed = subprocess.run(
@@ -168,6 +178,7 @@ def _invocation_for(*, agent: str, executable: str) -> AgentInvocation:
 
 __all__ = [
     "AGENT_COMMANDS",
+    "DEFAULT_MODEL",
     "AgentInvocation",
     "AgentRunResult",
     "AgentRunner",
