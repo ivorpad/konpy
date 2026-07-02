@@ -178,7 +178,7 @@ konsistent extract-rules .agents/skills/python-project-structure/SKILL.md
 konsistent extract-rules style-guide.md -o packs/team-style.json --agent codex --report unmapped.md
 ```
 
-It shells out to a local agent CLI (`claude -p` or `codex exec`; `--agent auto` is the default and prefers `claude`), embeds the predicate vocabulary and pack format in the prompt, and **validates the result against the pack schema before writing anything**. Rules that aren't structurally expressible are never silently dropped — they land in an unmapped-rules report with reasons (that's your ruff/mypy/plugin backlog). The output is a proposal for human review; `extract-rules` never edits `konsistent.json`. Guide: [docs/guides/extracting-rules.md](docs/guides/extracting-rules.md).
+It shells out to a local agent CLI (`claude -p` or `codex exec`; `--agent auto` is the default and prefers `claude`), pins the agent's model via `--model` (default: `sonnet`, forwarded as the agent CLI's own `--model` flag — pass an explicit value for codex), embeds the predicate vocabulary and pack format in the prompt, and **validates the result against the pack schema before writing anything**. Rules that aren't structurally expressible are never silently dropped — they land in an unmapped-rules report with reasons (that's your ruff/mypy/plugin backlog). The output is a proposal for human review; `extract-rules` never edits `konsistent.json`. Guide: [docs/guides/extracting-rules.md](docs/guides/extracting-rules.md).
 
 ## Explaining rules to an agent
 
@@ -207,10 +207,12 @@ The proposed pack goes to stdout (or `--output`); the confidence/violators repor
 `konsistent hook` wires an agentic verifier into Claude Code's or Codex's `PostToolUse` hooks: after a matched write/edit, it spawns a read-only verifier agent (`claude -p` or `codex exec`) with a natural-language `--prompt` and turns its pass/fail verdict into the hook exit-code contract (0 pass/skip, 2 fail, 1 infra fail-open), with sentinel-based recursion guards so the verifier can't re-trigger the hook that spawned it.
 
 ```bash
-konsistent hook --agent claude --match 'src/**/*.py' --prompt 'Docstrings are not aspirational: verify each function body actually does what its docstring claims.'
+konsistent hook --agent claude --model sonnet --match 'src/**/*.py' --prompt 'Docstrings are not aspirational: verify each function body actually does what its docstring claims.'
 ```
 
-This is **not** the same mechanism as the [`--files` diff-scoped hook recipe](#diff-scoped-checking---files----changed) below — that one runs `konsistent check` directly (deterministic, no LLM call, verifies `konsistent.json` structural conventions). `konsistent hook` is for checks a structural predicate can't express; use it for the subset of your review that needs judgment, and the deterministic recipe for everything else. Both are docs-only in this repo — no live `.claude/settings.json` is installed. Guide: [docs/guides/hooks.md](docs/guides/hooks.md).
+The verifier's model is pinned via `--model` (default: `sonnet`, forwarded to the agent CLI as its own `--model` flag; set it explicitly for codex). Exit 2 is reserved exclusively for a real fail verdict: every misconfiguration — missing `--prompt`/`--agent`, an invalid `--agent` value, even an option the installed konsistent doesn't recognize — fails open with exit 1 rather than surfacing a CLI usage error to the host agent as if it were review feedback.
+
+This is **not** the same mechanism as the [`--files` diff-scoped hook recipe](#diff-scoped-checking---files----changed) below — that one runs `konsistent check` directly (deterministic, no LLM call, verifies `konsistent.json` structural conventions). `konsistent hook` is for checks a structural predicate can't express; use it for the subset of your review that needs judgment, and the deterministic recipe for everything else. This repo dogfoods the agentic hook via its own `.claude/settings.json`. Guide: [docs/guides/hooks.md](docs/guides/hooks.md).
 
 ## CLI
 
