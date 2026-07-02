@@ -1,0 +1,25 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "plugin-exports",
+      "paths": "plugins/{pluginName}/index.py",
+      "must": {
+        "export": ["activate"],
+        "exportConstants": ["plugin_id"]
+      }
+    },
+    {
+      "name": "plugin-tests",
+      "paths": "plugins/{pluginName}",
+      "must": [
+        {
+          "for": { "files": "{testFile}.spec.py" },
+          "must": {
+            "export": ["describe"]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "package-barrel-exports",
+      "description": "Every package barrel must export a function named after the package, except test-utils",
+      "paths": [
+        "packages/{packageName}/src/index.py",
+        "!packages/test-utils/src/index.py"
+      ],
+      "must": {
+        "export": ["${packageName}"]
+      }
+    }
+  ]
+}

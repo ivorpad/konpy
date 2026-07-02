@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "scoped-modules",
+      "paths": "modules/{scopedName}/src/index.py",
+      "must": {
+        "export": ["${scopedName.toNthSegment(1)}"],
+        "exportTypes": [
+          "${scopedName.toNthSegmentPascalCase(0)}${scopedName.toNthSegmentPascalCase(1)}"
+        ]
+      }
+    }
+  ]
+}

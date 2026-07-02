@@ -1,0 +1,29 @@
+{
+  "version": "v1",
+  "conventionSources": {
+    "common": "./local-conventions.json"
+  },
+  "conventions": [
+    {
+      "name": "package-must-have-readme",
+      "paths": "packages/{packageName}",
+      "must": {
+        "haveFiles": ["README.md"]
+      }
+    },
+    {
+      "name": "package-must-have-license",
+      "paths": "packages/{packageName}",
+      "must": {
+        "haveFiles": ["LICENSE"]
+      }
+    },
+    {
+      "name": "package-must-have-src-init",
+      "paths": "packages/{packageName}",
+      "must": {
+        "haveFiles": ["src/__init__.py"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "conventions": [
+    {
+      "paths": ["src/*.py"],
+      "must": {
+        "unknownPredicate": ["foo"]
+      }
+    }
+  ]
+}

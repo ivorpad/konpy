@@ -1,0 +1,22 @@
+{
+  "version": "v1",
+  "conventionSources": {
+    "bp": "../../../../packs/python-best-practices.json"
+  },
+  "conventions": [
+    "bp/init-files-are-barrels",
+    "bp/absolute-imports-only",
+    "bp/no-underscore-exports",
+    {
+      "use": "bp/class-name-matches-filename",
+      "paths": "src/{name}_service.py"
+    },
+    {
+      "use": "bp/exported-constants-are-upper-case",
+      "paths": "src/constants/{name}.py"
+    },
+    "bp/docstrings-on-public-api",
+    "bp/annotated-public-functions",
+    "bp/paired-test-files"
+  ]
+}

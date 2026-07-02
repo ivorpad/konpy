@@ -1,0 +1,12 @@
+{
+  "conventionSpecVersion": "v1",
+  "conventions": [
+    {
+      "name": "must-have-index",
+      "description": "Folder must contain an index.py file.",
+      "must": {
+        "haveFiles": ["index.py"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "conventionSpecVersion": "v1",
+  "conventions": [
+    {
+      "name": "init-files-are-barrels",
+      "description": "Package __init__.py files should only define the package public API through docstrings, imports, __all__, and re-export aliases.",
+      "paths": "**/__init__.py",
+      "must": {
+        "areBarrelFiles": true
+      }
+    },
+    {
+      "name": "absolute-imports-only",
+      "description": "Non-barrel Python modules should use absolute imports instead of relative imports.",
+      "paths": ["**/*.py", "!**/__init__.py"],
+      "mustNot": {
+        "importFromCurrentDir": true,
+        "importFromParents": true
+      }
+    },
+    {
+      "name": "no-underscore-exports",
+      "description": "Modules should not list underscore-prefixed names in __all__.",
+      "paths": "**/*.py",
+      "mustNot": {
+        "matchContent": ["^__all__\\s*=\\s*(?:\\[[\\s\\S]*?[\"']_[A-Za-z0-9_]+[\"']|\\([\\s\\S]*?[\"']_[A-Za-z0-9_]+[\"'])"]
+      }
+    },
+    {
+      "name": "class-name-matches-filename",
+      "description": "A *_service.py module should export a PascalCase Service class matching the file stem.",
+      "must": {
+        "exportClasses": ["${name.toPascalCase()}Service"]
+      }
+    },
+    {
+      "name": "exported-constants-are-upper-case",
+      "description": "A constant module should export an uppercase constant derived from the file name.",
+      "must": {
+        "exportConstants": ["${name.toConstantCase()}"]
+      }
+    },
+    {
+      "name": "docstrings-on-public-api",
+      "description": "Public classes and functions should have docstrings.",
+      "paths": "**/*.py",
+      "must": {
+        "haveDocstrings": {
+          "modules": false,
+          "classes": true,
+          "functions": true,
+          "publicOnly": true
+        }
+      }
+    },
+    {
+      "name": "annotated-public-functions",
+      "description": "Public functions and methods should annotate parameters and return values.",
+      "paths": "**/*.py",
+      "must": {
+        "annotateFunctions": {
+          "returns": true,
+          "params": true,
+          "publicOnly": true
+        }
+      }
+    },
+    {
+      "name": "paired-test-files",
+      "description": "Top-level source modules should have matching tests/test_<module>.py files.",
+      "paths": ["src/{name}.py", "!src/__init__.py"],
+      "must": {
+        "havePairedFile": "tests/test_${name}.py"
+      }
+    }
+  ]
+}

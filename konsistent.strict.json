@@ -1,0 +1,46 @@
+{
+  "version": "v1",
+  "conventionSources": {
+    "bp": "./packs/python-best-practices.json"
+  },
+  "conventions": [
+    "bp/init-files-are-barrels",
+    "bp/absolute-imports-only",
+    "bp/no-underscore-exports",
+    {
+      "use": "bp/docstrings-on-public-api",
+      "paths": ["src/konsistent/**/*.py", "!src/konsistent/**/__init__.py"]
+    },
+    {
+      "use": "bp/annotated-public-functions",
+      "paths": ["src/konsistent/**/*.py", "!src/konsistent/**/__init__.py"]
+    },
+    {
+      "name": "no-todo-fixme",
+      "description": "No TODO/FIXME markers in source.",
+      "paths": "src/konsistent/**/*.py",
+      "mustNot": { "matchContent": ["\\bTODO\\b", "\\bFIXME\\b"] }
+    },
+    {
+      "name": "no-any-annotations",
+      "description": "typing.Any defeats the type checker; annotate precisely.",
+      "paths": "src/konsistent/**/*.py",
+      "mustNot": { "matchContent": [": Any\\b", "-> Any\\b", "\\[Any\\]"] }
+    },
+    {
+      "name": "no-print-statements",
+      "description": "Use the reporter layer, never bare print(), outside the CLI.",
+      "paths": ["src/konsistent/**/*.py", "!src/konsistent/cli/**"],
+      "mustNot": { "matchContent": ["^\\s*print\\("] }
+    },
+    {
+      "name": "max-module-length",
+      "description": "Modules longer than 300 lines should be split.",
+      "paths": "src/konsistent/**/*.py",
+      "mustNot": { "matchContent": ["\\A(?:[^\\n]*\\n){301}"] }
+    }
+  ],
+  "unusedCode": {
+    "include": ["src/konsistent/**/*.py"]
+  }
+}

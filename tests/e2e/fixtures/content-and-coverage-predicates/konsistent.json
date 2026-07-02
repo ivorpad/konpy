@@ -1,0 +1,18 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "content-and-coverage",
+      "paths": "src/{name}.py",
+      "must": {
+        "matchContent": ["SPDX-License-Identifier: Apache-2.0"],
+        "havePairedFile": "tests/test_${name}.py",
+        "haveDocstrings": true,
+        "annotateFunctions": true
+      },
+      "mustNot": {
+        "matchContent": ["TODO", "password\\s*="]
+      }
+    }
+  ]
+}

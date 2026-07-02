@@ -1,0 +1,28 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "local-declarations",
+      "paths": "src/module.py",
+      "must": {
+        "declareTypes": ["LocalType"],
+        "declareConstants": ["localConstant"],
+        "declareFunctions": [
+          {
+            "name": "createLocal",
+            "receiveParamsOfTypes": ["LocalConfig"],
+            "returnValueOfType": "LocalResult"
+          }
+        ],
+        "declareInterfaces": [{ "name": "LocalInterface", "extend": "BaseInterface" }],
+        "declareClasses": [
+          {
+            "name": "LocalClass",
+            "extend": "BaseClass",
+            "implement": ["Serializable"]
+          }
+        ]
+      }
+    }
+  ]
+}

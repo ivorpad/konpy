@@ -1,0 +1,21 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "description": "Each service must export a factory function with typed config param and typed return value",
+      "paths": "services/{serviceName}/index.py",
+      "must": {
+        "exportFunctions": [
+          {
+            "name": "create${serviceName.toPascalCase()}Service",
+            "receiveParamsOfTypes": [
+              "${serviceName.toPascalCase()}Config",
+              "${serviceName.toPascalCase()}Logger"
+            ],
+            "returnValueOfType": "${serviceName.toPascalCase()}Service"
+          }
+        ]
+      }
+    }
+  ]
+}

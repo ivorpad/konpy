@@ -1,0 +1,1621 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RawConfigV1",
+  "description": "The konsistent.json file as written (conventions may be references).",
+  "$defs": {
+    "AnnotateFunctionsOptionsV1": {
+      "additionalProperties": false,
+      "properties": {
+        "returns": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Returns"
+        },
+        "params": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Params"
+        },
+        "publicOnly": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Publiconly"
+        }
+      },
+      "title": "AnnotateFunctionsOptionsV1",
+      "type": "object"
+    },
+    "ClassDefinitionV1": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "extend": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/ExtendObjectV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extend"
+        },
+        "implement": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/ExtendObjectV1"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Implement"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ClassDefinitionV1",
+      "type": "object"
+    },
+    "ConventionUseRefV1": {
+      "additionalProperties": false,
+      "properties": {
+        "use": {
+          "pattern": "^[a-z0-9-]+/[a-z0-9-]+$",
+          "title": "Use",
+          "type": "string"
+        },
+        "severity": {
+          "anyOf": [
+            {
+              "enum": [
+                "error",
+                "warning"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Severity"
+        },
+        "paths": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paths"
+        },
+        "placeholders": {
+          "anyOf": [
+            {
+              "patternProperties": {
+                "^[a-zA-Z][a-zA-Z0-9]*$": {
+                  "pattern": "^[a-zA-Z0-9_-]+$",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Placeholders"
+        },
+        "excludeFiles": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Excludefiles"
+        },
+        "if": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HasFileConditionV1"
+            },
+            {
+              "$ref": "#/$defs/PlaceholderSatisfiesConditionV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "If"
+        },
+        "for": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ForV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "must": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MustPredicatesV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mustNot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MustPredicatesV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "use"
+      ],
+      "title": "ConventionUseRefV1",
+      "type": "object"
+    },
+    "DeclarationDefinitionV1": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "DeclarationDefinitionV1",
+      "type": "object"
+    },
+    "ExportDefinitionV1": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "From"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ExportDefinitionV1",
+      "type": "object"
+    },
+    "ExtendObjectV1": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "allowOmissions": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Allowomissions"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "ExtendObjectV1",
+      "type": "object"
+    },
+    "ForV1": {
+      "additionalProperties": false,
+      "properties": {
+        "files": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "title": "Files"
+        }
+      },
+      "required": [
+        "files"
+      ],
+      "title": "ForV1",
+      "type": "object"
+    },
+    "FunctionDefinitionV1": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "receiveParamOfType": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Receiveparamoftype"
+        },
+        "receiveParamsOfTypes": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Receiveparamsoftypes"
+        },
+        "returnValueOfType": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Returnvalueoftype"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "FunctionDefinitionV1",
+      "type": "object"
+    },
+    "HasFileConditionV1": {
+      "additionalProperties": false,
+      "properties": {
+        "hasFile": {
+          "title": "Hasfile",
+          "type": "string"
+        }
+      },
+      "required": [
+        "hasFile"
+      ],
+      "title": "HasFileConditionV1",
+      "type": "object"
+    },
+    "HaveDocstringsOptionsV1": {
+      "additionalProperties": false,
+      "properties": {
+        "modules": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Modules"
+        },
+        "classes": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Classes"
+        },
+        "functions": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Functions"
+        },
+        "publicOnly": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Publiconly"
+        }
+      },
+      "title": "HaveDocstringsOptionsV1",
+      "type": "object"
+    },
+    "ImportDefinitionV1": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "From"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ImportDefinitionV1",
+      "type": "object"
+    },
+    "InterfaceDefinitionV1": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "extend": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/ExtendObjectV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extend"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "InterfaceDefinitionV1",
+      "type": "object"
+    },
+    "MustBlockUseRefV1": {
+      "additionalProperties": false,
+      "properties": {
+        "use": {
+          "pattern": "^[a-z0-9-]+/[a-z0-9-]+$",
+          "title": "Use",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z0-9-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "if": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HasFileConditionV1"
+            },
+            {
+              "$ref": "#/$defs/PlaceholderSatisfiesConditionV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "If"
+        },
+        "for": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ForV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "excludeFiles": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Excludefiles"
+        },
+        "must": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MustPredicatesV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mustNot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MustPredicatesV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "use"
+      ],
+      "title": "MustBlockUseRefV1",
+      "type": "object"
+    },
+    "MustBlockV1": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z0-9-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "if": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HasFileConditionV1"
+            },
+            {
+              "$ref": "#/$defs/PlaceholderSatisfiesConditionV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "If"
+        },
+        "for": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ForV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "excludeFiles": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Excludefiles"
+        },
+        "must": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MustPredicatesV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mustNot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MustPredicatesV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "MustBlockV1",
+      "type": "object"
+    },
+    "MustPredicatesV1": {
+      "additionalProperties": true,
+      "properties": {
+        "haveType": {
+          "anyOf": [
+            {
+              "enum": [
+                "file",
+                "directory"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Havetype"
+        },
+        "haveFiles": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Havefiles"
+        },
+        "matchContent": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Matchcontent"
+        },
+        "havePairedFile": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Havepairedfile"
+        },
+        "declareTypes": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/DeclarationDefinitionV1"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Declaretypes"
+        },
+        "declareConstants": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/DeclarationDefinitionV1"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Declareconstants"
+        },
+        "declareFunctions": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/FunctionDefinitionV1"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Declarefunctions"
+        },
+        "declareInterfaces": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/InterfaceDefinitionV1"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Declareinterfaces"
+        },
+        "declareClasses": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/ClassDefinitionV1"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Declareclasses"
+        },
+        "export": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/ExportDefinitionV1"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Export"
+        },
+        "exportTypes": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/ExportDefinitionV1"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exporttypes"
+        },
+        "exportConstants": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/ExportDefinitionV1"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exportconstants"
+        },
+        "exportFunctions": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/FunctionDefinitionV1"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exportfunctions"
+        },
+        "exportInterfaces": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/InterfaceDefinitionV1"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exportinterfaces"
+        },
+        "exportClasses": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/ClassDefinitionV1"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exportclasses"
+        },
+        "import": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/ImportDefinitionV1"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Import"
+        },
+        "importFrom": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Importfrom"
+        },
+        "importTypes": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/ImportDefinitionV1"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Importtypes"
+        },
+        "importFromCurrentDir": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Importfromcurrentdir"
+        },
+        "importFromParents": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Importfromparents"
+        },
+        "importFromExternals": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Importfromexternals"
+        },
+        "importTypesFromCurrentDir": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Importtypesfromcurrentdir"
+        },
+        "importTypesFromParents": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Importtypesfromparents"
+        },
+        "importTypesFromExternals": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Importtypesfromexternals"
+        },
+        "useDeclarationOrder": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Usedeclarationorder"
+        },
+        "areBarrelFiles": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Arebarrelfiles"
+        },
+        "haveDocstrings": {
+          "anyOf": [
+            {
+              "const": true,
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/$defs/HaveDocstringsOptionsV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Havedocstrings"
+        },
+        "annotateFunctions": {
+          "anyOf": [
+            {
+              "const": true,
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/$defs/AnnotateFunctionsOptionsV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Annotatefunctions"
+        }
+      },
+      "title": "MustPredicatesV1",
+      "type": "object"
+    },
+    "PlaceholderSatisfiesConditionV1": {
+      "additionalProperties": false,
+      "properties": {
+        "placeholderSatisfies": {
+          "title": "Placeholdersatisfies",
+          "type": "string"
+        }
+      },
+      "required": [
+        "placeholderSatisfies"
+      ],
+      "title": "PlaceholderSatisfiesConditionV1",
+      "type": "object"
+    },
+    "RawHandWrittenConventionV1": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z0-9-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "severity": {
+          "anyOf": [
+            {
+              "enum": [
+                "error",
+                "warning"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Severity"
+        },
+        "excludeFiles": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Excludefiles"
+        },
+        "paths": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "title": "Paths"
+        },
+        "placeholders": {
+          "anyOf": [
+            {
+              "patternProperties": {
+                "^[a-zA-Z][a-zA-Z0-9]*$": {
+                  "pattern": "^[a-zA-Z0-9_-]+$",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Placeholders"
+        },
+        "must": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MustPredicatesV1"
+            },
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "pattern": "^[a-z0-9-]+/[a-z0-9-]+$",
+                    "type": "string"
+                  },
+                  {
+                    "$ref": "#/$defs/MustBlockV1"
+                  },
+                  {
+                    "$ref": "#/$defs/MustBlockUseRefV1"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Must"
+        },
+        "mustNot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MustPredicatesV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "paths"
+      ],
+      "title": "RawHandWrittenConventionV1",
+      "type": "object"
+    },
+    "UnusedCodeV1": {
+      "additionalProperties": false,
+      "description": "Optional ``unusedCode`` rule config (M10 unused-code detection).\n\nAll fields are optional; engine-level defaults and framework presets are\napplied in ``konsistent.unused.engine`` rather than in this model.",
+      "properties": {
+        "include": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Include"
+        },
+        "testGlobs": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Testglobs"
+        },
+        "entrypointFiles": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entrypointfiles"
+        },
+        "registryDecorators": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Registrydecorators"
+        },
+        "hookNames": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hooknames"
+        },
+        "modelBases": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Modelbases"
+        },
+        "allow": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Allow"
+        },
+        "severity": {
+          "anyOf": [
+            {
+              "enum": [
+                "error",
+                "warning"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Severity"
+        }
+      },
+      "title": "UnusedCodeV1",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "$Schema"
+    },
+    "version": {
+      "const": "v1",
+      "title": "Version",
+      "type": "string"
+    },
+    "extends": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Extends"
+    },
+    "disable": {
+      "anyOf": [
+        {
+          "items": {
+            "pattern": "^[a-z0-9-]+$",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Disable"
+    },
+    "plugins": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Plugins"
+    },
+    "kebabToPascalMap": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Kebabtopascalmap"
+    },
+    "kebabToCamelMap": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Kebabtocamelmap"
+    },
+    "conventionSources": {
+      "anyOf": [
+        {
+          "patternProperties": {
+            "^[a-z0-9-]+$": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Conventionsources"
+    },
+    "conventions": {
+      "items": {
+        "anyOf": [
+          {
+            "pattern": "^[a-z0-9-]+/[a-z0-9-]+$",
+            "type": "string"
+          },
+          {
+            "$ref": "#/$defs/ConventionUseRefV1"
+          },
+          {
+            "$ref": "#/$defs/RawHandWrittenConventionV1"
+          }
+        ]
+      },
+      "title": "Conventions",
+      "type": "array"
+    },
+    "unusedCode": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/UnusedCodeV1"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "version",
+    "conventions"
+  ],
+  "type": "object"
+}

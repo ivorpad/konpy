@@ -1,0 +1,29 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "no-current-dir-imports",
+      "paths": "src/current.py",
+      "mustNot": {
+        "importFromCurrentDir": true,
+        "importTypesFromCurrentDir": true
+      }
+    },
+    {
+      "name": "no-parent-imports",
+      "paths": "src/parent.py",
+      "mustNot": {
+        "importFromParents": true,
+        "importTypesFromParents": true
+      }
+    },
+    {
+      "name": "no-external-imports",
+      "paths": "src/external.py",
+      "mustNot": {
+        "importFromExternals": true,
+        "importTypesFromExternals": true
+      }
+    }
+  ]
+}

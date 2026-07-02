@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "barrels-must-be-pure",
+      "description": "Package __init__ files must be pure barrels.",
+      "paths": "src/{moduleName}",
+      "must": [
+        {
+          "for": { "files": "__init__.py" },
+          "must": { "areBarrelFiles": true }
+        }
+      ]
+    }
+  ]
+}

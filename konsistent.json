@@ -1,0 +1,44 @@
+{
+  "$schema": "./konsistent.schema.json",
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "packages-have-init",
+      "description": "Every konsistent subpackage is a regular package.",
+      "paths": [
+        "src/konsistent/cli",
+        "src/konsistent/config",
+        "src/konsistent/core",
+        "src/konsistent/predicates",
+        "src/konsistent/python_ast"
+      ],
+      "must": {
+        "haveType": "directory",
+        "haveFiles": ["__init__.py"]
+      }
+    },
+    {
+      "name": "predicate-modules-export-check",
+      "description": "Each predicate module exposes its check_<module> function.",
+      "paths": "src/konsistent/predicates/{module}.py",
+      "excludeFiles": [
+        "src/konsistent/predicates/__init__.py",
+        "src/konsistent/predicates/registry.py",
+        "src/konsistent/predicates/_utils.py",
+        "src/konsistent/predicates/declaration_utils.py",
+        "src/konsistent/predicates/import_.py"
+      ],
+      "must": {
+        "export": ["check_${module}"]
+      }
+    },
+    {
+      "name": "core-independent-of-cli",
+      "description": "Engine layers never import the CLI.",
+      "paths": ["src/konsistent/core/*.py", "src/konsistent/config/*.py", "src/konsistent/python_ast/*.py"],
+      "mustNot": {
+        "importFrom": "konsistent.cli"
+      }
+    }
+  ]
+}

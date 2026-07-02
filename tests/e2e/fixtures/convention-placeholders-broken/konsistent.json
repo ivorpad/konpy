@@ -1,0 +1,13 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "double-declared",
+      "paths": "packages/{providerId}/src/index.py",
+      "placeholders": { "providerId": "openai" },
+      "must": {
+        "haveFiles": ["${providerId}_provider.py"]
+      }
+    }
+  ]
+}

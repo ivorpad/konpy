@@ -1,0 +1,23 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "component-structure",
+      "paths": "components/{componentName}",
+      "must": [
+        { "must": { "haveFiles": ["${componentName}.py"] } },
+        {
+          "name": "test-exports",
+          "if": { "hasFile": "${componentName}.test.py" },
+          "for": { "files": "${componentName}.test.py" },
+          "must": { "export": ["describe"] }
+        },
+        {
+          "name": "story-meta",
+          "for": { "files": "{storyFile}.stories.py" },
+          "must": { "exportConstants": ["meta"] }
+        }
+      ]
+    }
+  ]
+}

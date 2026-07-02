@@ -1,0 +1,19 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "no-type-checking-imports",
+      "paths": "src/client.py",
+      "mustNot": {
+        "importTypes": [
+          { "name": "LocalModel", "from": ".local_types" },
+          { "name": "SharedConfig", "from": "..shared" },
+          { "name": "Mapping", "from": "collections.abc" }
+        ],
+        "importTypesFromCurrentDir": true,
+        "importTypesFromParents": true,
+        "importTypesFromExternals": true
+      }
+    }
+  ]
+}

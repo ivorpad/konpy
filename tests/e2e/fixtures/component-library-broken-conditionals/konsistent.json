@@ -1,0 +1,20 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "paths": "components/{componentName}",
+      "must": [
+        { "must": { "haveFiles": ["${componentName}.py"] } },
+        {
+          "if": { "hasFile": "${componentName}.test.py" },
+          "for": { "files": "${componentName}.test.py" },
+          "must": { "export": ["describe"] }
+        },
+        {
+          "for": { "files": "{storyFile}.stories.py" },
+          "must": { "exportConstants": ["meta"] }
+        }
+      ]
+    }
+  ]
+}

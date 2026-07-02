@@ -1,0 +1,12 @@
+{
+  "conventionSpecVersion": "v1",
+  "conventions": [
+    {
+      "name": "package-must-have-py-typed",
+      "description": "Packages must include a py.typed marker.",
+      "must": {
+        "haveFiles": ["py.typed"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "version": "v1",
+  "extends": ["./shared/base-konsistent.json"],
+  "disable": ["package-must-have-license"],
+  "conventions": [
+    {
+      "name": "package-must-have-readme",
+      "paths": "packages/{packageName}",
+      "must": {
+        "haveFiles": ["README.md", "pyproject.toml"]
+      }
+    },
+    {
+      "use": "common/package-must-have-py-typed",
+      "paths": "packages/{packageName}"
+    }
+  ]
+}

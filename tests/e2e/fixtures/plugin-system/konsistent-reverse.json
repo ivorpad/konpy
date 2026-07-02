@@ -1,0 +1,21 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "no-plugin-directories",
+      "paths": "plugins/{pluginName}",
+      "mustNot": {
+        "haveType": "directory",
+        "haveFiles": ["index.py", "manifest.json", "README.md"]
+      }
+    },
+    {
+      "name": "no-plugin-exports",
+      "paths": "plugins/{pluginName}/index.py",
+      "mustNot": {
+        "export": ["activate", "deactivate"],
+        "exportConstants": ["plugin_id"]
+      }
+    }
+  ]
+}

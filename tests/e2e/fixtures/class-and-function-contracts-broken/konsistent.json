@@ -1,0 +1,38 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "description": "Each adapter module must export a class extending BaseAdapter",
+      "paths": "adapters/{adapterName}/adapter.py",
+      "must": {
+        "exportClasses": [
+          {
+            "name": "${adapterName.toPascalCase()}Adapter",
+            "extend": "BaseAdapter",
+            "implement": ["Connectable"]
+          }
+        ],
+        "importTypes": [{ "name": "BaseAdapter", "from": "app.core" }]
+      }
+    },
+    {
+      "name": "adapter-factory-function",
+      "paths": "adapters/{adapterName}/factory.py",
+      "must": {
+        "exportFunctions": [
+          {
+            "name": "create${adapterName.toPascalCase()}Adapter",
+            "receiveParamsOfTypes": [
+              "${adapterName.toPascalCase()}AdapterConfig"
+            ],
+            "returnValueOfType": "${adapterName.toPascalCase()}Adapter"
+          }
+        ],
+        "importTypes": [
+          { "name": "${adapterName.toPascalCase()}AdapterConfig", "from": ".types" },
+          { "name": "${adapterName.toPascalCase()}Adapter", "from": ".adapter" }
+        ]
+      }
+    }
+  ]
+}

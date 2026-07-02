@@ -1,0 +1,35 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "docstrings",
+      "paths": "src/legacy.py",
+      "must": {
+        "haveDocstrings": {
+          "modules": false,
+          "classes": false,
+          "functions": true,
+          "publicOnly": true
+        }
+      }
+    },
+    {
+      "name": "paired-tests",
+      "paths": "src/service.py",
+      "must": {
+        "havePairedFile": "tests/test_service.py"
+      }
+    },
+    {
+      "name": "no-debug-content",
+      "paths": "src/debug.py",
+      "mustNot": {
+        "matchContent": ["DEBUG_ONLY"]
+      }
+    }
+  ],
+  "unusedCode": {
+    "include": ["src/legacy.py"],
+    "testGlobs": []
+  }
+}

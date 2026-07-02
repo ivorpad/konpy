@@ -1,0 +1,38 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "provider-packages",
+      "paths": "packages/{providerId}",
+      "must": {
+        "haveType": "directory",
+        "haveFiles": ["src/__init__.py", "src/${providerId}_provider.py"]
+      }
+    },
+    {
+      "description": "Each provider package barrel must re-export the provider function and its types",
+      "paths": "packages/{providerId}/src/__init__.py",
+      "must": {
+        "export": ["${providerId}"],
+        "exportTypes": [
+          "${providerId.toPascalCase()}Provider",
+          "${providerId.toPascalCase()}ProviderSettings"
+        ]
+      }
+    },
+    {
+      "name": "provider-interface",
+      "description": "Provider implementation must export a Protocol extending ProviderV1",
+      "paths": "packages/{providerId}/src/${providerId}_provider.py",
+      "must": {
+        "exportInterfaces": [
+          {
+            "name": "${providerId.toPascalCase()}Provider",
+            "extend": "ProviderV1"
+          }
+        ],
+        "importTypes": [{ "name": "ProviderV1", "from": "ai_toolkit.core" }]
+      }
+    }
+  ]
+}

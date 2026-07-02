@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "paths": "index.py",
+      "must": {
+        "exportFunctions": [
+          {
+            "name": "createThing",
+            "receiveParamOfType": "ThingConfig"
+          }
+        ]
+      }
+    }
+  ]
+}

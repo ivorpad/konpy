@@ -1,0 +1,27 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "plugin-exports",
+      "paths": "plugins/{pluginName}/index.py",
+      "excludeFiles": ["plugins/storage/index.py"],
+      "must": {
+        "export": ["activate"],
+        "exportConstants": ["plugin_id"]
+      }
+    },
+    {
+      "name": "plugin-tests",
+      "paths": "plugins/{pluginName}",
+      "must": [
+        {
+          "for": { "files": "{testFile}.spec.py" },
+          "excludeFiles": ["plugins/auth/helpers.spec.py"],
+          "must": {
+            "export": ["describe"]
+          }
+        }
+      ]
+    }
+  ]
+}
