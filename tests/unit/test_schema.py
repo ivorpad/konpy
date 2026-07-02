@@ -407,6 +407,37 @@ class TestConfigV1Accepts:
                 config(
                     [
                         {
+                            "name": "convention-with-hint",
+                            "description": "Every module needs a docstring.",
+                            "hint": "Add a one-line summary at the top of the file.",
+                            "paths": "src/**/*.py",
+                            "must": {"haveDocstrings": True},
+                        }
+                    ]
+                ),
+                id="convention-with-hint",
+            ),
+            pytest.param(
+                config(
+                    [
+                        {
+                            "paths": "src/{name}",
+                            "must": [
+                                {
+                                    "name": "block-with-hint",
+                                    "hint": "Give this block a fix hint.",
+                                    "must": {"haveType": "file"},
+                                }
+                            ],
+                        }
+                    ],
+                ),
+                id="must-block-with-hint",
+            ),
+            pytest.param(
+                config(
+                    [
+                        {
                             "paths": "packages/openai/src/__init__.py",
                             "placeholders": {"providerId": "openai"},
                             "must": {},
@@ -441,6 +472,19 @@ class TestConfigV1Rejects:
             pytest.param(
                 config([{"paths": "src/*.py", "must": {"importFrom": ["collections"]}}]),
                 id="import-from-not-string",
+            ),
+            pytest.param(
+                config(
+                    [
+                        {
+                            "name": "bad-hint",
+                            "hint": 123,
+                            "paths": "src/*.py",
+                            "must": {"haveType": "file"},
+                        }
+                    ]
+                ),
+                id="hint-not-string",
             ),
             pytest.param({"conventions": []}, id="missing-version"),
             pytest.param({"version": "v2", "conventions": []}, id="wrong-version"),
@@ -732,6 +776,23 @@ class TestReusableConventionsPackage:
                 ],
             }
         )
+
+    def test_accepts_optional_hint(self) -> None:
+        package = ReusableConventionsPackageV1.model_validate(
+            {
+                "conventionSpecVersion": "v1",
+                "conventions": [
+                    {
+                        "name": "some-convention",
+                        "description": "A reusable convention.",
+                        "hint": "Consider running the generator first.",
+                        "must": {"haveType": "file"},
+                    }
+                ],
+            }
+        )
+
+        assert package.conventions[0].hint == "Consider running the generator first."
 
     def test_requires_name_and_description(self) -> None:
         with pytest.raises(ValidationError):

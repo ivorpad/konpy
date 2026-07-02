@@ -214,3 +214,27 @@ class TestAnnotateFunctions:
         assert result[0].convention_name == "annotation-coverage"
         assert result[0].severity == "warning"
         assert result[0].file_path == "src/service.py"
+
+    def test_missing_annotation_diagnostics_include_expected_and_fix_hint(self) -> None:
+        result = check_annotate_functions(
+            expected=True,
+            context=context(),
+            structure=parse_source(
+                """
+                class Service:
+                    def run(self, value):
+                        return value
+                """
+            ),
+        )
+
+        param_diag, return_diag = result
+
+        assert param_diag.expected is not None
+        assert "value" in param_diag.expected
+        assert param_diag.fix_hint is not None
+        assert "Service.run" in param_diag.fix_hint
+
+        assert return_diag.expected == "return type annotation"
+        assert return_diag.fix_hint is not None
+        assert "Service.run" in return_diag.fix_hint

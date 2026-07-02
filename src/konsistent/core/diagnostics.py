@@ -15,6 +15,11 @@ class Diagnostic:
     convention_name: str | None = None
     line: int | None = None
     column: int | None = None
+    description: str | None = None
+    hint: str | None = None
+    expected: str | None = None
+    found: str | None = None
+    fix_hint: str | None = None
 
 
 def create_diagnostic(
@@ -26,6 +31,11 @@ def create_diagnostic(
     line: int | None = None,
     column: int | None = None,
     severity: DiagnosticSeverity | None = None,
+    description: str | None = None,
+    hint: str | None = None,
+    expected: str | None = None,
+    found: str | None = None,
+    fix_hint: str | None = None,
 ) -> Diagnostic:
     return Diagnostic(
         file_path=file_path,
@@ -35,6 +45,11 @@ def create_diagnostic(
         line=line,
         column=column,
         severity=severity or "error",
+        description=description,
+        hint=hint,
+        expected=expected,
+        found=found,
+        fix_hint=fix_hint,
     )
 
 

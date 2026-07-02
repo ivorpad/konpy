@@ -3,7 +3,7 @@ from __future__ import annotations
 import posixpath
 import time
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from konsistent.config.schema import ConfigV1, MustBlockV1, MustPredicatesV1
@@ -111,6 +111,25 @@ def _resolve_block_convention_name(
     convention_name: str,
 ) -> str:
     return block.name or convention_name
+
+
+def _with_convention_metadata(
+    diagnostics: list[Diagnostic],
+    *,
+    description: str | None,
+    hint: str | None,
+) -> list[Diagnostic]:
+    if description is None and hint is None:
+        return diagnostics
+
+    return [
+        replace(
+            diagnostic,
+            description=diagnostic.description or description,
+            hint=diagnostic.hint or hint,
+        )
+        for diagnostic in diagnostics
+    ]
 
 
 def _is_file_excluded(
@@ -689,20 +708,24 @@ def run(
                     continue
 
                 diagnostics.extend(
-                    _evaluate_for_block(
-                        block=block,
-                        parent_context=context,
-                        file_system=file_system,
-                        convention_name=_resolve_block_convention_name(
+                    _with_convention_metadata(
+                        _evaluate_for_block(
                             block=block,
-                            convention_name=convention_name,
+                            parent_context=context,
+                            file_system=file_system,
+                            convention_name=_resolve_block_convention_name(
+                                block=block,
+                                convention_name=convention_name,
+                            ),
+                            file_structure_cache=file_structure_cache,
+                            source_cache=source_cache,
+                            severity=severity,
+                            checked_paths=checked_paths,
+                            case_maps=case_maps,
+                            predicate_registry=registry,
                         ),
-                        file_structure_cache=file_structure_cache,
-                        source_cache=source_cache,
-                        severity=severity,
-                        checked_paths=checked_paths,
-                        case_maps=case_maps,
-                        predicate_registry=registry,
+                        description=block.description or convention.description,
+                        hint=block.hint or convention.hint,
                     )
                 )
 

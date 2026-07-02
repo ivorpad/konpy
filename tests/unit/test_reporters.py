@@ -38,6 +38,11 @@ def diagnostic(
     convention_name: str | None = None,
     line: int | None = None,
     column: int | None = None,
+    description: str | None = None,
+    hint: str | None = None,
+    expected: str | None = None,
+    found: str | None = None,
+    fix_hint: str | None = None,
 ) -> Diagnostic:
     return Diagnostic(
         file_path=file_path,
@@ -47,6 +52,11 @@ def diagnostic(
         convention_name=convention_name,
         line=line,
         column=column,
+        description=description,
+        hint=hint,
+        expected=expected,
+        found=found,
+        fix_hint=fix_hint,
     )
 
 
@@ -371,6 +381,54 @@ class TestFormatDefault:
         assert "\x1b[" in output
 
 
+class TestFormatDefaultFixHints:
+    def test_appends_hint_line_when_fix_hint_present(self) -> None:
+        output = format_default(
+            make_result(
+                [diagnostic(message="Missing X", fix_hint="Add X")],
+            ),
+            colors=False,
+        )
+
+        lines = output.splitlines()
+        message_index = next(i for i, line in enumerate(lines) if "Missing X" in line)
+        hint_line = lines[message_index + 1]
+        assert "->" in hint_line
+        assert "fix: Add X" in hint_line
+
+    def test_no_hint_line_when_all_three_absent(self) -> None:
+        output = format_default(
+            make_result([diagnostic()]),
+            colors=False,
+        )
+
+        assert "->" not in output
+
+    def test_hint_line_combines_expected_and_found_and_fix(self) -> None:
+        output = format_default(
+            make_result(
+                [
+                    diagnostic(
+                        message="Bad thing",
+                        expected="Foo",
+                        found="Bar",
+                        fix_hint="Do X",
+                    )
+                ],
+            ),
+            colors=False,
+        )
+
+        lines = output.splitlines()
+        hint_line = next(line for line in lines if "->" in line)
+        assert hint_line.count("expected: ") == 1
+        assert hint_line.count("found: ") == 1
+        assert hint_line.count("fix: ") == 1
+        assert "expected: Foo" in hint_line
+        assert "found: Bar" in hint_line
+        assert "fix: Do X" in hint_line
+
+
 class TestFormatJson:
     def test_returns_valid_json(self) -> None:
         output = format_json(make_result([diagnostic(message="Some problem")]))
@@ -487,6 +545,55 @@ class TestFormatJson:
         )
 
         assert len(parsed["suppressed"]) == 1
+
+
+class TestFormatJsonFixHints:
+    def test_includes_expected_found_fix_hint_when_present(self) -> None:
+        parsed = json.loads(
+            format_json(
+                make_result(
+                    [diagnostic(expected="Foo", found="Bar", fix_hint="Do X")],
+                )
+            )
+        )
+
+        item = parsed["diagnostics"][0]
+        assert item["expected"] == "Foo"
+        assert item["found"] == "Bar"
+        assert item["fixHint"] == "Do X"
+
+    def test_omits_expected_found_fix_hint_when_none(self) -> None:
+        parsed = json.loads(format_json(make_result([diagnostic()])))
+
+        item = parsed["diagnostics"][0]
+        assert "expected" not in item
+        assert "found" not in item
+        assert "fixHint" not in item
+        assert "description" not in item
+        assert "hint" not in item
+
+    def test_omits_only_the_absent_subset(self) -> None:
+        parsed = json.loads(
+            format_json(make_result([diagnostic(fix_hint="Do X")]))
+        )
+
+        item = parsed["diagnostics"][0]
+        assert "expected" not in item
+        assert "found" not in item
+        assert item["fixHint"] == "Do X"
+
+    def test_includes_description_and_hint_when_present(self) -> None:
+        parsed = json.loads(
+            format_json(
+                make_result(
+                    [diagnostic(description="Why this matters", hint="A helpful nudge")]
+                )
+            )
+        )
+
+        item = parsed["diagnostics"][0]
+        assert item["description"] == "Why this matters"
+        assert item["hint"] == "A helpful nudge"
 
 
 class TestFormatGithub:
@@ -780,6 +887,21 @@ class TestFormatMarkdown:
         )
 
         assert "**Checked 2 files in 5ms. Found 1 error. Suppressed 1 finding.**" in output
+
+
+class TestFormatMarkdownFixHints:
+    def test_message_cell_gets_html_suffix_when_hint_present(self) -> None:
+        output = format_markdown(
+            make_result([diagnostic(message="Missing X", fix_hint="Add X")])
+        )
+
+        assert "<br><sub>fix: Add X</sub>" in output
+
+    def test_message_cell_unchanged_when_hint_absent(self) -> None:
+        output = format_markdown(make_result([diagnostic(message="Missing X")]))
+
+        assert "<br>" not in output
+        assert "| Missing X |" in output
 
 
 class TestResolveFormat:

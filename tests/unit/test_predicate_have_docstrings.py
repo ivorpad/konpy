@@ -189,3 +189,40 @@ class TestHaveDocstrings:
         assert result[0].convention_name == "docstring-coverage"
         assert result[0].severity == "warning"
         assert result[0].file_path == "src/service.py"
+
+    def test_missing_docstring_diagnostics_include_expected_and_fix_hint(self) -> None:
+        result = check_have_docstrings(
+            expected=True,
+            context=context(),
+            structure=parse_source(
+                """
+                class Service:
+                    def run(self) -> None:
+                        return None
+
+                def create_service() -> Service:
+                    return Service()
+                """
+            ),
+        )
+
+        module_diag, class_diag, method_diag, function_diag = result
+
+        assert module_diag.expected is not None
+        assert "module docstring" in module_diag.expected
+        assert module_diag.fix_hint is not None
+
+        assert class_diag.expected is not None
+        assert "Service" in class_diag.expected
+        assert class_diag.fix_hint is not None
+        assert "Service" in class_diag.fix_hint
+
+        assert method_diag.expected is not None
+        assert "Service.run" in method_diag.expected
+        assert method_diag.fix_hint is not None
+        assert "Service.run" in method_diag.fix_hint
+
+        assert function_diag.expected is not None
+        assert "create_service" in function_diag.expected
+        assert function_diag.fix_hint is not None
+        assert "create_service" in function_diag.fix_hint

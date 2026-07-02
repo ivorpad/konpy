@@ -346,7 +346,7 @@ class TestOutputFormats:
         assert stderr == ""
         assert "**`packages/" in stdout
         assert "| Line | Severity | Message | Convention |" in stdout
-        assert '| - | error | Missing export "openai" |' in stdout
+        assert 'Missing export "openai"<br><sub>description: ' in stdout
         assert "Found 3 errors.**" in stdout
         assert ANSI_ESCAPE_RE.search(stdout) is None
 
@@ -372,6 +372,10 @@ class TestOutputFormats:
                 "filePath": "packages/cli/src/index.py",
                 "predicateName": "export",
                 "message": 'Missing export "cli"',
+                "description": (
+                    "Every package barrel must export a function named after the "
+                    "package, except test-utils"
+                ),
             }
         ]
         assert parsed["suppressed"] == []

@@ -29,6 +29,9 @@ def check_match_content(
                     message=f'Invalid regex "{pattern}": {error}',
                     convention_name=convention_name,
                     severity=severity,
+                    expected=pattern,
+                    found=str(error),
+                    fix_hint=f'Fix the invalid regex pattern "{pattern}": {error}.',
                 )
             )
             continue
@@ -43,6 +46,8 @@ def check_match_content(
                 message=f'File content must match regex "{pattern}"',
                 convention_name=convention_name,
                 severity=severity,
+                expected=pattern,
+                fix_hint=f"Add content to {context.path} that matches the pattern `{pattern}`.",
             )
         )
 

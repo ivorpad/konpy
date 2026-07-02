@@ -136,3 +136,14 @@ class TestImportFrom:
         )
 
         assert result[0].convention_name == "react-files"
+
+    def test_missing_import_diagnostic_includes_expected_and_fix_hint(self) -> None:
+        result = check_import_from(
+            expected=".helper",
+            context=context(),
+            structure=parse_source("from .setup import value"),
+        )
+
+        assert result[0].expected == ".helper"
+        assert result[0].fix_hint is not None
+        assert ".helper" in result[0].fix_hint

@@ -229,12 +229,34 @@ A convention is a rule that says "files matching `paths` must satisfy `must` and
 | `must` | `MustPredicates` or `MustBlock[]` | yes, unless `mustNot` is present | The conditions that matched paths must satisfy. See [predicates.md](./predicates.md) and [conditional-rules.md](./conditional-rules.md). |
 | `mustNot` | `MustPredicates` | yes, unless `must` is present | The conditions that matched paths must not satisfy. Unlike `must`, this only accepts the object form. |
 | `name` | string matching `[a-z0-9-]+` | no | Identifier shown in violation reports. |
-| `description` | string | no | Human-readable explanation. |
+| `description` | string | no | Human-readable explanation. Surfaced on every diagnostic the convention produces — see [`hint`](#hint) below. |
+| `hint` | string | no | Author-supplied nudge for fixing violations of this convention. See [`hint`](#hint) below. |
 | `severity` | `"error"` \| `"warning"` | no, default `"error"` | See [Severity](#severity). |
 | `excludeFiles` | `string[]` | no | Glob patterns to exclude from the matched paths. |
 | `placeholders` | `Record<string, string>` | no | Static placeholder values for names that are not captured from `paths`. See [Static placeholder values](./path-patterns.md#static-placeholder-values). |
 
 The configuration is `strict` — unknown fields cause a validation error. Run `konsistent validate` to catch typos.
+
+### `hint`
+
+`description` and the optional `hint` field are both surfaced on every diagnostic the convention (or `must`-block) produces, regardless of which predicate raised it — no per-predicate wiring required:
+
+```json
+{
+  "name": "documented-service",
+  "description": "Service modules must be paired, documented, and annotated.",
+  "hint": "Run the service generator template if you are starting a new service.",
+  "paths": "src/service.py",
+  "must": {
+    "havePairedFile": "tests/test_service.py",
+    "haveDocstrings": true
+  }
+}
+```
+
+A `must`-block's own `description`/`hint` (array form, see below) override the parent convention's, mirroring how a block's `name` overrides the convention's `name`.
+
+Some predicates additionally populate structured `expected`/`found`/`fix_hint` fields with predicate-specific fix direction. See [CLI: Diagnostic intent and fix direction](./cli.md#diagnostic-intent-and-fix-direction) for the full field reference and which predicates populate them.
 
 ## `must`: predicates or blocks
 
@@ -265,7 +287,7 @@ All listed predicates apply unconditionally to every matched path. See [predicat
 ]
 ```
 
-Each entry is a `MustBlock` that can have `if`, `for`, `excludeFiles`, `name`, and `description`. See [conditional-rules.md](./conditional-rules.md). An entry may alternatively be a reusable-convention reference of the form `{ "use": "<vendor>/<name>", ...overrides }`, which expands into a `MustBlock` — see [reusable-conventions.md](./reusable-conventions.md#use-inside-a-parents-must).
+Each entry is a `MustBlock` that can have `if`, `for`, `excludeFiles`, `name`, `description`, and `hint`. See [conditional-rules.md](./conditional-rules.md). An entry may alternatively be a reusable-convention reference of the form `{ "use": "<vendor>/<name>", ...overrides }`, which expands into a `MustBlock` — see [reusable-conventions.md](./reusable-conventions.md#use-inside-a-parents-must).
 
 ## `mustNot`: negated predicates
 

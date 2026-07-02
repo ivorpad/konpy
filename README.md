@@ -160,6 +160,32 @@ It shells out to a local agent CLI (`claude -p` or `codex exec`; `--agent auto` 
 
 Useful flags: `--config-path`, `--placeholder name:value`, `--max-diagnostics`, `--format json`, `--show-suppressed`. Full reference: [docs/reference/cli.md](docs/reference/cli.md).
 
+## Diagnostic intent and fix direction
+
+Diagnostics can carry more than a message: an optional convention-level `description`/`hint` (inherited by every diagnostic the convention produces) and predicate-specific `expected`/`found`/`fix_hint` fields, so an agent's next edit doesn't need to be re-derived from a message string.
+
+```json
+{
+  "name": "documented-service",
+  "description": "Service modules must be paired and documented.",
+  "hint": "Run the service generator template if you are starting a new service.",
+  "paths": "src/service.py",
+  "must": { "havePairedFile": "tests/test_service.py" }
+}
+```
+
+```json
+{
+  "predicateName": "havePairedFile",
+  "message": "Missing paired file: tests/test_service.py",
+  "description": "Service modules must be paired and documented.",
+  "expected": "tests/test_service.py",
+  "fixHint": "Create the paired file at \"tests/test_service.py\"."
+}
+```
+
+All five fields are optional and additive: omitted from `--format json` when absent (never `null`), and shown as an extra suffix line/cell in `default`/`markdown` output only when populated. `expected`/`found`/`fix_hint` are currently populated by `exportClasses`, `exportConstants`, `havePairedFile`, `haveDocstrings`, `annotateFunctions`, `importFrom`, the `importFrom*`/`importTypes*` group predicates, and `matchContent` — other predicates leave them unset rather than guessing. `fix_hint` is data only; konsistent never applies it automatically. Full reference: [docs/reference/cli.md#diagnostic-intent-and-fix-direction](docs/reference/cli.md#diagnostic-intent-and-fix-direction).
+
 ## Suppressions
 
 Approved exceptions can be silenced in place, without touching `konsistent.json`:

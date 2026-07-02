@@ -30,6 +30,19 @@ def _group_label(group: ImportSourceGroup) -> str:
             return "external packages"
 
 
+def _example_import(group: ImportSourceGroup, *, is_type: bool) -> str:
+    match group:
+        case "currentDir":
+            example = "from .module import Name"
+        case "parents":
+            example = "from ..module import Name"
+        case "externals":
+            example = "import package_name"
+    if is_type:
+        return f"`{example}` inside an `if TYPE_CHECKING:` block"
+    return f"`{example}`"
+
+
 def check_import_source(
     *,
     expected: bool,
@@ -62,6 +75,8 @@ def check_import_source(
                 message=f"Missing {noun} from {label}",
                 convention_name=convention_name,
                 severity=severity,
+                expected=f"{noun} from {label}",
+                fix_hint=f"Add {noun} such as {_example_import(group, is_type=is_type)}.",
             )
         ]
 
@@ -75,6 +90,9 @@ def check_import_source(
                 line=found.pos.line,
                 column=found.pos.column,
                 severity=severity,
+                expected=f"no {noun} from {label}",
+                found=found.from_,
+                fix_hint=f'Remove or relocate the {noun} of "{found.from_}".',
             )
         ]
 

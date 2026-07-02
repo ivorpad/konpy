@@ -686,6 +686,94 @@ class TestExpandReferences:
         assert "severity" in error
 
 
+class TestHintPropagation:
+    def test_string_ref_propagates_hint_from_reusable_convention(self) -> None:
+        source_map = build_source_map(
+            {
+                "common": [
+                    {
+                        "name": "package-must-have-readme",
+                        "description": "Every package must have a README.md.",
+                        "hint": "Copy README.md from the template package.",
+                        "paths": ["packages/{packageName}"],
+                        "must": {"haveFiles": ["README.md"]},
+                    }
+                ]
+            }
+        )
+
+        result = expand_references(
+            conventions=["common/package-must-have-readme"],
+            source_map=source_map,
+        )
+
+        expanded = ok_value(result)
+        assert expanded.conventions[0].hint == "Copy README.md from the template package."
+
+    def test_string_ref_hint_is_none_when_reusable_convention_has_no_hint(self) -> None:
+        source_map = build_source_map(
+            {
+                "common": [
+                    {
+                        "name": "package-must-have-readme",
+                        "description": "Every package must have a README.md.",
+                        "paths": ["packages/{packageName}"],
+                        "must": {"haveFiles": ["README.md"]},
+                    }
+                ]
+            }
+        )
+
+        result = expand_references(
+            conventions=["common/package-must-have-readme"],
+            source_map=source_map,
+        )
+
+        expanded = ok_value(result)
+        assert expanded.conventions[0].hint is None
+
+    def test_use_ref_propagates_hint_and_allows_override(self) -> None:
+        source_map = build_source_map(
+            {
+                "common": [
+                    {
+                        "name": "provider-barrel",
+                        "description": "x",
+                        "hint": "Inherited hint.",
+                        "must": {"export": ["${providerId}"]},
+                    }
+                ]
+            }
+        )
+
+        result = expand_references(
+            conventions=[
+                {
+                    "use": "common/provider-barrel",
+                    "paths": "packages/openai/src/index.py",
+                }
+            ],
+            source_map=source_map,
+        )
+
+        expanded = ok_value(result)
+        assert expanded.conventions[0].hint == "Inherited hint."
+
+        override_result = expand_references(
+            conventions=[
+                {
+                    "use": "common/provider-barrel",
+                    "paths": "packages/openai/src/index.py",
+                    "hint": "Overridden hint.",
+                }
+            ],
+            source_map=source_map,
+        )
+
+        overridden = ok_value(override_result)
+        assert overridden.conventions[0].hint == "Overridden hint."
+
+
 class TestDeepMerge:
     def test_recursively_merges_plain_dicts(self) -> None:
         result = deep_merge(

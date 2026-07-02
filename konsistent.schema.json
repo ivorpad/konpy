@@ -527,6 +527,18 @@
           "default": null,
           "title": "Description"
         },
+        "hint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hint"
+        },
         "if": {
           "anyOf": [
             {
@@ -624,6 +636,18 @@
           ],
           "default": null,
           "title": "Description"
+        },
+        "hint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hint"
         },
         "if": {
           "anyOf": [
@@ -1230,6 +1254,18 @@
           ],
           "default": null,
           "title": "Description"
+        },
+        "hint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hint"
         },
         "severity": {
           "anyOf": [

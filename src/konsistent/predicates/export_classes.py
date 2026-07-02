@@ -40,6 +40,11 @@ def check_export_classes(
                     message=f'Missing export class "{name}"',
                     convention_name=convention_name,
                     severity=severity,
+                    expected=name,
+                    fix_hint=(
+                        f"Define `class {name}:` in {context.path} and make sure it is "
+                        "publicly exported (no leading underscore, or listed in `__all__`)."
+                    ),
                 )
             )
             continue
@@ -58,6 +63,12 @@ def check_export_classes(
                     line=class_info.pos.line,
                     column=class_info.pos.column,
                     severity=severity,
+                    expected=expected_extend,
+                    found=class_info.extends,
+                    fix_hint=(
+                        f'Update class "{name}" to extend "{expected_extend}", e.g. '
+                        f"`class {name}({expected_extend}):`."
+                    ),
                 )
             )
 
@@ -67,6 +78,7 @@ def check_export_classes(
         ):
             if expected_impl in class_info.implements:
                 continue
+            base_display = class_info.extends or "object"
             diagnostics.append(
                 create_diagnostic(
                     file_path=context.path,
@@ -76,6 +88,12 @@ def check_export_classes(
                     line=class_info.pos.line,
                     column=class_info.pos.column,
                     severity=severity,
+                    expected=expected_impl,
+                    found=", ".join(class_info.implements) or None,
+                    fix_hint=(
+                        f'Add "{expected_impl}" as a base class of "{name}", e.g. '
+                        f"`class {name}({base_display}, {expected_impl}):`."
+                    ),
                 )
             )
 

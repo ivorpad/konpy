@@ -50,6 +50,11 @@ def check_annotate_functions(
                         line=function.pos.line,
                         column=function.pos.column,
                         severity=severity,
+                        expected=f'type annotation for parameter "{param.name}"',
+                        fix_hint=(
+                            f'Annotate parameter "{param.name}" in function '
+                            f'"{function.qualified_name}", e.g. `{param.name}: <Type>`.'
+                        ),
                     )
                 )
 
@@ -66,6 +71,11 @@ def check_annotate_functions(
                     line=function.pos.line,
                     column=function.pos.column,
                     severity=severity,
+                    expected="return type annotation",
+                    fix_hint=(
+                        f'Add a return type annotation to function '
+                        f'"{function.qualified_name}", e.g. `-> <Type>:`.'
+                    ),
                 )
             )
 

@@ -102,7 +102,7 @@ def expand_string_reference(
         "description": reusable_data["description"],
         "paths": reusable_data["paths"],
     }
-    for key in ("must", "mustNot", "severity", "excludeFiles"):
+    for key in ("must", "mustNot", "severity", "excludeFiles", "hint"):
         if key in reusable_data:
             candidate[key] = reusable_data[key]
 
@@ -149,7 +149,7 @@ def expand_use_reference(
         "name": reusable_data["name"],
         "description": reusable_data["description"],
     }
-    for key in ("must", "mustNot", "severity", "paths", "excludeFiles"):
+    for key in ("must", "mustNot", "severity", "paths", "excludeFiles", "hint"):
         if key in reusable_data:
             base[key] = reusable_data[key]
 
@@ -204,7 +204,7 @@ def expand_must_block_reference(
         )
 
     base: dict[str, Any] = {}
-    for key in ("must", "mustNot", "name", "description", "if", "for", "excludeFiles"):
+    for key in ("must", "mustNot", "name", "description", "hint", "if", "for", "excludeFiles"):
         if key in reusable_data:
             base[key] = reusable_data[key]
 

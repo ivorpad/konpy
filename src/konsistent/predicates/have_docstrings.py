@@ -26,6 +26,26 @@ def _message(target: DocstringTargetInfo) -> str:
             return f'Function "{target.qualified_name}" must have a docstring'
 
 
+def _expected_label(target: DocstringTargetInfo) -> str:
+    match target.kind:
+        case "module":
+            return "module docstring"
+        case "class":
+            return f'docstring on class "{target.qualified_name}"'
+        case "function":
+            return f'docstring on function "{target.qualified_name}"'
+
+
+def _fix_hint(target: DocstringTargetInfo) -> str:
+    match target.kind:
+        case "module":
+            return "Add a module-level docstring as the first statement of the file."
+        case "class":
+            return f'Add a docstring to class "{target.qualified_name}".'
+        case "function":
+            return f'Add a docstring to function "{target.qualified_name}".'
+
+
 def check_have_docstrings(
     *,
     expected: Any,
@@ -62,6 +82,8 @@ def check_have_docstrings(
                 line=target.pos.line,
                 column=target.pos.column,
                 severity=severity,
+                expected=_expected_label(target),
+                fix_hint=_fix_hint(target),
             )
         )
 

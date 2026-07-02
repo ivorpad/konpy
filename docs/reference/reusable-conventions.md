@@ -76,7 +76,7 @@ A bare string `"<vendor>/<name>"` inlines the named reusable convention as-is. T
 
 ### Object reference (`use` form)
 
-`{ "use": "<vendor>/<name>", ...overrides }` references a reusable convention and overlays your overrides on top of it. The override fields available are `paths`, `placeholders`, `excludeFiles`, `severity`, `if`, `for`, `must`, and `mustNot` — the same optional fields a hand-written convention has, minus `name` and `description` (which come from the source).
+`{ "use": "<vendor>/<name>", ...overrides }` references a reusable convention and overlays your overrides on top of it. The override fields available are `paths`, `placeholders`, `excludeFiles`, `severity`, `if`, `for`, `must`, and `mustNot` — the same optional fields a hand-written convention has, minus `name`, `description`, and `hint` (which come from the source and are not overridable at this nesting level; use the `must[]` array form's `{ "use": ..., "description": ..., "hint": ... }` overrides instead if you need to customize them per-block).
 
 Use this form when the reusable convention has no `paths` (so you must supply them) or when you want to adjust a field for your project.
 
@@ -138,7 +138,7 @@ A hand-written convention whose `must` is a `MustBlock[]` may also reference a r
 }
 ```
 
-Allowed override keys at this nesting level are every field a hand-written `MustBlock` exposes — `name`, `description`, `if`, `for`, `excludeFiles`, `must`, and `mustNot`. Top-level-only fields (`paths`, `severity`) are not accepted at the use-site, and the referenced reusable convention must not declare them either: a reusable that ships `paths` or `severity` can only be referenced from the top level of `conventions[]`. Authors who want their reusable to be usable in both contexts should publish it without those fields.
+Allowed override keys at this nesting level are every field a hand-written `MustBlock` exposes — `name`, `description`, `hint`, `if`, `for`, `excludeFiles`, `must`, and `mustNot`. Top-level-only fields (`paths`, `severity`) are not accepted at the use-site, and the referenced reusable convention must not declare them either: a reusable that ships `paths` or `severity` can only be referenced from the top level of `conventions[]`. Authors who want their reusable to be usable in both contexts should publish it without those fields.
 
 Override merge follows the same rules as the top-level `use` form: arrays replace, primitives replace, and `must`/`mustNot` deep-merge with the inherited predicates.
 

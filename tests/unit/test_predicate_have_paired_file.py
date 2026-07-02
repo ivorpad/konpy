@@ -80,3 +80,14 @@ class TestCheckHavePairedFile:
         assert len(result) == 1
         assert result[0].convention_name == "paired-tests"
         assert result[0].severity == "warning"
+
+    def test_missing_paired_file_diagnostic_includes_expected_and_fix_hint(self) -> None:
+        result = check_have_paired_file(
+            expected="tests/test_${name}.py",
+            context=context(placeholders={"name": PlaceholderValue("service")}),
+            file_system=FakeFileSystem(),
+        )
+
+        assert result[0].expected == "tests/test_service.py"
+        assert result[0].fix_hint is not None
+        assert "tests/test_service.py" in result[0].fix_hint

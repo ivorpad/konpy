@@ -189,3 +189,62 @@ class TestExportClasses:
         )
 
         assert result == []
+
+    def test_missing_export_diagnostic_includes_expected_and_fix_hint(self) -> None:
+        result = check_export_classes(
+            expected=["MissingClass"],
+            context=context(),
+            structure=parse_source(""),
+        )
+
+        assert result[0].expected == "MissingClass"
+        assert result[0].fix_hint is not None
+        assert "MissingClass" in result[0].fix_hint
+
+    def test_extend_violation_includes_expected_and_found(self) -> None:
+        result = check_export_classes(
+            expected=[{"name": "MyClass", "extend": "BaseClass"}],
+            context=context(),
+            structure=parse_source(
+                """
+                class MyClass(OtherClass):
+                    pass
+                """
+            ),
+        )
+
+        assert result[0].expected == "BaseClass"
+        assert result[0].found == "OtherClass"
+
+    def test_extend_violation_found_is_none_when_no_base_class(self) -> None:
+        result = check_export_classes(
+            expected=[{"name": "MyClass", "extend": "BaseClass"}],
+            context=context(),
+            structure=parse_source("class MyClass: pass"),
+        )
+
+        assert result[0].found is None
+
+    def test_implement_violation_includes_expected_and_found(self) -> None:
+        result = check_export_classes(
+            expected=[
+                {
+                    "name": "MyClass",
+                    "implement": ["Serializable", "Disposable"],
+                }
+            ],
+            context=context(),
+            structure=parse_source("class MyClass(BaseClass, Serializable): pass"),
+        )
+
+        assert result[0].expected == "Disposable"
+        assert result[0].found == "Serializable"
+
+    def test_implement_violation_found_is_none_when_no_bases_implemented(self) -> None:
+        result = check_export_classes(
+            expected=[{"name": "MyClass", "implement": ["Serializable"]}],
+            context=context(),
+            structure=parse_source("class MyClass: pass"),
+        )
+
+        assert result[0].found is None

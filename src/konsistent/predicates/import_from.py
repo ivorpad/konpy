@@ -36,5 +36,7 @@ def check_import_from(
             message=f'Missing import from "{resolved}"',
             convention_name=convention_name,
             severity=severity,
+            expected=resolved,
+            fix_hint=f"Add an import such as `from {resolved} import <name>`.",
         )
     ]

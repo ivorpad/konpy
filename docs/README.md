@@ -23,8 +23,8 @@ This is the Python port of [vercel-labs/konsistent](https://github.com/vercel-la
 
 ## Reference
 
-- [CLI](./reference/cli.md) — commands, flags, output formats, exit codes.
-- [konsistent.json configuration](./reference/configuration.md) — top-level schema and convention shape.
+- [CLI](./reference/cli.md) — commands, flags, output formats, exit codes, and [diagnostic intent and fix direction](./reference/cli.md#diagnostic-intent-and-fix-direction) (`description`, `hint`, `expected`, `found`, `fix_hint`).
+- [konsistent.json configuration](./reference/configuration.md) — top-level schema, convention shape, and the optional [`hint`](./reference/configuration.md#hint) field.
 - [Path patterns](./reference/path-patterns.md) — globs, placeholders, case transformations, negation.
 - [Predicates](./reference/predicates.md) — every built-in `must` predicate and how `mustNot` works.
 - [Plugins](./reference/plugins.md) — custom predicate entry points, descriptor API, opt-in loading, and runtime validation.

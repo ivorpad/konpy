@@ -34,6 +34,10 @@ def check_export_constants(
                 message=f'Missing export constant "{name}"',
                 convention_name=convention_name,
                 severity=severity,
+                expected=name,
+                fix_hint=(
+                    f"Define a public module-level constant `{name} = ...` in {context.path}."
+                ),
             )
         )
 

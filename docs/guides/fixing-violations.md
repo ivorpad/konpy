@@ -39,6 +39,8 @@ Each violation has the shape:
 }
 ```
 
+Some diagnostics additionally carry `description`, `hint`, `expected`, `found`, and/or `fixHint` — check those fields before re-deriving fix direction from the message string; see [CLI: Diagnostic intent and fix direction](../reference/cli.md#diagnostic-intent-and-fix-direction). `fixHint` is a suggestion, not something to apply blindly — the search-first workflow below still applies.
+
 If the command fails for reasons other than violations (config not found, invalid config, missing dependency), resolve the underlying issue first.
 
 ## 2. Group violations by rule

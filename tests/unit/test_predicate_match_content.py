@@ -94,3 +94,30 @@ class TestCheckMatchContent:
         assert result[0].convention_name == "license-header"
         assert result[0].severity == "warning"
         assert result[0].file_path == "src/service.py"
+
+    def test_missing_match_diagnostic_includes_expected_and_fix_hint(self) -> None:
+        file_system = FakeFileSystem(contents={"src/service.py": "content\n"})
+
+        result = check_match_content(
+            expected=["SPDX-License-Identifier"],
+            context=context(),
+            file_system=file_system,
+        )
+
+        assert result[0].expected == "SPDX-License-Identifier"
+        assert result[0].fix_hint is not None
+        assert "SPDX-License-Identifier" in result[0].fix_hint
+        assert "src/service.py" in result[0].fix_hint
+
+    def test_invalid_regex_diagnostic_includes_expected_and_found(self) -> None:
+        file_system = FakeFileSystem(contents={"src/service.py": "content\n"})
+
+        result = check_match_content(
+            expected=["["],
+            context=context(),
+            file_system=file_system,
+        )
+
+        assert result[0].expected == "["
+        assert isinstance(result[0].found, str)
+        assert result[0].found != ""

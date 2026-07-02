@@ -139,11 +139,15 @@ def format_markdown(
             for diagnostic in _sort_diagnostics(file_diagnostics):
                 line = "-" if diagnostic.line is None else str(diagnostic.line)
                 convention = diagnostic.convention_name or ""
+                message_cell = diagnostic.message
+                extra = _format_diagnostic_extra(diagnostic)
+                if extra is not None:
+                    message_cell = f"{message_cell}<br><sub>{extra}</sub>"
                 rows.append(
                     "| "
                     f"{line} | "
                     f"{diagnostic.severity} | "
-                    f"{diagnostic.message} | "
+                    f"{message_cell} | "
                     f"{convention} |"
                 )
             sections.append("\n".join(rows))
@@ -291,6 +295,9 @@ def _format_file_group(
                 dim=dim,
             )
         )
+        extra = _format_diagnostic_extra(diagnostic)
+        if extra is not None:
+            lines.append(f"        {dim('-> ' + extra)}")
 
     lines.append("")
     return lines
@@ -384,6 +391,29 @@ def _format_suppressed_markdown_section(
     return "\n\n".join(sections)
 
 
+def _format_diagnostic_extra(diagnostic: Diagnostic) -> str | None:
+    """Build the additive intent/direction suffix for default and markdown output.
+
+    Returns ``None`` when the diagnostic carries none of description/hint/
+    expected/found/fix_hint -- the gate that keeps every diagnostic untouched
+    by this feature byte-identical to prior output.
+    """
+    parts: list[str] = []
+    if diagnostic.description is not None:
+        parts.append(f"description: {diagnostic.description}")
+    if diagnostic.hint is not None:
+        parts.append(f"hint: {diagnostic.hint}")
+    if diagnostic.expected is not None:
+        parts.append(f"expected: {diagnostic.expected}")
+    if diagnostic.found is not None:
+        parts.append(f"found: {diagnostic.found}")
+    if diagnostic.fix_hint is not None:
+        parts.append(f"fix: {diagnostic.fix_hint}")
+    if not parts:
+        return None
+    return " | ".join(parts)
+
+
 def _format_suppressed_by(item: SuppressedDiagnostic) -> str:
     text = f"suppressed by line {item.suppression.line}"
     if item.suppression.reason:
@@ -430,6 +460,16 @@ def _diagnostic_to_json(diagnostic: Diagnostic) -> dict[str, object]:
     }
     if diagnostic.line is not None:
         item["line"] = diagnostic.line
+    if diagnostic.description is not None:
+        item["description"] = diagnostic.description
+    if diagnostic.hint is not None:
+        item["hint"] = diagnostic.hint
+    if diagnostic.expected is not None:
+        item["expected"] = diagnostic.expected
+    if diagnostic.found is not None:
+        item["found"] = diagnostic.found
+    if diagnostic.fix_hint is not None:
+        item["fixHint"] = diagnostic.fix_hint
     return item
 
 

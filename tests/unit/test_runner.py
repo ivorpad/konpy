@@ -686,6 +686,104 @@ class TestSeverityAndNames:
         ]
 
 
+class TestDescriptionAndHintPropagation:
+    def test_diagnostic_inherits_convention_description(self) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "has-description",
+                        "description": "Every src directory must be a file.",
+                        "paths": "src",
+                        "must": {"haveType": "file"},
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(directories=["src"]),
+        )
+
+        assert result.diagnostics[0].description == "Every src directory must be a file."
+
+    def test_diagnostic_inherits_convention_hint(self) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "has-hint",
+                        "hint": "Convert src into a regular module file.",
+                        "paths": "src",
+                        "must": {"haveType": "file"},
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(directories=["src"]),
+        )
+
+        assert result.diagnostics[0].hint == "Convert src into a regular module file."
+
+    def test_diagnostic_has_no_description_or_hint_when_convention_lacks_them(self) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "plain",
+                        "paths": "src",
+                        "must": {"haveType": "file"},
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(directories=["src"]),
+        )
+
+        assert result.diagnostics[0].description is None
+        assert result.diagnostics[0].hint is None
+
+    def test_block_description_and_hint_override_convention_level(self) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "convention-name",
+                        "description": "Convention-level description.",
+                        "hint": "Convention-level hint.",
+                        "paths": "src",
+                        "must": [
+                            {
+                                "name": "block-name",
+                                "description": "Block-level description.",
+                                "hint": "Block-level hint.",
+                                "must": {"haveType": "file"},
+                            }
+                        ],
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(directories=["src"]),
+        )
+
+        assert result.diagnostics[0].description == "Block-level description."
+        assert result.diagnostics[0].hint == "Block-level hint."
+
+    def test_mustnot_forbidden_diagnostic_inherits_description_and_hint(self) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "forbids-directory",
+                        "description": "src must not be a directory.",
+                        "hint": "Flatten src into a single module.",
+                        "paths": "src",
+                        "mustNot": {"haveType": "directory"},
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(directories=["src"]),
+        )
+
+        assert result.diagnostics[0].description == "src must not be a directory."
+        assert result.diagnostics[0].hint == "Flatten src into a single module."
+
+
 class TestMustNot:
     def test_object_level_must_not_emits_forbidden_diagnostic_when_positive_passes(
         self,

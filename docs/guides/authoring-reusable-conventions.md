@@ -34,7 +34,8 @@ This format is for `conventionSources`. Package-backed `extends` files are diffe
 
 A reusable convention has the same fields as a hand-written one with three adjustments:
 
-- `name` and `description` are **required** (consumers see them in error messages and source listings).
+- `name` and `description` are **required** (consumers see them in error messages and source listings). `description` is also surfaced automatically on every diagnostic the convention produces.
+- `hint` is **optional** — a consumer-facing nudge for fixing violations, surfaced on diagnostics alongside `description`. See [configuration.md#hint](../reference/configuration.md#hint).
 - `must` and `mustNot` must use the **flat object form** (`MustPredicates`). The `MustBlock[]` form is not allowed in reusable conventions — see [Restrictions](../reference/reusable-conventions.md#restrictions).
 - `paths` is **optional**. Omit it to force consumers to supply `paths` at the use-site (useful when the right pattern depends on the consuming project's layout). When `paths` is omitted, consumers can only reference the convention via the `use` form.
 

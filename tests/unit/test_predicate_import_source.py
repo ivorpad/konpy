@@ -229,3 +229,45 @@ class TestImportSource:
         )
 
         assert result == []
+
+    def test_missing_import_diagnostic_includes_expected_and_fix_hint(self) -> None:
+        result = check_import_source(
+            expected=True,
+            predicate_name="importFromCurrentDir",
+            group="currentDir",
+            import_kind="value",
+            context=context(),
+            structure=parse_source("import react"),
+        )
+
+        assert result[0].expected is not None
+        assert "current directory" in result[0].expected
+        assert result[0].fix_hint is not None
+        assert "from .module import Name" in result[0].fix_hint
+
+    def test_forbidden_import_diagnostic_includes_expected_and_found(self) -> None:
+        result = check_import_source(
+            expected=False,
+            predicate_name="importFromCurrentDir",
+            group="currentDir",
+            import_kind="value",
+            context=context(),
+            structure=parse_source("from . import setup"),
+        )
+
+        assert result[0].found == "."
+        assert result[0].expected is not None
+        assert "not allowed" in result[0].message
+
+    def test_type_only_example_mentions_type_checking(self) -> None:
+        result = check_import_source(
+            expected=True,
+            predicate_name="importTypesFromExternals",
+            group="externals",
+            import_kind="type",
+            context=context(),
+            structure=parse_source("import react"),
+        )
+
+        assert result[0].fix_hint is not None
+        assert "TYPE_CHECKING" in result[0].fix_hint

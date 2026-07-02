@@ -221,6 +221,7 @@ class _RequiresMustOrMustNot(_StrictModel):
 class MustBlockV1(_RequiresMustOrMustNot):
     name: ConventionName | None = None
     description: str | None = None
+    hint: str | None = None
     if_: ConditionV1 | None = Field(default=None, alias="if")
     for_: ForV1 | None = Field(default=None, alias="for")
     excludeFiles: list[str] | None = None
@@ -231,6 +232,7 @@ class MustBlockV1(_RequiresMustOrMustNot):
 class ReusableConventionV1(_RequiresMustOrMustNot):
     name: ConventionName
     description: str
+    hint: str | None = None
     severity: Severity | None = None
     paths: str | list[str] | None = None
     excludeFiles: list[str] | None = None
@@ -249,6 +251,7 @@ class MustBlockUseRefV1(_StrictModel):
     use: ConventionRef
     name: ConventionName | None = None
     description: str | None = None
+    hint: str | None = None
     if_: ConditionV1 | None = Field(default=None, alias="if")
     for_: ForV1 | None = Field(default=None, alias="for")
     excludeFiles: list[str] | None = None
@@ -261,6 +264,7 @@ class ConventionV1(_RequiresMustOrMustNot):
 
     name: ConventionName | None = None
     description: str | None = None
+    hint: str | None = None
     severity: Severity | None = None
     excludeFiles: list[str] | None = None
     paths: str | list[str]
@@ -272,6 +276,7 @@ class ConventionV1(_RequiresMustOrMustNot):
 class RawHandWrittenConventionV1(_RequiresMustOrMustNot):
     name: ConventionName | None = None
     description: str | None = None
+    hint: str | None = None
     severity: Severity | None = None
     excludeFiles: list[str] | None = None
     paths: str | list[str]

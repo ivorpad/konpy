@@ -24,5 +24,7 @@ def check_have_paired_file(
             message=f"Missing paired file: {resolved}",
             convention_name=convention_name,
             severity=severity,
+            expected=resolved,
+            fix_hint=f'Create the paired file at "{resolved}".',
         )
     ]

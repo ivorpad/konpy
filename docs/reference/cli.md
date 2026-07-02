@@ -214,6 +214,16 @@ packages/openai/src/__init__.py
 Checked 6 files in 10ms. Found 3 errors.
 ```
 
+When a diagnostic carries a convention `description`/`hint` or a predicate-supplied `expected`/`found`/`fix_hint` (see [Diagnostic intent and fix direction](#diagnostic-intent-and-fix-direction) below), an extra line follows the diagnostic:
+
+```text
+src/service.py
+  -  error  Missing paired file: tests/test_service.py  [documented-service]
+        -> description: Service modules must be paired and documented. | expected: tests/test_service.py | fix: Create the paired file at "tests/test_service.py".
+```
+
+This line never appears for diagnostics that carry none of those fields, so existing output is unaffected.
+
 When everything passes:
 
 ```text
@@ -261,6 +271,16 @@ Machine-readable JSON object. It always includes unsuppressed diagnostics, suppr
       "predicateName": "export",
       "message": "Missing export \"openai\"",
       "line": 1
+    },
+    {
+      "severity": "error",
+      "conventionName": "documented-service",
+      "filePath": "src/service.py",
+      "predicateName": "havePairedFile",
+      "message": "Missing paired file: tests/test_service.py",
+      "description": "Service modules must be paired and documented.",
+      "expected": "tests/test_service.py",
+      "fixHint": "Create the paired file at \"tests/test_service.py\"."
     }
   ],
   "suppressed": [
@@ -289,7 +309,7 @@ Machine-readable JSON object. It always includes unsuppressed diagnostics, suppr
 }
 ```
 
-`diagnostics` contains unsuppressed diagnostics only. `suppressed` contains diagnostics suppressed by source comments. `severity` is `"error"` or `"warning"`. `line` is omitted when the diagnostic isn't tied to a specific line (e.g., a missing-file diagnostic).
+`diagnostics` contains unsuppressed diagnostics only. `suppressed` contains diagnostics suppressed by source comments. `severity` is `"error"` or `"warning"`. `line`, `description`, `hint`, `expected`, `found`, and `fixHint` are all omitted (never emitted as `null`) when not applicable to that diagnostic — see [Diagnostic intent and fix direction](#diagnostic-intent-and-fix-direction).
 
 `--show-suppressed` does not change JSON output; suppressed details are always present so machine consumers can audit them.
 
@@ -316,6 +336,34 @@ With `--show-suppressed`, Markdown includes a suppressed diagnostics section:
 |------|----------|---------|------------|---------------|--------|
 | 4 | warning | Definition "legacy" is only referenced by tests | unused-code | line 3 | legacy API |
 ```
+
+When a diagnostic carries `description`/`hint`/`expected`/`found`/`fix_hint`, the `Message` cell gets an additive `<br><sub>...</sub>` suffix (GitHub-flavored Markdown tables tolerate inline HTML; a literal newline would break the table):
+
+```md
+| Line | Severity | Message | Convention |
+|------|----------|---------|------------|
+| - | error | Missing paired file: tests/test_service.py<br><sub>expected: tests/test_service.py \| fix: Create the paired file at "tests/test_service.py".</sub> | documented-service |
+```
+
+`github` format is unaffected by this feature — GitHub annotations stay message-only.
+
+## Diagnostic intent and fix direction
+
+Beyond `message`, a diagnostic may carry up to five additional, always-optional fields that name the *intent* behind a rule and the *direction* of the fix, so an agent's next edit is unambiguous without re-deriving it from the message string:
+
+| Field | Source | Meaning |
+|-------|--------|---------|
+| `description` | The convention's (or `must`-block's) `description` | Why this rule exists. Inherited automatically by every diagnostic the convention produces, regardless of which predicate raised it. |
+| `hint` | The convention's (or `must`-block's) optional `hint` config field | An author-supplied nudge for fixing violations of this convention (see [Configuration](./configuration.md#hint)). |
+| `expected` | The predicate | What the predicate wanted to find (a name, path, base class, regex pattern, ...). |
+| `found` | The predicate | What the predicate found instead, when the failure is "wrong value" rather than "absent". Omitted (not `null`) when there is nothing meaningful to report as found. |
+| `fix_hint` (`fixHint` in JSON) | The predicate | A concrete, actionable next step, phrased as an instruction. |
+
+A block's own `description`/`hint` override the parent convention's when both are set (same precedence as `name`).
+
+`expected`/`found`/`fix_hint` are populated by the predicates where they can be expressed unambiguously: `exportClasses`, `exportConstants`, `havePairedFile`, `haveDocstrings`, `annotateFunctions`, `importFrom`, `importFrom*`/`importTypes*` (current-dir/parents/externals groups), and `matchContent`. Other predicates leave these fields `None` rather than guessing — a vague hint is worse than no hint.
+
+All five fields are additive and optional everywhere they appear: omitted from JSON when absent (never emitted as `null`), and producing no extra line/cell in `default`/`markdown` output when absent. `fix_hint` is data only — konsistent never applies it automatically and never emits suppression comments; see [Suppressions](./suppressions.md) for the consent policy on machine-authored changes.
 
 ## Truncation
 
