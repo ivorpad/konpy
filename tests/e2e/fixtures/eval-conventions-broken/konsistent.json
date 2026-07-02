@@ -1,0 +1,12 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "service-exports-run",
+      "paths": "src/service.py",
+      "must": {
+        "export": ["run"]
+      }
+    }
+  ]
+}

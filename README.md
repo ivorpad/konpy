@@ -277,6 +277,19 @@ Suppressions are designed to never be invisible:
 
 **Policy for AI coding agents:** never add a suppression comment without explicit human approval. The correct default is to fix the violation or ask for a decision. When approval is granted, use the narrowest form (line-level over `ignore-file`) and always include the reason. Full grammar and semantics: [docs/reference/suppressions.md](docs/reference/suppressions.md).
 
+## Agent evaluation
+
+`scripts/eval_conventions.py` A/B-compares how much structural drift a coding agent introduces or removes under different guidance strategies, using konsistent's own diagnostics as the metric. It runs `konsistent check --format json` against a target repo and reduces the result into a stable, diffable metrics summary, so you can snapshot a repo before and after an agent run and diff the two:
+
+```bash
+uv run python scripts/eval_conventions.py run /path/to/target-repo --label before --output before.json
+# ...agent does its work...
+uv run python scripts/eval_conventions.py run /path/to/target-repo --label after --output after.json
+uv run python scripts/eval_conventions.py compare before.json after.json
+```
+
+The comparison reports files checked, total diagnostics, errors/warnings/suppressed, and per-convention/per-predicate/`unusedCode` breakdowns as `before -> after (delta)`, plus a `PASS`/`FAIL - errors increased` regression check (`compare --fail-on-regression` turns that into a nonzero CI exit code). It is a repo-dev script — stdlib-only, shells out to the `konsistent` CLI as a subprocess rather than importing the package — meant for pairing with [`konsistent explain`](#explaining-rules-to-an-agent) guidance and the [`--files` hook](#diff-scoped-checking---files----changed) to measure their effect on an agent's output. Guide: [docs/guides/agent-eval.md](docs/guides/agent-eval.md).
+
 ## Development
 
 ```bash
