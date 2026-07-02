@@ -474,12 +474,13 @@ class TestDefaultSubprocessWiring:
         captured: dict[str, object] = {}
 
         def fake_run_agent_subprocess(
-            *, invocation, prompt, timeout=None, env=None, extra_args=()
+            *, invocation, prompt, timeout=None, env=None, extra_args=(), model=None
         ):
             captured["env"] = env
             captured["extra_args"] = extra_args
             captured["timeout"] = timeout
             captured["invocation"] = invocation
+            captured["model"] = model
             return AgentRunResult(returncode=0, stdout=verdict_response(), stderr="")
 
         monkeypatch.setattr(
@@ -507,6 +508,38 @@ class TestDefaultSubprocessWiring:
         )
         assert captured["timeout"] == 42.0
         assert captured["invocation"].agent == "claude"
+        assert captured["model"] == "sonnet"
+
+    def test_custom_model_is_forwarded_to_the_subprocess(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "konsistent.cli.agent_runner.shutil.which",
+            lambda binary: f"/fake/bin/{binary}",
+        )
+        captured: dict[str, object] = {}
+
+        def fake_run_agent_subprocess(
+            *, invocation, prompt, timeout=None, env=None, extra_args=(), model=None
+        ):
+            captured["model"] = model
+            return AgentRunResult(returncode=0, stdout=verdict_response(), stderr="")
+
+        monkeypatch.setattr(
+            "konsistent.cli.hook.run_agent_subprocess", fake_run_agent_subprocess
+        )
+
+        exit_code = run_hook_command(
+            match=["src/**/*.py"],
+            prompt="check it",
+            agent=HookAgent.CLAUDE,
+            model="claude-opus-4-8",
+            stdin_text=payload_json(tool_input={"file_path": "src/x.py"}),
+            env={},
+        )
+
+        assert exit_code == 0
+        assert captured["model"] == "claude-opus-4-8"
 
 
 class TestHookChildArgs:
@@ -721,6 +754,32 @@ class TestCliWiring:
         assert result.exit_code == 1
         assert "--prompt" in result.stderr
 
+    def test_unknown_option_exits_one_not_two(self) -> None:
+        # An unrecognized option (e.g. a flag from a newer konsistent copied
+        # into an older install's hook command) must not trigger Click's
+        # UsageError, which exits 2 -- reserved exclusively for a verified
+        # fail verdict. The hook command collects unknown options via
+        # ignore_unknown_options and fails open with exit 1.
+        result = runner.invoke(
+            app,
+            ["hook", "--agent", "claude", "--prompt", "check it", "--bogus-flag", "x"],
+            input="{}",
+        )
+
+        assert result.exit_code == 1
+        assert "--bogus-flag" in result.stderr
+
+    def test_model_option_is_accepted(self) -> None:
+        # --model parses at the CLI layer; with an empty payload the command
+        # skips before ever spawning an agent, so exit 0 proves wiring only.
+        result = runner.invoke(
+            app,
+            ["hook", "--agent", "claude", "--prompt", "check it", "--model", "opus"],
+            input="",
+        )
+
+        assert result.exit_code == 0
+
     def test_invalid_agent_choice_exits_one_not_two(self) -> None:
         # A stale/typo'd --agent value (e.g. "auto", copied from
         # extract-rules, which is not accepted here) must not be caught by
@@ -800,3 +859,58 @@ class TestCliWiring:
         )
 
         assert result.exit_code == 0
+
+
+class TestRunAgentSubprocessModel:
+    def test_model_args_are_injected_before_guard_args_and_prompt(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import subprocess
+
+        from konsistent.cli import agent_runner
+
+        captured: dict[str, object] = {}
+
+        def fake_subprocess_run(command, **kwargs):
+            captured["command"] = command
+            return subprocess.CompletedProcess(command, 0, stdout="{}", stderr="")
+
+        monkeypatch.setattr(agent_runner.subprocess, "run", fake_subprocess_run)
+
+        invocation = AgentInvocation(agent="claude", executable="claude", prefix_args=("-p",))
+        agent_runner.run_agent_subprocess(
+            invocation=invocation,
+            prompt="verify it",
+            extra_args=("--sandbox", "read-only"),
+            model="sonnet",
+        )
+
+        assert captured["command"] == [
+            "claude",
+            "-p",
+            "--model",
+            "sonnet",
+            "--sandbox",
+            "read-only",
+            "verify it",
+        ]
+
+    def test_no_model_args_when_model_is_none(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import subprocess
+
+        from konsistent.cli import agent_runner
+
+        captured: dict[str, object] = {}
+
+        def fake_subprocess_run(command, **kwargs):
+            captured["command"] = command
+            return subprocess.CompletedProcess(command, 0, stdout="{}", stderr="")
+
+        monkeypatch.setattr(agent_runner.subprocess, "run", fake_subprocess_run)
+
+        invocation = AgentInvocation(agent="claude", executable="claude", prefix_args=("-p",))
+        agent_runner.run_agent_subprocess(invocation=invocation, prompt="verify it")
+
+        assert captured["command"] == ["claude", "-p", "verify it"]

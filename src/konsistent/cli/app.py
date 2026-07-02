@@ -473,8 +473,9 @@ def infer(
         raise typer.Exit(exit_code)
 
 
-@app.command()
+@app.command(context_settings={"ignore_unknown_options": True, "allow_extra_args": True})
 def hook(
+    ctx: typer.Context,
     match: Annotated[
         list[str] | None,
         typer.Option(
@@ -506,6 +507,13 @@ def hook(
             ),
         ),
     ] = None,
+    model: Annotated[
+        str,
+        typer.Option(
+            "--model",
+            help="Model passed through to the agent CLI as --model. Default: sonnet.",
+        ),
+    ] = DEFAULT_MODEL,
     timeout: Annotated[
         float,
         typer.Option(
@@ -515,10 +523,20 @@ def hook(
     ] = DEFAULT_TIMEOUT,
 ) -> None:
     """Run an agentic PostToolUse verification hook for Claude Code or Codex."""
+    # Unknown options land in ctx.args (ignore_unknown_options) instead of
+    # raising Click's UsageError, which exits 2 -- a code reserved exclusively
+    # for a verified fail verdict. A misconfigured hook must fail open with 1.
+    if ctx.args:
+        sys.stderr.write(
+            f"Unrecognized arguments for konsistent hook: {' '.join(ctx.args)}\n"
+        )
+        raise typer.Exit(1)
+
     exit_code = run_hook_command(
         match=match or [],
         prompt=prompt,
         agent=agent,
+        model=model,
         timeout=timeout,
     )
     if exit_code != 0:
@@ -591,12 +609,14 @@ Hook options:
   --match <glob>             Glob pattern to filter written/edited files; may be repeated
   --prompt <text>            Natural-language verification instruction (required)
   --agent <agent>            Verifier agent CLI to use: claude or codex (required)
+  --model <model>            Model passed through to the agent CLI (default: sonnet)
   --timeout <seconds>        Timeout for the verifier agent subprocess (default: 300.0)
 
 Exit codes (hook):
   0  pass, or skipped (no match, non-write tool, sentinel active, unparseable payload)
-  1  infra fail-open (missing/invalid --prompt or --agent, agent missing,
-     subprocess error, unparseable agent output) -- never a CLI usage error
+  1  infra fail-open (missing/invalid --prompt or --agent, unrecognized options,
+     agent missing, subprocess error, unparseable agent output) -- never a CLI
+     usage error
   2  verdict is fail; reasons are written to stderr
 
 Global options:

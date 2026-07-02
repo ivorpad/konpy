@@ -196,3 +196,88 @@ class TestHookEndToEnd:
 
         assert exit_code == 0
         assert stderr == ""
+
+
+class TestModelArgvEndToEnd:
+    def test_child_argv_carries_default_model_sonnet_and_recursion_guards(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        run_cli_stdin,
+    ) -> None:
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+
+        stub_bin = tmp_path / "bin"
+        argv_dump = tmp_path / "argv.json"
+        stub = stub_bin / "claude"
+        stub.parent.mkdir(parents=True, exist_ok=True)
+        stub.write_text(
+            "#!/usr/bin/env python3\n"
+            "import json, sys\n"
+            f"open({str(argv_dump)!r}, 'w').write(json.dumps(sys.argv[1:]))\n"
+            'print(json.dumps({"verdict": "pass", "reasons": []}))\n',
+            encoding="utf-8",
+        )
+        stub.chmod(0o755)
+        _prepend_stub_bin_to_path(monkeypatch, stub_bin)
+
+        exit_code, _stdout, _stderr = run_cli_stdin(
+            project_dir,
+            _hook_payload(project_dir=project_dir),
+            "hook",
+            "--agent",
+            "claude",
+            "--prompt",
+            "verify it",
+            "--match",
+            "src/**/*.py",
+        )
+
+        assert exit_code == 0
+        child_argv = json.loads(argv_dump.read_text(encoding="utf-8"))
+        assert child_argv[0] == "-p"
+        assert child_argv[1:3] == ["--model", "sonnet"]
+        assert "--allowedTools" in child_argv
+        assert '{"hooks":{}}' in child_argv
+
+    def test_child_argv_carries_explicit_model_override(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        run_cli_stdin,
+    ) -> None:
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+
+        stub_bin = tmp_path / "bin"
+        argv_dump = tmp_path / "argv.json"
+        stub = stub_bin / "claude"
+        stub.parent.mkdir(parents=True, exist_ok=True)
+        stub.write_text(
+            "#!/usr/bin/env python3\n"
+            "import json, sys\n"
+            f"open({str(argv_dump)!r}, 'w').write(json.dumps(sys.argv[1:]))\n"
+            'print(json.dumps({"verdict": "pass", "reasons": []}))\n',
+            encoding="utf-8",
+        )
+        stub.chmod(0o755)
+        _prepend_stub_bin_to_path(monkeypatch, stub_bin)
+
+        exit_code, _stdout, _stderr = run_cli_stdin(
+            project_dir,
+            _hook_payload(project_dir=project_dir),
+            "hook",
+            "--agent",
+            "claude",
+            "--prompt",
+            "verify it",
+            "--match",
+            "src/**/*.py",
+            "--model",
+            "claude-opus-4-8",
+        )
+
+        assert exit_code == 0
+        child_argv = json.loads(argv_dump.read_text(encoding="utf-8"))
+        assert child_argv[1:3] == ["--model", "claude-opus-4-8"]

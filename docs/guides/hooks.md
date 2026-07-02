@@ -22,7 +22,7 @@ They can be run side by side — the deterministic recipe as a fast first pass, 
 
 1. Reads a hook payload as JSON from stdin (the shape Claude Code and Codex both send to hook commands).
 2. Skips silently (exit 0) unless the payload is a write-shaped tool call (`Write`/`Edit`/`MultiEdit` for Claude, `apply_patch` for Codex) on a path matching `--match`.
-3. Builds a verification prompt from `--prompt` plus the matched file path and spawns the chosen `--agent` read-only, asking it to return one JSON verdict object.
+3. Builds a verification prompt from `--prompt` plus the matched file path and spawns the chosen `--agent` read-only, asking it to return one JSON verdict object. The verifier's model is pinned via `--model` (default: `sonnet`), forwarded to the agent CLI as its own `--model` flag — set it explicitly when using `--agent codex`, whose model names differ.
 4. Turns that verdict into a hook-protocol exit code.
 
 ## Exit-code contract
@@ -35,7 +35,7 @@ They can be run side by side — the deterministic recipe as a fast first pass, 
 
 Exit 2 is never used for infra trouble, and exit 1 is never used for an actual fail verdict. A hook that can't run cleanly degrades to "no verification happened" rather than blocking the host agent.
 
-`--prompt` and `--agent` are required, but that requirement is enforced by `konsistent hook` itself (exit 1), not by the CLI's own argument parser. A missing `--prompt`, a missing `--agent`, or an unrecognized `--agent` value (e.g. a stale `auto` copied from `extract-rules`, which doesn't accept it here) all fail open with exit 1 and a one-line stderr notice — never a CLI usage error, and never exit 2. This matters because the host feeds exit-2 stderr back to the coding model as blocking self-correction feedback; a hook misconfiguration must never be mistaken for that.
+`--prompt` and `--agent` are required, but that requirement is enforced by `konsistent hook` itself (exit 1), not by the CLI's own argument parser. A missing `--prompt`, a missing `--agent`, an unrecognized `--agent` value (e.g. a stale `auto` copied from `extract-rules`, which doesn't accept it here), or an entirely unrecognized option (e.g. a flag from a newer konsistent pasted into an older install's hook command) all fail open with exit 1 and a one-line stderr notice — never a CLI usage error, and never exit 2. This matters because the host feeds exit-2 stderr back to the coding model as blocking self-correction feedback; a hook misconfiguration must never be mistaken for that.
 
 ## Recursion guards
 
@@ -63,7 +63,7 @@ Add a `PostToolUse` hook in `.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "konsistent hook --agent claude --match 'src/**/*.py' --prompt 'Check that this module defines what it claims to: class and function names match their bodies, docstrings are not aspirational.'"
+            "command": "konsistent hook --agent claude --model sonnet --match 'src/**/*.py' --prompt 'Check that this module defines what it claims to: class and function names match their bodies, docstrings are not aspirational.'"
           }
         ]
       }
@@ -84,7 +84,7 @@ Add a `PostToolUse` hook in `.codex/hooks.json`:
     "PostToolUse": [
       {
         "matcher": "apply_patch",
-        "command": "konsistent hook --agent codex --match 'src/**/*.py' --prompt 'Check that this module defines what it claims to: class and function names match their bodies, docstrings are not aspirational.'"
+        "command": "konsistent hook --agent codex --model gpt-5-codex --match 'src/**/*.py' --prompt 'Check that this module defines what it claims to: class and function names match their bodies, docstrings are not aspirational.'"
       }
     ]
   }
@@ -92,6 +92,8 @@ Add a `PostToolUse` hook in `.codex/hooks.json`:
 ```
 
 Codex reports its write tool as `apply_patch` regardless of whether the change looks like an add, update, or delete; `konsistent hook` recovers the touched path from the `apply_patch` envelope or a unified diff. If the payload shape can't be recognized, the hook skips (exit 0) rather than guessing.
+
+Note the explicit `--model`: the default (`sonnet`) is a Claude model name, so a `--agent codex` hook should always set `--model` to a model its own CLI accepts.
 
 ## Rolling this out
 

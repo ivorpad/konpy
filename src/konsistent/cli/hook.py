@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from wcmatch import glob as wcglob
 
 from konsistent.cli.agent_runner import (
+    DEFAULT_MODEL,
     AgentInvocation,
     AgentRunner,
     AgentRunResult,
@@ -64,6 +65,7 @@ def run_hook_command(
     match: list[str],
     prompt: str | None,
     agent: HookAgent | str | None,
+    model: str = DEFAULT_MODEL,
     timeout: float = DEFAULT_TIMEOUT,
     stdin_text: str | None = None,
     runner: AgentRunner | None = None,
@@ -125,6 +127,7 @@ def run_hook_command(
             invocation=invocation,
             prompt=hook_prompt,
             runner=runner,
+            model=model,
             timeout=timeout,
             agent_value=agent_value,
         )
@@ -231,6 +234,7 @@ def _run_hook_agent(
     invocation: AgentInvocation,
     prompt: str,
     runner: AgentRunner | None,
+    model: str,
     timeout: float,
     agent_value: str,
 ) -> AgentRunResult:
@@ -247,6 +251,7 @@ def _run_hook_agent(
         timeout=timeout,
         env=child_env,
         extra_args=hook_child_args(agent_value),
+        model=model,
     )
 
 
