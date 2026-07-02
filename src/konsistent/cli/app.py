@@ -6,6 +6,7 @@ from typing import Annotated
 import typer
 
 from konsistent._version import __version__
+from konsistent.cli.agent_runner import DEFAULT_MODEL
 from konsistent.cli.check import DiagnosticLevel, OutputFormat, run_check_command
 from konsistent.cli.explain import ExplainFormat, run_explain_command
 from konsistent.cli.extract_rules import ExtractAgent, run_extract_rules_command
@@ -353,6 +354,13 @@ def extract_rules(
             help="Write unmapped-rules report to this path instead of stdout.",
         ),
     ] = None,
+    model: Annotated[
+        str,
+        typer.Option(
+            "--model",
+            help="Model passed through to the agent CLI as --model. Default: sonnet.",
+        ),
+    ] = DEFAULT_MODEL,
 ) -> None:
     """Extract reviewable reusable conventions from a prose source file."""
     exit_code = run_extract_rules_command(
@@ -360,6 +368,7 @@ def extract_rules(
         output_path=output_path,
         agent=agent,
         report_path=report_path,
+        model=model,
     )
     if exit_code != 0:
         raise typer.Exit(exit_code)
@@ -558,6 +567,7 @@ Extract-rules options:
   -o, --output <path>        Path for generated reusable convention pack proposal
   --agent <agent>            Agent CLI to use: auto, claude, or codex
   --report <path>            Write unmapped-rules report to this path
+  --model <model>            Model passed through to the agent CLI (default: sonnet)
 
 Infer options:
   --include <glob>           Glob(s) of files to scan; repeatable (default: **/*.py)

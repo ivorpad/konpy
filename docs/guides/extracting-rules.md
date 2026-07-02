@@ -94,6 +94,8 @@ konsistent extract-rules docs/team-rules.md --agent codex
 1. `claude`
 2. `codex`
 
+`--model` pins the model the agent CLI runs on (forwarded as its own `--model` flag). The default is `sonnet` — a Claude model name, so pass an explicit `--model` when the resolved agent is `codex`.
+
 The invocation forms are:
 
 ```bash

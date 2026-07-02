@@ -419,3 +419,37 @@ class TestAgentSelection:
         assert isinstance(codex, Ok)
         assert claude.value.prefix_args == ("-p",)
         assert codex.value.prefix_args == ("exec",)
+
+
+class TestModelThreading:
+    def test_default_model_reaches_run_agent_subprocess(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        source = tmp_path / "rules.md"
+        output = tmp_path / "packs" / "team.json"
+        write_source(source)
+
+        monkeypatch.setattr(
+            "konsistent.cli.agent_runner.shutil.which",
+            lambda binary: f"/fake/bin/{binary}",
+        )
+        captured: dict[str, object] = {}
+
+        def fake_run_agent_subprocess(*, invocation, prompt, model=None, **kwargs):
+            captured["model"] = model
+            return AgentRunResult(returncode=0, stdout=agent_response(), stderr="")
+
+        monkeypatch.setattr(
+            "konsistent.cli.extract_rules.run_agent_subprocess",
+            fake_run_agent_subprocess,
+        )
+
+        exit_code = run_extract_rules_command(
+            source_file=str(source),
+            output_path=str(output),
+            agent=ExtractAgent.CLAUDE,
+            report_path=None,
+        )
+
+        assert exit_code == 0
+        assert captured["model"] == "sonnet"

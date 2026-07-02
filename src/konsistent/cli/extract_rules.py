@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from konsistent.cli.agent_runner import (
     _FENCE_RE,
     AGENT_COMMANDS,
+    DEFAULT_MODEL,
     AgentInvocation,
     AgentRunner,
     AgentRunResult,
@@ -32,6 +33,7 @@ def run_extract_rules_command(
     output_path: str | None,
     agent: ExtractAgent | str,
     report_path: str | None,
+    model: str = DEFAULT_MODEL,
     runner: AgentRunner | None = None,
 ) -> int:
     agent_value_result = _normalize_agent_value(agent)
@@ -69,7 +71,7 @@ def run_extract_rules_command(
         predicates_reference=predicates_reference_result.value,
     )
 
-    run_result = _run_agent(invocation=invocation, prompt=prompt, runner=runner)
+    run_result = _run_agent(invocation=invocation, prompt=prompt, runner=runner, model=model)
     if run_result.returncode != 0:
         _write_error(
             f'Agent CLI "{invocation.agent}" exited with code {run_result.returncode}.'
@@ -267,6 +269,7 @@ def _run_agent(
     invocation: AgentInvocation,
     prompt: str,
     runner: AgentRunner | None,
+    model: str,
 ) -> AgentRunResult:
     if runner is not None:
         result = runner(invocation, prompt)
@@ -274,7 +277,7 @@ def _run_agent(
             return result
         return AgentRunResult(returncode=0, stdout=result, stderr="")
 
-    return run_agent_subprocess(invocation=invocation, prompt=prompt)
+    return run_agent_subprocess(invocation=invocation, prompt=prompt, model=model)
 
 
 def _default_output_path(source_file: str) -> Path:
@@ -305,6 +308,7 @@ def _write_error(message: str) -> None:
 
 __all__ = [
     "AGENT_COMMANDS",
+    "DEFAULT_MODEL",
     "AgentInvocation",
     "AgentRunResult",
     "AgentRunner",
