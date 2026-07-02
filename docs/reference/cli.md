@@ -319,7 +319,7 @@ Structural conventions enforced by `konsistent`. Follow these before writing or 
 - **`documented-service`** (severity: `error`) — paths: `src/service.py`
   - Service modules must be paired and documented.
   - hint: Create the paired test file next to the service module.
-  - must: `havePairedFile` tests/test_{name}.py
+  - must: `havePairedFile` tests/test_service.py
 
 ## Suppressions
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import posixpath
+import re
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
@@ -23,6 +24,7 @@ from konsistent.core.suppressions import (
     filter_suppressed_diagnostics,
     parse_suppressions_for_source,
 )
+from konsistent.predicates.import_source import check_import_source
 from konsistent.predicates.registry import (
     PredicateRegistry,
     builtin_predicate_registry,
@@ -369,6 +371,282 @@ def _format_forbidden_message(
             return f"Forbidden {key}"
 
 
+_IMPORT_SOURCE_GROUPS: dict[str, tuple[str, str]] = {
+    "importFromCurrentDir": ("currentDir", "value"),
+    "importFromParents": ("parents", "value"),
+    "importFromExternals": ("externals", "value"),
+    "importTypesFromCurrentDir": ("currentDir", "type"),
+    "importTypesFromParents": ("parents", "type"),
+    "importTypesFromExternals": ("externals", "type"),
+}
+
+# The exact predicate set the `must` direction documents as able to populate
+# `expected`/`found`/`fix_hint` unambiguously (see
+# docs/reference/cli.md#diagnostic-intent-and-fix-direction). `mustNot`
+# mirrors that same set; every other predicate leaves these fields `None`,
+# matching the `must` direction's own policy of never guessing.
+_RICH_MUST_NOT_KEYS: frozenset[str] = frozenset(
+    {
+        "importFrom",
+        "matchContent",
+        "havePairedFile",
+        "exportClasses",
+        "exportConstants",
+        "haveDocstrings",
+        "annotateFunctions",
+        *_IMPORT_SOURCE_GROUPS,
+    }
+)
+
+
+@dataclass(frozen=True, kw_only=True)
+class _ForbiddenFixData:
+    expected: str | None = None
+    found: str | None = None
+    fix_hint: str | None = None
+    line: int | None = None
+    column: int | None = None
+
+
+def _forbidden_fix_data_import_from(
+    *,
+    value: Any,
+    context: PredicateContext,
+    structure: PyFileStructure,
+) -> _ForbiddenFixData:
+    resolved = context.resolve_template(str(value))
+    match = next(
+        (
+            source
+            for source in structure.import_sources
+            if source.from_ == resolved
+            or (not resolved.startswith(".") and source.from_.startswith(f"{resolved}."))
+        ),
+        None,
+    )
+    if match is None:
+        return _ForbiddenFixData(expected=f'no import from "{resolved}"')
+
+    return _ForbiddenFixData(
+        expected=f'no import from "{resolved}"',
+        found=match.from_,
+        fix_hint=f'Remove or relocate the import of "{match.from_}".',
+        line=match.pos.line,
+        column=match.pos.column,
+    )
+
+
+def _forbidden_fix_data_import_source_group(
+    *,
+    key: str,
+    context: PredicateContext,
+    structure: PyFileStructure,
+) -> _ForbiddenFixData:
+    group, import_kind = _IMPORT_SOURCE_GROUPS[key]
+    # `check_import_source` already has a "forbidden" branch (`expected is
+    # False`) that computes the exact same fix-direction fields the `must`
+    # direction uses -- reuse it for the data, but keep this call's own
+    # `.message` out of it so `_format_forbidden_message`'s wording (asserted
+    # by existing tests) is unaffected.
+    diagnostics = check_import_source(
+        expected=False,
+        predicate_name=key,
+        group=group,
+        import_kind=import_kind,
+        context=context,
+        structure=structure,
+    )
+    if not diagnostics:
+        return _ForbiddenFixData()
+
+    diagnostic = diagnostics[0]
+    return _ForbiddenFixData(
+        expected=diagnostic.expected,
+        found=diagnostic.found,
+        fix_hint=diagnostic.fix_hint,
+        line=diagnostic.line,
+        column=diagnostic.column,
+    )
+
+
+def _forbidden_fix_data_match_content(
+    *,
+    pattern: str,
+    context: PredicateContext,
+    file_system: FileSystem,
+) -> _ForbiddenFixData:
+    source = file_system.read_file(context.path)
+    try:
+        regex = re.compile(pattern, re.MULTILINE)
+    except re.error:
+        return _ForbiddenFixData(expected=pattern)
+
+    match = regex.search(source)
+    if match is None:
+        return _ForbiddenFixData(expected=pattern)
+
+    line = source.count("\n", 0, match.start()) + 1
+    line_start = source.rfind("\n", 0, match.start()) + 1
+    column = match.start() - line_start + 1
+
+    return _ForbiddenFixData(
+        expected=pattern,
+        found=match.group(0),
+        fix_hint=(
+            f"Remove or rewrite the content in {context.path} that matches "
+            f"the pattern `{pattern}`."
+        ),
+        line=line,
+        column=column,
+    )
+
+
+def _forbidden_fix_data_have_paired_file(
+    *,
+    value: Any,
+    context: PredicateContext,
+) -> _ForbiddenFixData:
+    resolved = context.resolve_template(str(value))
+    return _ForbiddenFixData(
+        expected=f'no paired file at "{resolved}"',
+        found=resolved,
+        fix_hint=f'Delete or unpair the file at "{resolved}".',
+    )
+
+
+def _forbidden_fix_data_export_classes(
+    *,
+    value: Any,
+    context: PredicateContext,
+    structure: PyFileStructure,
+) -> _ForbiddenFixData:
+    name = _resolve_entry_name(value=value, context=context)
+    class_info = next((cls for cls in structure.classes if cls.name == name), None)
+    if class_info is None:
+        return _ForbiddenFixData(expected=f'no export of class "{name}"', found=name)
+
+    return _ForbiddenFixData(
+        expected=f'no export of class "{name}"',
+        found=name,
+        fix_hint=f'Remove or stop exporting class "{name}" in {context.path}.',
+        line=class_info.pos.line,
+        column=class_info.pos.column,
+    )
+
+
+def _forbidden_fix_data_export_constants(
+    *,
+    value: Any,
+    context: PredicateContext,
+    structure: PyFileStructure,
+) -> _ForbiddenFixData:
+    name = _resolve_entry_name(value=value, context=context)
+    export_info = next(
+        (
+            export
+            for export in structure.exports
+            if export.name == name and export.kind == "const" and not export.is_type
+        ),
+        None,
+    )
+    if export_info is None:
+        return _ForbiddenFixData(expected=f'no export of constant "{name}"', found=name)
+
+    return _ForbiddenFixData(
+        expected=f'no export of constant "{name}"',
+        found=name,
+        fix_hint=f'Remove or stop exporting constant "{name}" in {context.path}.',
+        line=export_info.pos.line,
+        column=export_info.pos.column,
+    )
+
+
+def _forbidden_fix_data_have_docstrings() -> _ForbiddenFixData:
+    # `haveDocstrings` evaluates an all-or-nothing condition over every
+    # applicable target in the file (see `check_have_docstrings`), so --
+    # unlike the item-level predicates above -- there is no single offending
+    # location to anchor `line`/`column` to.
+    return _ForbiddenFixData(
+        expected="no docstring coverage",
+        fix_hint="Remove the docstrings covered by this rule, or narrow its scope.",
+    )
+
+
+def _forbidden_fix_data_annotate_functions() -> _ForbiddenFixData:
+    # Same all-or-nothing shape as `haveDocstrings` above.
+    return _ForbiddenFixData(
+        expected="no function annotation coverage",
+        fix_hint="Remove the type annotations covered by this rule, or narrow its scope.",
+    )
+
+
+def _forbidden_fix_data(
+    *,
+    key: str,
+    value: Any,
+    context: PredicateContext,
+    file_system: FileSystem,
+    file_structure_cache: dict[str, PyFileStructure],
+    source_cache: dict[str, str],
+) -> _ForbiddenFixData:
+    """Compute additive `expected`/`found`/`fix_hint`/`line`/`column` data for
+    a `mustNot` violation, for the predicate set `_RICH_MUST_NOT_KEYS` names.
+    Every other predicate returns an empty `_ForbiddenFixData` (all fields
+    `None`), leaving its diagnostic exactly as before.
+    """
+    if key not in _RICH_MUST_NOT_KEYS:
+        return _ForbiddenFixData()
+
+    if key == "matchContent":
+        return _forbidden_fix_data_match_content(
+            pattern=str(value),
+            context=context,
+            file_system=file_system,
+        )
+
+    if key == "havePairedFile":
+        return _forbidden_fix_data_have_paired_file(value=value, context=context)
+
+    structure = _get_or_parse_file_structure(
+        file_path=context.path,
+        file_system=file_system,
+        cache=file_structure_cache,
+        source_cache=source_cache,
+    )
+
+    if key == "importFrom":
+        return _forbidden_fix_data_import_from(value=value, context=context, structure=structure)
+
+    if key in _IMPORT_SOURCE_GROUPS:
+        return _forbidden_fix_data_import_source_group(
+            key=key,
+            context=context,
+            structure=structure,
+        )
+
+    if key == "exportClasses":
+        return _forbidden_fix_data_export_classes(
+            value=value,
+            context=context,
+            structure=structure,
+        )
+
+    if key == "exportConstants":
+        return _forbidden_fix_data_export_constants(
+            value=value,
+            context=context,
+            structure=structure,
+        )
+
+    if key == "haveDocstrings":
+        return _forbidden_fix_data_have_docstrings()
+
+    if key == "annotateFunctions":
+        return _forbidden_fix_data_annotate_functions()
+
+    return _ForbiddenFixData()
+
+
 def _build_singleton_predicate(
     *,
     key: str,
@@ -449,6 +727,15 @@ def _check_must_not_predicates(
         if normal_diagnostics:
             continue
 
+        fix_data = _forbidden_fix_data(
+            key=check.key,
+            value=check.value,
+            context=context,
+            file_system=file_system,
+            file_structure_cache=file_structure_cache,
+            source_cache=source_cache,
+        )
+
         diagnostics.append(
             create_diagnostic(
                 file_path=context.path,
@@ -461,6 +748,11 @@ def _check_must_not_predicates(
                 ),
                 convention_name=convention_name,
                 severity=severity,
+                expected=fix_data.expected,
+                found=fix_data.found,
+                fix_hint=fix_data.fix_hint,
+                line=fix_data.line,
+                column=fix_data.column,
             )
         )
 
@@ -638,6 +930,54 @@ def _paired_file_templates(block: MustBlockV1) -> list[str]:
     return templates
 
 
+def _companion_paths_for_block(
+    *,
+    block: MustBlockV1,
+    parent_context: PredicateContext,
+    file_system: FileSystem,
+    case_maps: CaseMaps,
+) -> list[str]:
+    """Resolve every `havePairedFile` companion path implied by `block`.
+
+    Mirrors the real evaluation path in `_evaluate_for_block`: when the
+    block has a `for`, its file pattern can capture placeholders (e.g.
+    `{adapterName}`) that only exist per-match, not on the convention's
+    top-level `paths` match, so the paired-file template must be resolved
+    against those nested per-file placeholders rather than the parent's.
+    """
+    templates = _paired_file_templates(block)
+    if not templates:
+        return []
+
+    if block.for_ is None:
+        return [parent_context.resolve_template(template) for template in templates]
+
+    raw_files = block.for_.files
+    file_patterns = raw_files if isinstance(raw_files, list) else [raw_files]
+    full_patterns = [
+        posixpath.join(parent_context.base_path, parent_context.resolve_template(pattern))
+        for pattern in file_patterns
+    ]
+
+    matched = _match_with_case_maps(
+        patterns=full_patterns,
+        file_system=file_system,
+        case_maps=case_maps,
+    )
+
+    companion_paths: list[str] = []
+    for entry in matched:
+        merged_placeholders = dict(entry.placeholders)
+        merged_placeholders.update(parent_context.placeholders)
+        for_context = build_context(
+            matched=MatchedPath(path=entry.path, placeholders=merged_placeholders),
+            file_system=file_system,
+        )
+        companion_paths.extend(for_context.resolve_template(template) for template in templates)
+
+    return companion_paths
+
+
 def _convention_in_scope(
     *,
     matched: list[MatchedPath],
@@ -645,20 +985,24 @@ def _convention_in_scope(
     static_placeholders: dict[str, PlaceholderValue],
     file_system: FileSystem,
     target_files: frozenset[str],
+    case_maps: CaseMaps,
 ) -> bool:
     # `havePairedFile` is cross-file: whether the anchor file (matched by
     # `convention.paths`) is compliant depends on whether its companion
     # file exists, so editing *only* the companion must still bring this
     # convention into scope -- otherwise a broken pairing produced by
     # deleting/editing just the companion goes unreported under
-    # `--files`/`--changed` (see docs/reference/cli.md).
-    templates = [template for block in blocks for template in _paired_file_templates(block)]
+    # `--files`/`--changed` (see docs/reference/cli.md). This also has to
+    # account for `havePairedFile` living inside a nested `for` block,
+    # whose file pattern can capture placeholders that don't exist on the
+    # convention's top-level match (see `_companion_paths_for_block`).
+    has_paired_file_templates = any(_paired_file_templates(block) for block in blocks)
 
     for entry in matched:
         if _path_in_scope(path=entry.path, target_files=target_files):
             return True
 
-        if not templates:
+        if not has_paired_file_templates:
             continue
 
         merged_entry = MatchedPath(
@@ -666,9 +1010,18 @@ def _convention_in_scope(
             placeholders={**static_placeholders, **entry.placeholders},
         )
         context = build_context(matched=merged_entry, file_system=file_system)
-        for template in templates:
-            companion_path = context.resolve_template(template)
-            if _path_in_scope(path=companion_path, target_files=target_files):
+
+        for block in blocks:
+            companion_paths = _companion_paths_for_block(
+                block=block,
+                parent_context=context,
+                file_system=file_system,
+                case_maps=case_maps,
+            )
+            if any(
+                _path_in_scope(path=companion_path, target_files=target_files)
+                for companion_path in companion_paths
+            ):
                 return True
 
     return False
@@ -753,6 +1106,7 @@ def run(
             static_placeholders=static_placeholders,
             file_system=file_system,
             target_files=target_files,
+            case_maps=case_maps,
         ):
             continue
 

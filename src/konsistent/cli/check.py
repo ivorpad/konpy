@@ -108,7 +108,13 @@ def run_check_command(
     output: list[str] = []
     if formatted:
         output.append(formatted)
-    if truncation.omitted > 0:
+    # `--format json` must stay a single parseable JSON object on stdout
+    # (product invariant: JSON output is always {diagnostics, suppressed,
+    # summary}). The human-readable truncation notice is plain text, not
+    # JSON, so it is only appended for non-JSON formats -- under `--format
+    # json` a low `--max-diagnostics` silently truncates the `diagnostics`
+    # array and `summary` counts instead (see docs/guides/agent-eval.md).
+    if truncation.omitted > 0 and resolved_format != "json":
         output.append(format_truncation_message(truncation.omitted))
     if output:
         sys.stdout.write("\n".join(output))
