@@ -43,12 +43,16 @@ class HeuristicSignal:
 
 @dataclass(frozen=True, kw_only=True)
 class HeuristicMineResult:
+    """The proposal and skipped signals produced by one heuristic's `mine`."""
+
     proposals: list[HeuristicSignal]
     skipped: list[HeuristicSignal]
 
 
 @dataclass(frozen=True, kw_only=True)
 class InferProposal:
+    """A scored, ready-to-render convention proposal for `konsistent infer`."""
+
     heuristic: str
     convention_name: str
     scope: str
@@ -63,6 +67,8 @@ class InferProposal:
 
 @dataclass(frozen=True, kw_only=True)
 class InferSkipped:
+    """A heuristic signal that did not meet the threshold to become a proposal."""
+
     heuristic: str
     scope: str
     detail: str | None
@@ -74,6 +80,8 @@ class InferSkipped:
 
 @dataclass(frozen=True, kw_only=True)
 class InferReport:
+    """The full `konsistent infer` output: scan stats, proposals, and skipped signals."""
+
     files_scanned: int
     test_files_excluded: int
     files_skipped_unparsable: int

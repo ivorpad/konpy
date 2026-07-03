@@ -19,6 +19,7 @@ def mine(
     min_confidence: float,
     min_support: int,
 ) -> HeuristicMineResult:
+    """Mine per-top-level-segment preference for absolute over relative imports from `records`."""
     groups: dict[str, list[InferFileRecord]] = {}
     for record in records:
         if record.is_test or record.is_init:

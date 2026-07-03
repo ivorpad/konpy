@@ -12,6 +12,7 @@ from konsistent.infer.models import InferProposal, InferReport, InferSkipped
 
 
 def render_report_json(report: InferReport) -> str:
+    """Render `report` as a machine-readable JSON string."""
     payload = {
         "filesScanned": report.files_scanned,
         "testFilesExcluded": report.test_files_excluded,
@@ -55,6 +56,7 @@ def _percent(value: float) -> str:
 
 
 def render_report_text(report: InferReport) -> str:
+    """Render `report` as a human-readable plain-text summary."""
     lines: list[str] = [
         f"Scanned {report.files_scanned} files "
         f"({report.test_files_excluded} test files excluded)."
@@ -100,6 +102,7 @@ def render_report_text(report: InferReport) -> str:
 
 
 def render_report_markdown(report: InferReport) -> str:
+    """Render `report` as a Markdown document with proposal/skipped tables."""
     lines: list[str] = ["## Infer report", ""]
     lines.append(
         f"Scanned {report.files_scanned} files "

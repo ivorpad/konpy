@@ -40,6 +40,7 @@ def mine(
     min_confidence: float,
     min_support: int,
 ) -> HeuristicMineResult:
+    """Mine per-directory-and-suffix export-name-matches-filename coverage from `records`."""
     groups: dict[tuple[str, str], list[InferFileRecord]] = {}
 
     for record in records:

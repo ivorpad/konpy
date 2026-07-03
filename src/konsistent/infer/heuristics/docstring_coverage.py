@@ -20,6 +20,7 @@ def mine(
     min_confidence: float,
     min_support: int,
 ) -> HeuristicMineResult:
+    """Mine per-top-level-segment module/class/function docstring coverage from `records`."""
     groups: dict[str, list[InferFileRecord]] = {}
     for record in records:
         if record.is_test:

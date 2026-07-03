@@ -61,6 +61,7 @@ def run_infer(
     max_violators: int = DEFAULT_MAX_VIOLATORS,
     heuristics: Sequence[str] | None = None,
 ) -> InferReport:
+    """Mine `file_system` for structural conventions and return a scored report."""
     records, unparsable, unreadable = collect_file_records(
         file_system=file_system,
         include=include,

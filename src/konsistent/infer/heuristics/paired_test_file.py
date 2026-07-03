@@ -36,6 +36,7 @@ def mine(
     min_confidence: float,
     min_support: int,
 ) -> HeuristicMineResult:
+    """Mine per-directory production-module-has-a-paired-test-file coverage from `records`."""
     test_index: dict[str, list[str]] = {}
     for record in records:
         if not record.is_test:
