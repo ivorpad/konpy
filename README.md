@@ -200,6 +200,67 @@ konsistent was built for exactly one workflow: encode your conventions once in `
 
 Division of labor: **ruff owns universal style and correctness; konsistent owns *your* architecture** — layout, naming-to-export contracts, import boundaries, paired tests, dead code. They complement, not compete.
 
+### What an agent sees
+
+When the `PostToolUse` hook runs `konsistent check --files <edited-file> --format json`, this is the payload that lands in front of the agent. Given a freshly written `src/service.py` that skips docstrings and annotations and leaves a `FIXME` behind — checked against a strict pack of `docstrings-on-public-api`, `annotated-public-functions`, and a `no-fixme` `matchContent` rule — the agent receives:
+
+```json
+{
+  "diagnostics": [
+    {
+      "severity": "error",
+      "conventionName": "docstrings-on-public-api",
+      "filePath": "src/service.py",
+      "predicateName": "haveDocstrings",
+      "message": "Function \"compute_total\" must have a docstring",
+      "line": 1,
+      "description": "Public functions must have docstrings.",
+      "hint": "Add a one-line docstring describing what the function does.",
+      "expected": "docstring on function \"compute_total\"",
+      "fixHint": "Add a docstring to function \"compute_total\"."
+    },
+    {
+      "severity": "error",
+      "conventionName": "annotated-public-functions",
+      "filePath": "src/service.py",
+      "predicateName": "annotateFunctions",
+      "message": "Function \"compute_total\" must have a return type annotation",
+      "line": 1,
+      "expected": "return type annotation",
+      "fixHint": "Add a return type annotation to function \"compute_total\", e.g. `-> <Type>:`."
+    },
+    {
+      "severity": "error",
+      "conventionName": "no-fixme",
+      "filePath": "src/service.py",
+      "predicateName": "mustNot.matchContent",
+      "message": "Forbidden content matching regex \"\\bFIXME\\b\"",
+      "line": 2,
+      "expected": "\\bFIXME\\b",
+      "found": "FIXME",
+      "fixHint": "Remove or rewrite the content in src/service.py that matches the pattern `\\bFIXME\\b`."
+    }
+  ],
+  "suppressed": [],
+  "summary": { "filesChecked": 1, "errors": 6, "warnings": 0, "suppressed": 0, "durationMs": 0.86 },
+  "truncation": { "shown": 6, "omitted": 0 }
+}
+```
+
+Every diagnostic carries not just a `message` but the machine-actionable `expected`/`found`/`fixHint` and convention-level `description`/`hint` from [Diagnostic intent and fix direction](#diagnostic-intent-and-fix-direction) — so the agent applies the fix directly instead of re-deriving it from prose. (Three of the six errors are shown here for brevity; `summary.errors` is always the full pre-truncation total.) The same run in the default human-readable `--format` — what *you* see at the terminal — renders as:
+
+```
+src/service.py
+  1  error  Function "compute_total" must have a docstring  [docstrings-on-public-api]
+        -> description: Public functions must have docstrings. | hint: Add a one-line docstring describing what the function does. | expected: docstring on function "compute_total" | fix: Add a docstring to function "compute_total".
+  1  error  Function "compute_total" must have a return type annotation  [annotated-public-functions]
+        -> expected: return type annotation | fix: Add a return type annotation to function "compute_total", e.g. `-> <Type>:`.
+  2  error  Forbidden content matching regex "\bFIXME\b"  [no-fixme]
+        -> found: FIXME | fix: Remove or rewrite the content in src/service.py that matches the pattern `\bFIXME\b`.
+
+Checked 1 file in 1ms. Found 6 errors.
+```
+
 ## Extracting rules from skills & style guides
 
 Turn prose best practices — a Claude Code skill's `SKILL.md`, a team style guide, any markdown — into a reviewable pack:
