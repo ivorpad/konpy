@@ -10,6 +10,8 @@ from konsistent.core.explain import render_explain
 
 
 class ExplainFormat(StrEnum):
+    """Output format for `konsistent explain`: markdown or plain text."""
+
     MD = "md"
     TEXT = "text"
 
@@ -21,6 +23,12 @@ def run_explain_command(
     placeholder: list[str] | None,
     format: ExplainFormat | str = ExplainFormat.MD,
 ) -> int:
+    """Run the `konsistent explain` flow: load config and render agent guidance.
+
+    Loads the resolved config and renders its active conventions/predicates
+    as prevention-side guidance for a code-writing agent, writing the result
+    to stdout.
+    """
     cli_placeholders_result = parse_cli_placeholders(
         raw=normalize_placeholder_arg(placeholder),
     )

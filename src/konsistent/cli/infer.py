@@ -23,6 +23,8 @@ from konsistent.infer.report import render_report_json, render_report_markdown, 
 
 
 class InferReportFormat(StrEnum):
+    """Output format for the `konsistent infer` confidence/violators report."""
+
     TEXT = "text"
     MARKDOWN = "markdown"
     JSON = "json"
@@ -49,6 +51,12 @@ def run_infer_command(
     report_path: str | None,
     file_system: FileSystem | None = None,
 ) -> int:
+    """Run the `konsistent infer` flow: mine, validate, and write a proposed pack.
+
+    Runs the requested heuristics over the codebase, builds a
+    `ReusableConventionsPackageV1`-shaped proposal, and writes the proposal
+    and its confidence/violators report to the given (or default) outputs.
+    """
     if not (0.0 <= min_confidence <= 1.0):
         _write_error("--min-confidence must be between 0.0 and 1.0 inclusive.")
         return 1

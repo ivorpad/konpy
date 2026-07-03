@@ -7,12 +7,13 @@ import subprocess
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any
 
 from konsistent.config.errors import Err, Ok, Result
 
 
 class ExtractAgent(StrEnum):
+    """Agent CLI selection for `konsistent extract-rules`: auto-detect, claude, or codex."""
+
     AUTO = "auto"
     CLAUDE = "claude"
     CODEX = "codex"
@@ -20,6 +21,8 @@ class ExtractAgent(StrEnum):
 
 @dataclass(frozen=True)
 class AgentInvocation:
+    """A resolved agent CLI: which binary to run and its fixed prefix args."""
+
     agent: str
     executable: str
     prefix_args: tuple[str, ...]
@@ -27,6 +30,8 @@ class AgentInvocation:
 
 @dataclass(frozen=True)
 class AgentRunResult:
+    """The outcome of running an agent CLI subprocess."""
+
     returncode: int
     stdout: str
     stderr: str
@@ -46,6 +51,10 @@ _FENCE_RE = re.compile(r"```(?:json|JSON)?[^\n]*\n(?P<body>.*?)```", re.DOTALL)
 
 
 def select_agent_invocation(agent: ExtractAgent | str) -> Result[AgentInvocation]:
+    """Resolve an agent choice to a concrete `AgentInvocation` on PATH.
+
+    For `auto`, tries `claude` then `codex`, returning the first found.
+    """
     agent_value_result = _normalize_agent(agent)
     if isinstance(agent_value_result, Err):
         return agent_value_result
@@ -66,7 +75,8 @@ def select_agent_invocation(agent: ExtractAgent | str) -> Result[AgentInvocation
     return Ok(_invocation_for(agent=agent_value, executable=executable))
 
 
-def iter_json_objects(text: str) -> Iterator[dict[str, Any]]:
+def iter_json_objects(text: str) -> Iterator[dict[str, object]]:
+    """Yield each top-level JSON object decodable from `text`, brace by brace."""
     decoder = json.JSONDecoder()
     stripped = text.strip().lstrip("﻿")
 
@@ -86,9 +96,14 @@ def iter_json_objects(text: str) -> Iterator[dict[str, Any]]:
 def first_json_object(
     text: str,
     *,
-    predicate: Callable[[dict[str, Any]], bool] | None = None,
-) -> dict[str, Any] | None:
-    candidates: list[dict[str, Any]] = []
+    predicate: Callable[[dict[str, object]], bool] | None = None,
+) -> dict[str, object] | None:
+    """Return the first JSON object in `text` (fenced or bare) matching `predicate`.
+
+    Without a `predicate`, returns the first object found. Used to skip
+    incidental JSON-shaped text before the real response object.
+    """
+    candidates: list[dict[str, object]] = []
 
     for match in _FENCE_RE.finditer(text.strip()):
         candidates.extend(iter_json_objects(match.group("body")))
@@ -115,6 +130,11 @@ def run_agent_subprocess(
     extra_args: Sequence[str] = (),
     model: str | None = None,
 ) -> AgentRunResult:
+    """Run the agent CLI as a subprocess with `prompt` as its final argument.
+
+    Captures stdout/stderr and turns a timeout or missing executable into an
+    `AgentRunResult` rather than letting the exception propagate.
+    """
     model_args = ("--model", model) if model else ()
     command = [
         invocation.executable,

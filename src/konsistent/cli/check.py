@@ -11,6 +11,7 @@ from konsistent.config.schema import ConfigV1
 from konsistent.core.diff_scope import resolve_diff_scope
 from konsistent.core.filesystem import RealFileSystem
 from konsistent.core.reporters import (
+    count_severities,
     format_default,
     format_github,
     format_json,
@@ -22,6 +23,8 @@ from konsistent.core.truncate import format_truncation_message, truncate_diagnos
 
 
 class OutputFormat(StrEnum):
+    """The `--format` choices accepted by the `check` command."""
+
     DEFAULT = "default"
     JSON = "json"
     GITHUB = "github"
@@ -29,6 +32,8 @@ class OutputFormat(StrEnum):
 
 
 class DiagnosticLevel(StrEnum):
+    """The `--diagnostic-level` choices accepted by the `check` command."""
+
     WARNING = "warning"
     ERROR = "error"
 
@@ -48,6 +53,11 @@ def run_check_command(
     files: list[str] | None = None,
     changed: bool = False,
 ) -> int:
+    """Run `konsistent check` and write the formatted report to stdout.
+
+    Returns the process exit code: 1 on config/scope errors or violations at
+    or above the failure threshold, 0 otherwise.
+    """
     del verbose
 
     cli_placeholders_result = parse_cli_placeholders(
@@ -97,12 +107,17 @@ def run_check_command(
         suppressed_diagnostics=run_result.suppressed_diagnostics,
     )
 
+    total_errors, total_warnings = count_severities(run_result.diagnostics)
+
     resolved_format = resolve_format(format=_enum_value(format))
     formatted = _format_result(
         result=reported_result,
         format=resolved_format,
         colors=colors,
         show_suppressed=show_suppressed,
+        total_errors=total_errors,
+        total_warnings=total_warnings,
+        omitted=truncation.omitted,
     )
 
     output: list[str] = []
@@ -110,10 +125,13 @@ def run_check_command(
         output.append(formatted)
     # `--format json` must stay a single parseable JSON object on stdout
     # (product invariant: JSON output is always {diagnostics, suppressed,
-    # summary}). The human-readable truncation notice is plain text, not
-    # JSON, so it is only appended for non-JSON formats -- under `--format
-    # json` a low `--max-diagnostics` silently truncates the `diagnostics`
-    # array and `summary` counts instead (see docs/guides/agent-eval.md).
+    # summary, truncation}). `summary.errors`/`summary.warnings` are always
+    # the full pre-truncation totals, and `truncation: {shown, omitted}` is
+    # always present, so a low `--max-diagnostics` never silently hides how
+    # much was cut (see docs/guides/agent-eval.md). The human-readable "...
+    # and N more" notice is plain text, not JSON, so it is only appended for
+    # non-JSON formats -- the `diagnostics` array itself stays truncated to
+    # `--max-diagnostics` in both cases; that cap is the point of the flag.
     if truncation.omitted > 0 and resolved_format != "json":
         output.append(format_truncation_message(truncation.omitted))
     if output:
@@ -156,9 +174,18 @@ def _format_result(
     format: str,
     colors: bool | None,
     show_suppressed: bool,
+    total_errors: int | None = None,
+    total_warnings: int | None = None,
+    omitted: int = 0,
 ) -> str:
     if format == "json":
-        return format_json(result, show_suppressed=show_suppressed)
+        return format_json(
+            result,
+            show_suppressed=show_suppressed,
+            total_errors=total_errors,
+            total_warnings=total_warnings,
+            omitted=omitted,
+        )
     if format == "github":
         return format_github(result, show_suppressed=show_suppressed)
     if format == "markdown":

@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import json
 import sys
-from importlib import resources
 from pathlib import Path
-from typing import Any
 
 from pydantic import ValidationError
 
+from konsistent.cli._extract_rules_prompt import build_prompt, read_predicates_reference
 from konsistent.cli.agent_runner import (
     _FENCE_RE,
     AGENT_COMMANDS,
@@ -36,6 +35,13 @@ def run_extract_rules_command(
     model: str = DEFAULT_MODEL,
     runner: AgentRunner | None = None,
 ) -> int:
+    """Run the `konsistent extract-rules` flow end to end.
+
+    Reads `source_file`, invokes an agent CLI to convert its prose rules into
+    a `ReusableConventionsPackageV1`-shaped proposal plus an unmapped-rules
+    report, validates the result, and writes the proposal (and optionally the
+    report) to disk.
+    """
     agent_value_result = _normalize_agent_value(agent)
     if isinstance(agent_value_result, Err):
         _write_error(agent_value_result.error)
@@ -136,89 +142,9 @@ def run_extract_rules_command(
     return 0
 
 
-def build_prompt(
-    *,
-    source_text: str,
-    source_label: str,
-    predicates_reference: str,
-) -> str:
-    return f"""\
-You convert prose best-practices into a reviewable konsistent reusable convention pack.
-
-Return exactly one JSON object with this contract and no required commentary:
-
-{{
-  "pack": {{
-    "conventionSpecVersion": "v1",
-    "conventions": []
-  }},
-  "unmapped": [
-    {{
-      "rule": "original or summarized source rule",
-      "reason": "why it cannot be represented with konsistent predicates"
-    }}
-  ]
-}}
-
-The "pack" value must validate as ReusableConventionsPackageV1.
-
-ReusableConventionsPackageV1 format summary:
-- Top-level object: {{"conventionSpecVersion": "v1", "conventions": [...]}}.
-- Each convention requires "name" and "description".
-- Each convention may include "severity", "paths", "excludeFiles", "if", "for",
-  "must", and "mustNot".
-- Each convention must include at least one of "must" or "mustNot".
-- Reusable conventions only allow flat object-form "must" and "mustNot".
-- Do not emit MustBlock[] arrays in reusable conventions.
-- Do not edit, describe edits to, or assume edits to konsistent.json. The pack
-  is only a human-review proposal.
-
-Mappability rubric:
-- Map only rules expressible with the predicates and placeholders in the
-  predicates reference below.
-- Do not invent predicate keys.
-- Rules about formatting, Ruff, mypy, pytest behavior, in-function linting,
-  process advice, review workflow, dependency choices, runtime performance,
-  or broad design judgment should be reported in "unmapped".
-- Ambiguous or project-specific rules whose paths/placeholders cannot be
-  inferred should be reported in "unmapped" with a reason.
-- Never silently drop a source rule. If a rule cannot be mapped, list it in
-  "unmapped".
-
-Source file: {source_label}
-
---- SOURCE TEXT START ---
-{source_text}
---- SOURCE TEXT END ---
-
---- FULL docs/reference/predicates.md START ---
-{predicates_reference}
---- FULL docs/reference/predicates.md END ---
-"""
-
-
-def read_predicates_reference() -> Result[str]:
-    source_tree_path = Path(__file__).resolve().parents[3] / "docs/reference/predicates.md"
-    try:
-        if source_tree_path.is_file():
-            return Ok(source_tree_path.read_text(encoding="utf-8"))
-    except OSError:
-        pass
-
-    try:
-        text = (
-            resources.files("konsistent")
-            .joinpath("_docs/reference/predicates.md")
-            .read_text(encoding="utf-8")
-        )
-    except (FileNotFoundError, ModuleNotFoundError, OSError):
-        return Err("Could not read predicates reference docs/reference/predicates.md.")
-
-    return Ok(text)
-
-
-def extract_agent_json_object(response_text: str) -> Result[dict[str, Any]]:
-    candidates: list[dict[str, Any]] = []
+def extract_agent_json_object(response_text: str) -> Result[dict[str, object]]:
+    """Extract the agent's JSON object response from fenced or bare text."""
+    candidates: list[dict[str, object]] = []
 
     for match in _FENCE_RE.finditer(response_text.strip()):
         candidates.extend(iter_json_objects(match.group("body")))
@@ -236,8 +162,9 @@ def extract_agent_json_object(response_text: str) -> Result[dict[str, Any]]:
 
 
 def validate_agent_response_contract(
-    value: dict[str, Any],
-) -> Result[tuple[Any, list[dict[str, str]]]]:
+    value: dict[str, object],
+) -> Result[tuple[object, list[dict[str, str]]]]:
+    """Validate the agent JSON object has the required `pack`/`unmapped` shape."""
     if "pack" not in value or "unmapped" not in value:
         return Err('Invalid agent response: expected keys "pack" and "unmapped".')
 
