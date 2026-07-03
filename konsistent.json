@@ -24,6 +24,8 @@
       "excludeFiles": [
         "src/konsistent/predicates/__init__.py",
         "src/konsistent/predicates/registry.py",
+        "src/konsistent/predicates/_handlers.py",
+        "src/konsistent/predicates/_plugin.py",
         "src/konsistent/predicates/_utils.py",
         "src/konsistent/predicates/declaration_utils.py",
         "src/konsistent/predicates/import_.py"

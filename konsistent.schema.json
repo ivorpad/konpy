@@ -5,6 +5,7 @@
   "$defs": {
     "AnnotateFunctionsOptionsV1": {
       "additionalProperties": false,
+      "description": "Per-target options for the ``annotateFunctions`` predicate.",
       "properties": {
         "returns": {
           "anyOf": [
@@ -48,6 +49,7 @@
     },
     "ClassDefinitionV1": {
       "additionalProperties": false,
+      "description": "A class reference, optionally extending a base and implementing interfaces.",
       "properties": {
         "name": {
           "title": "Name",
@@ -99,6 +101,7 @@
     },
     "ConventionUseRefV1": {
       "additionalProperties": false,
+      "description": "A top-level convention entry that references a reusable convention by name.",
       "properties": {
         "use": {
           "pattern": "^[a-z0-9-]+/[a-z0-9-]+$",
@@ -229,6 +232,7 @@
     },
     "DeclarationDefinitionV1": {
       "additionalProperties": false,
+      "description": "A bare name reference to a declared type, constant, or function.",
       "properties": {
         "name": {
           "title": "Name",
@@ -243,6 +247,7 @@
     },
     "ExportDefinitionV1": {
       "additionalProperties": false,
+      "description": "An export reference: a bare name, optionally re-exported from another module.",
       "properties": {
         "name": {
           "title": "Name",
@@ -269,6 +274,7 @@
     },
     "ExtendObjectV1": {
       "additionalProperties": false,
+      "description": "A base-type reference with an ``allowOmissions`` escape hatch.",
       "properties": {
         "type": {
           "title": "Type",
@@ -295,6 +301,7 @@
     },
     "ForV1": {
       "additionalProperties": false,
+      "description": "Scopes a ``must``/``mustNot`` block to a subset of files within a convention's paths.",
       "properties": {
         "files": {
           "anyOf": [
@@ -319,6 +326,7 @@
     },
     "FunctionDefinitionV1": {
       "additionalProperties": false,
+      "description": "A function/method signature reference used by declare/export predicates.",
       "properties": {
         "name": {
           "title": "Name",
@@ -372,6 +380,7 @@
     },
     "HasFileConditionV1": {
       "additionalProperties": false,
+      "description": "A condition satisfied when the given file exists.",
       "properties": {
         "hasFile": {
           "title": "Hasfile",
@@ -386,6 +395,7 @@
     },
     "HaveDocstringsOptionsV1": {
       "additionalProperties": false,
+      "description": "Per-target options for the ``haveDocstrings`` predicate.",
       "properties": {
         "modules": {
           "anyOf": [
@@ -441,6 +451,7 @@
     },
     "ImportDefinitionV1": {
       "additionalProperties": false,
+      "description": "An import reference: a bare name, optionally imported from another module.",
       "properties": {
         "name": {
           "title": "Name",
@@ -467,6 +478,7 @@
     },
     "InterfaceDefinitionV1": {
       "additionalProperties": false,
+      "description": "An interface/protocol reference, optionally extending another type.",
       "properties": {
         "name": {
           "title": "Name",
@@ -496,6 +508,7 @@
     },
     "MustBlockUseRefV1": {
       "additionalProperties": false,
+      "description": "A ``must``/``mustNot`` block that references a reusable convention by name.",
       "properties": {
         "use": {
           "pattern": "^[a-z0-9-]+/[a-z0-9-]+$",
@@ -611,6 +624,7 @@
     },
     "MustBlockV1": {
       "additionalProperties": false,
+      "description": "A single hand-written ``must``/``mustNot`` predicate block.",
       "properties": {
         "name": {
           "anyOf": [
@@ -718,6 +732,7 @@
     },
     "MustPredicatesV1": {
       "additionalProperties": true,
+      "description": "The full set of predicates a convention's ``must``/``mustNot`` block may declare.",
       "properties": {
         "haveType": {
           "anyOf": [
@@ -1215,6 +1230,7 @@
     },
     "PlaceholderSatisfiesConditionV1": {
       "additionalProperties": false,
+      "description": "A condition satisfied when a placeholder value matches a pattern.",
       "properties": {
         "placeholderSatisfies": {
           "title": "Placeholdersatisfies",
@@ -1229,6 +1245,7 @@
     },
     "RawHandWrittenConventionV1": {
       "additionalProperties": false,
+      "description": "A hand-written convention as it appears in ``konsistent.json``, before expansion.",
       "properties": {
         "name": {
           "anyOf": [

@@ -26,7 +26,7 @@
       "hint": "Drop the underscore-prefixed name from __all__, or rename it without the leading underscore if it's meant to be public.",
       "paths": "**/*.py",
       "mustNot": {
-        "matchContent": ["^__all__\\s*=\\s*(?:\\[[\\s\\S]*?[\"']_[A-Za-z0-9_]+[\"']|\\([\\s\\S]*?[\"']_[A-Za-z0-9_]+[\"'])"]
+        "matchContent": ["^__all__\\s*=\\s*(?:\\[[\\s\\S]*?[\"'](?!__[A-Za-z0-9_]+__[\"'])_[A-Za-z0-9_]+[\"']|\\([\\s\\S]*?[\"'](?!__[A-Za-z0-9_]+__[\"'])_[A-Za-z0-9_]+[\"'])"]
       }
     },
     {
