@@ -45,7 +45,26 @@ Create `konsistent.json` at the repo root:
 
 `paths` globs capture placeholders (`{name}`) that predicates consume via `${name}` templates with case transforms (`toPascalCase`, `toSnakeCase`, `toConstantCase`, …). Everything under `must` must hold; anything under `mustNot` must not. Full vocabulary: [docs/reference/predicates.md](docs/reference/predicates.md); path grammar: [docs/reference/path-patterns.md](docs/reference/path-patterns.md).
 
-Notable predicates: `haveFiles`, `haveType`, `export*`/`declare*` families, `import`/`importFrom`/`importFromParents`, `areBarrelFiles`, `useDeclarationOrder`, and the coverage/content set: `matchContent` (regex on file content — the escape hatch), `havePairedFile` (repo-root-relative), `haveDocstrings`, `annotateFunctions`. Dead-code detection is configured separately via the top-level `unusedCode` key ([docs/reference/unused-code.md](docs/reference/unused-code.md)).
+Notable predicates: `haveFiles`, `haveType`, `export*`/`declare*` families, `import`/`importFrom`/`importFromParents`, `areBarrelFiles`, `useDeclarationOrder`, and the coverage/content set: `matchContent` (regex on file content — the escape hatch), `havePairedFile` (repo-root-relative), `haveDocstrings`, `annotateFunctions`. Dead-code detection is configured separately via the top-level `unusedCode` key — next section.
+
+## Unused-code detection
+
+`unusedCode` is a **classifier, not a flagger** — the design goal is zero noise. Instead of reporting every unreferenced name the way `vulture` or basedpyright's `reportUnusedFunction` do, it classifies every definition (module-level functions, classes, and constants, plus one level of class-body methods and attributes) and reports only the two actionable classes, staying silent on the systematic false-positive classes that framework code produces:
+
+```json
+{
+  "version": "v1",
+  "conventions": [],
+  "unusedCode": {}
+}
+```
+
+- **Reported:** `dead` — no reference anywhere (code, tests, entrypoint files, string literals) — and `test-only` — referenced only under `testGlobs`, i.e. code kept alive purely by its own tests, a delete-with-its-tests candidate no comparable tool surfaces.
+- **Silent:** decorator-registered handlers (`@app.*`, `@field_validator`, `@pytest.fixture`, …), lifecycle hooks and dunders, model fields on `BaseModel`/`TypedDict`/`Enum`/`@dataclass` classes, and symbols named in entrypoint files (Dockerfile `CMD`, `pyproject.toml`, serverless templates). A bare `{}` already understands pydantic, FastAPI/Flask/Django, pytest, celery, and click/typer via shipped presets.
+
+References are resolved repo-wide, including identifier tokens inside string literals — `"src.lambda_function.handler"` in a Dockerfile keeps `handler` alive. Matching is by bare name and deliberately under-reports before it ever false-positives (see [limitations](docs/reference/unused-code.md#limitations)).
+
+Findings arrive as `warning`-severity diagnostics under the `[unused-code]` label (predicate `unusedCode.dead` / `unusedCode.testOnly` in `--format json`) — gate them in CI with `--error-on-warnings`, and suppress an approved exception with `# konsistent: ignore[unused-code]` (the [consent policy](docs/reference/suppressions.md#ai-agents) applies). The config keys (`include`, `testGlobs`, `entrypointFiles`, `registryDecorators`, `hookNames`, `modelBases`) extend the presets; `allow` silences specific names by decision. Because classification needs the whole reference graph, `unusedCode` always scans the entire project — [`--files`/`--changed` scoping](#diff-scoped-checking---files----changed) never narrows or partially runs it. Full taxonomy, presets, and config keys: [docs/reference/unused-code.md](docs/reference/unused-code.md).
 
 ## Reusable conventions & the best-practices pack
 
