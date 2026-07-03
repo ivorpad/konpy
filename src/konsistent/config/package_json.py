@@ -18,6 +18,8 @@ _DISTRIBUTION_NAME_REGEX = re.compile(f"^{DISTRIBUTION_NAME_PATTERN}$")
 
 @dataclass(frozen=True)
 class PackageJsonDocument:
+    """A konsistent.json file located inside an installed Python distribution."""
+
     requested_name: str
     distribution_name: str
     raw: str
@@ -27,18 +29,22 @@ class PackageJsonDocument:
 
 @dataclass(frozen=True)
 class PackageJsonLookupFailure:
+    """Why find_package_konsistent_json could not locate a distribution's konsistent.json."""
+
     kind: PackageJsonLookupFailureKind
     detail: str | None = None
     top_level_packages: tuple[str, ...] = ()
 
 
 def is_valid_distribution_name(value: str) -> bool:
+    """Check that a string matches the PEP 503-ish distribution-name pattern."""
     return _DISTRIBUTION_NAME_REGEX.fullmatch(value) is not None
 
 
 def find_package_konsistent_json(
     value: str,
 ) -> PackageJsonDocument | PackageJsonLookupFailure:
+    """Locate the konsistent.json bundled with an installed distribution named `value`."""
     if not is_valid_distribution_name(value):
         return PackageJsonLookupFailure(kind="invalid-name")
 

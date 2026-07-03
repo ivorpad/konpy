@@ -6,27 +6,22 @@ two-space-indented "  - path: message" lines.
 
 import re
 from dataclasses import dataclass
-from typing import Literal
 
 from pydantic import ValidationError
 
 
 @dataclass(frozen=True)
 class Ok[T]:
-    value: T
+    """A successful Result, wrapping the produced value."""
 
-    @property
-    def success(self) -> Literal[True]:
-        return True
+    value: T
 
 
 @dataclass(frozen=True)
 class Err:
-    error: str
+    """A failed Result, wrapping a human-readable error message."""
 
-    @property
-    def success(self) -> Literal[False]:
-        return False
+    error: str
 
 
 type Result[T] = Ok[T] | Err
@@ -58,6 +53,7 @@ def _is_union_tag(part: str) -> bool:
 
 
 def format_error_path(loc: tuple[str | int, ...]) -> str:
+    """Render a pydantic error location tuple as a dotted path, dropping union-tag segments."""
     parts: list[str] = []
     for raw_part in loc:
         if isinstance(raw_part, int):
@@ -71,6 +67,7 @@ def format_error_path(loc: tuple[str | int, ...]) -> str:
 
 
 def format_validation_error(error: ValidationError) -> str:
+    """Render a pydantic ValidationError as deduplicated zod-style "  - path: message" lines."""
     lines: list[str] = []
     seen: set[str] = set()
     for issue in error.errors():

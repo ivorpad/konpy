@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
-from typing import Any
 
 from konsistent.config.errors import Err, Ok, Result
 from konsistent.config.schema import PLACEHOLDER_NAME_PATTERN, PLACEHOLDER_VALUE_PATTERN
@@ -12,6 +11,7 @@ _VALUE_REGEX = re.compile(f"^{PLACEHOLDER_VALUE_PATTERN}$")
 
 
 def parse_cli_placeholders(*, raw: Sequence[str]) -> Result[dict[str, str]]:
+    """Parse --placeholder "name:value" CLI arguments into a name-to-value mapping."""
     placeholders: dict[str, str] = {}
 
     for entry in raw:
@@ -39,7 +39,8 @@ def parse_cli_placeholders(*, raw: Sequence[str]) -> Result[dict[str, str]]:
     return Ok(placeholders)
 
 
-def normalize_placeholder_arg(raw: Any) -> list[str]:
+def normalize_placeholder_arg(raw: object) -> list[str]:
+    """Coerce a Typer CLI option value (None, a string, or a list) into a list of strings."""
     if raw is None:
         return []
     if isinstance(raw, str):

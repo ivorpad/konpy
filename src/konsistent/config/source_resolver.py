@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import ValidationError
 
@@ -15,11 +15,18 @@ from konsistent.config.package_json import (
 )
 from konsistent.config.schema import ReusableConventionsPackageV1, ReusableConventionV1
 
+if TYPE_CHECKING:
+    # konsistent.predicates.registry imports konsistent.config.schema at module
+    # level, so importing it unconditionally here would cycle back through
+    # this package's __init__; PredicateRegistry is only used in annotations.
+    from konsistent.predicates.registry import PredicateRegistry
+
 SourceKind = Literal["path", "package", "empty"]
 SourceMap = dict[str, dict[str, ReusableConventionV1]]
 
 
 def classify_source(value: str) -> SourceKind:
+    """Classify a conventionSources value as a filesystem path, a package name, or empty."""
     if value.strip() == "":
         return "empty"
     if value.startswith(".") or Path(value).is_absolute():
@@ -31,8 +38,9 @@ def resolve_sources(
     *,
     convention_sources: Mapping[str, str],
     config_dir: str | Path,
-    predicate_registry: Any | None = None,
+    predicate_registry: PredicateRegistry | None = None,
 ) -> Result[SourceMap]:
+    """Load and validate every conventionSources entry into a prefix-to-conventions map."""
     source_map: SourceMap = {}
 
     for prefix, value in convention_sources.items():
@@ -68,7 +76,7 @@ def _load_from_package(
     *,
     prefix: str,
     value: str,
-    predicate_registry: Any | None,
+    predicate_registry: PredicateRegistry | None,
 ) -> Result[ReusableConventionsPackageV1]:
     lookup = find_package_konsistent_json(value)
     if isinstance(lookup, PackageJsonLookupFailure):
@@ -128,7 +136,7 @@ def _parse_and_validate_package_document(
     prefix: str,
     value: str,
     document: PackageJsonDocument,
-    predicate_registry: Any | None,
+    predicate_registry: PredicateRegistry | None,
 ) -> Result[ReusableConventionsPackageV1]:
     return _parse_and_validate(
         prefix=prefix,
@@ -144,7 +152,7 @@ def _load_from_path(
     prefix: str,
     value: str,
     config_dir: Path,
-    predicate_registry: Any | None,
+    predicate_registry: PredicateRegistry | None,
 ) -> Result[ReusableConventionsPackageV1]:
     resolved_path = (config_dir / value).resolve()
 
@@ -171,7 +179,7 @@ def _parse_and_validate(
     source_label: str,
     location_label: str,
     raw: str,
-    predicate_registry: Any | None,
+    predicate_registry: PredicateRegistry | None,
 ) -> Result[ReusableConventionsPackageV1]:
     try:
         json_value = json.loads(raw)
@@ -196,7 +204,9 @@ def _parse_and_validate(
     return Ok(package)
 
 
-def _validation_context(predicate_registry: Any | None) -> dict[str, Any] | None:
+def _validation_context(
+    predicate_registry: PredicateRegistry | None,
+) -> dict[str, PredicateRegistry] | None:
     if predicate_registry is None:
         return None
     return predicate_registry.validation_context()

@@ -26,11 +26,14 @@ _CONFIG_PACKAGE_UNSUPPORTED_ERROR = (
 
 @dataclass(frozen=True, kw_only=True)
 class LoadedConfig:
+    """A validated config paired with the predicate registry it was resolved against."""
+
     config: ConfigV1
     predicate_registry: PredicateRegistry
 
 
 def path_declared_names(paths: str | Sequence[str]) -> set[str]:
+    """Collect the {name} placeholder names declared by a convention's path pattern(s)."""
     declared: set[str] = set()
     entries = [paths] if isinstance(paths, str) else paths
 
@@ -47,6 +50,7 @@ def apply_cli_placeholders(
     identifiers: Sequence[str],
     cli_placeholders: Mapping[str, str],
 ) -> Result[list[ConventionV1]]:
+    """Merge --placeholder CLI values into each convention's placeholders, rejecting conflicts."""
     if len(cli_placeholders) == 0:
         return Ok(list(conventions))
 
@@ -80,6 +84,7 @@ def load_config_runtime(
     config_package: str | None = None,
     config_path: str | Path | None = None,
 ) -> Result[LoadedConfig]:
+    """Load, parse, and validate konsistent.json into a LoadedConfig with its predicate registry."""
     if config_path is not None and config_package is not None:
         return Err("Cannot use --config-path and --config-package together. Pass only one.")
 
@@ -182,6 +187,7 @@ def load_config(
     config_package: str | None = None,
     config_path: str | Path | None = None,
 ) -> Result[ConfigV1]:
+    """Load konsistent.json and return just its validated ConfigV1, discarding the registry."""
     loaded = load_config_runtime(
         cli_placeholders=cli_placeholders,
         config_package=config_package,
