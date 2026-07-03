@@ -4,6 +4,7 @@ import math
 
 
 def format_time(ms: float) -> str:
+    """Format a millisecond duration as a human-readable string."""
     if ms < 1000:
         return f"{math.floor(ms + 0.5)}ms"
     return f"{ms / 1000:.1f}s"

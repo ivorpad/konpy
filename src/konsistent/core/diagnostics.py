@@ -8,6 +8,8 @@ DiagnosticSeverity = Literal["error", "warning"]
 
 @dataclass(frozen=True, kw_only=True)
 class Diagnostic:
+    """A single convention violation reported for a file."""
+
     file_path: str
     predicate_name: str
     message: str
@@ -37,6 +39,7 @@ def create_diagnostic(
     found: str | None = None,
     fix_hint: str | None = None,
 ) -> Diagnostic:
+    """Build a `Diagnostic`, defaulting severity to "error"."""
     return Diagnostic(
         file_path=file_path,
         predicate_name=predicate_name,

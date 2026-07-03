@@ -14,11 +14,14 @@ _CONSTRAINT_REGEX = re.compile(r"^([a-zA-Z][a-zA-Z0-9]*)(?:\((.*)\))?$")
 
 @dataclass(frozen=True)
 class PlaceholderConstraint:
+    """A parsed ``name(arg)`` placeholder constraint."""
+
     name: str
     arg: str | None = None
 
 
 def parse_placeholder_constraint(raw: str) -> PlaceholderConstraint | None:
+    """Parse a ``name`` or ``name(arg)`` constraint string, or None if malformed."""
     match = _CONSTRAINT_REGEX.match(raw)
     if match is None:
         return None
@@ -26,6 +29,7 @@ def parse_placeholder_constraint(raw: str) -> PlaceholderConstraint | None:
 
 
 def validate_matches_constraint(value: str, arg: str | None) -> bool:
+    """Check whether `value` matches the `arg` regex."""
     if arg is None:
         return False
     try:
@@ -36,6 +40,7 @@ def validate_matches_constraint(value: str, arg: str | None) -> bool:
 
 
 def validate_segments_constraint(value: str, arg: str | None) -> bool:
+    """Check whether `value` has exactly `arg` word segments."""
     if arg is None:
         return False
     stripped = arg.strip()
@@ -51,6 +56,7 @@ def validate_segments_constraint(value: str, arg: str | None) -> bool:
 
 
 def validate_placeholder_constraint(value: str, constraint: PlaceholderConstraint) -> bool:
+    """Dispatch `constraint` to its validator; unknown constraint names pass permissively."""
     match constraint.name:
         case "segments":
             return validate_segments_constraint(value, constraint.arg)

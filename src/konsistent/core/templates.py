@@ -29,6 +29,8 @@ def _to_index(arg: str) -> int:
 
 
 def resolve_template(template: str, placeholders: Mapping[str, PlaceholderValue]) -> str:
+    """Substitute ``${name}`` / ``${name.method(arg)}`` tokens with placeholder values."""
+
     def replace(match: re.Match[str]) -> str:
         original = match.group(0)
         name, method, arg = match.group(1), match.group(2), match.group(3)

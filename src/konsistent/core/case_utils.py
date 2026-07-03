@@ -8,6 +8,7 @@ _SEPARATORS = re.compile(r"[-_]")
 
 
 def split_words(value: str) -> list[str]:
+    """Split a camelCase/kebab-case/snake_case string into lowercase-boundary words."""
     return [word for word in _SEPARATORS.split(_CAMEL_BOUNDARY.sub(r"\1-\2", value)) if word]
 
 
@@ -16,10 +17,12 @@ def _title(word: str) -> str:
 
 
 def to_pascal_case(value: str) -> str:
+    """Convert a string to PascalCase."""
     return "".join(_title(word) for word in split_words(value))
 
 
 def to_camel_case(value: str) -> str:
+    """Convert a string to camelCase."""
     words = split_words(value)
     if not words:
         return ""
@@ -27,18 +30,22 @@ def to_camel_case(value: str) -> str:
 
 
 def to_kebab_case(value: str) -> str:
+    """Convert a string to kebab-case."""
     return "-".join(word.lower() for word in split_words(value))
 
 
 def to_snake_case(value: str) -> str:
+    """Convert a string to snake_case."""
     return "_".join(word.lower() for word in split_words(value))
 
 
 def to_constant_case(value: str) -> str:
+    """Convert a string to CONSTANT_CASE."""
     return "_".join(word.upper() for word in split_words(value))
 
 
 def invert_map(mapping: dict[str, str] | None) -> dict[str, str] | None:
+    """Swap keys and values of `mapping`, or return None if `mapping` is None."""
     if mapping is None:
         return None
     return {value: key for key, value in mapping.items()}
@@ -48,6 +55,7 @@ def derive_camel_to_pascal_map(
     kebab_to_pascal_map: dict[str, str] | None = None,
     kebab_to_camel_map: dict[str, str] | None = None,
 ) -> dict[str, str] | None:
+    """Derive a camelCase-to-PascalCase map from kebab-keyed case maps."""
     if kebab_to_pascal_map is None and kebab_to_camel_map is None:
         return None
 

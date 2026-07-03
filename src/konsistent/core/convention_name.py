@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from typing import Any
 
 from konsistent.config.schema import MustBlockV1, MustPredicatesV1
 from konsistent.predicates.registry import iter_predicate_items
@@ -42,19 +41,19 @@ def _predicate_key_to_kebab(key: str) -> str:
     return re.sub(r"-{2,}", "-", value).strip("-")
 
 
-def _get(obj: Any, key: str) -> Any:
+def _get(obj: object, key: str) -> object:
     if isinstance(obj, Mapping):
         return obj.get(key)
     return getattr(obj, key, None)
 
 
-def _get_item_name(item: Any) -> str:
+def _get_item_name(item: object) -> str:
     if isinstance(item, str):
         return item
     return str(_get(item, "name") or "")
 
 
-def _items(value: Any) -> list[Any]:
+def _items(value: object) -> list[object]:
     return value if isinstance(value, list) else [value]
 
 
@@ -64,11 +63,11 @@ def _prefixed(prefix: str, kebab: str, suffix: str = "") -> str:
     return f"{prefix}{suffix}"
 
 
-def _boolean_import_name(*, positive: str, negative: str, item: Any, negated: bool) -> str:
+def _boolean_import_name(*, positive: str, negative: str, item: object, negated: bool) -> str:
     return positive if (item is False) == negated else negative
 
 
-def _rule(key: str, items: list[Any], *, negated: bool) -> str:
+def _rule(key: str, items: list[object], *, negated: bool) -> str:
     first = items[0]
     match key:
         case "haveType":
@@ -225,7 +224,7 @@ def _rule(key: str, items: list[Any], *, negated: bool) -> str:
             )
 
 
-def _predicate_items(selected: MustPredicatesV1) -> list[tuple[str, Any]]:
+def _predicate_items(selected: MustPredicatesV1) -> list[tuple[str, object]]:
     return iter_predicate_items(selected)
 
 
@@ -233,8 +232,9 @@ def generate_convention_name(
     *,
     must: MustPredicatesV1 | list[MustBlockV1] | None = None,
     must_not: MustPredicatesV1 | None = None,
-    predicate_registry: Any | None = None,
+    predicate_registry: object | None = None,
 ) -> str:
+    """Derive a kebab-case convention name from its first must/must-not predicate."""
     del predicate_registry
 
     selected: MustPredicatesV1 | None = None

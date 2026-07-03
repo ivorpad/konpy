@@ -11,15 +11,27 @@ _GLOB_FLAGS = wcglob.BRACE | wcglob.GLOBSTAR
 
 
 class FileSystem(Protocol):
-    def glob(self, patterns: Sequence[str]) -> list[str]: ...
+    """Filesystem access abstraction used by predicates and the runner."""
 
-    def is_directory(self, path: str) -> bool: ...
+    def glob(self, patterns: Sequence[str]) -> list[str]:
+        """Return paths matching any of `patterns`."""
+        ...
 
-    def file_exists(self, path: str) -> bool: ...
+    def is_directory(self, path: str) -> bool:
+        """Check whether `path` is a directory."""
+        ...
 
-    def read_dir(self, path: str) -> list[str]: ...
+    def file_exists(self, path: str) -> bool:
+        """Check whether `path` exists."""
+        ...
 
-    def read_file(self, path: str) -> str: ...
+    def read_dir(self, path: str) -> list[str]:
+        """List entry names directly under `path`."""
+        ...
+
+    def read_file(self, path: str) -> str:
+        """Read the text contents of `path`."""
+        ...
 
 
 def _normalize_relative_path(path: str | Path) -> str:
@@ -48,11 +60,14 @@ def _parent_paths(path: str) -> list[str]:
 
 
 class RealFileSystem:
+    """`FileSystem` backed by the actual disk, rooted at `cwd`."""
+
     def __init__(self, *, cwd: str | Path) -> None:
         self._cwd = Path(cwd)
         self._glob_cache: dict[str, tuple[str, ...]] = {}
 
     def glob(self, patterns: Sequence[str]) -> list[str]:
+        """Return disk paths matching any of `patterns`, cached per pattern set."""
         key = "\x00".join(patterns)
         cached = self._glob_cache.get(key)
         if cached is not None:
@@ -76,24 +91,28 @@ class RealFileSystem:
         return list(results)
 
     def is_directory(self, path: str) -> bool:
+        """Check whether `path` is a directory on disk."""
         try:
             return self._resolve(path).is_dir()
         except OSError:
             return False
 
     def file_exists(self, path: str) -> bool:
+        """Check whether `path` exists on disk."""
         try:
             return self._resolve(path).exists()
         except OSError:
             return False
 
     def read_dir(self, path: str) -> list[str]:
+        """List entry names directly under `path` on disk."""
         try:
             return [entry.name for entry in self._resolve(path).iterdir()]
         except OSError:
             return []
 
     def read_file(self, path: str) -> str:
+        """Read the text contents of `path` from disk."""
         return self._resolve(path).read_text(encoding="utf-8")
 
     def _resolve(self, path: str) -> Path:
@@ -110,6 +129,8 @@ class RealFileSystem:
 
 
 class FakeFileSystem:
+    """In-memory `FileSystem` for tests, seeded with files/directories/contents."""
+
     def __init__(
         self,
         *,
@@ -140,6 +161,7 @@ class FakeFileSystem:
         self.glob_calls: dict[tuple[str, ...], int] = {}
 
     def glob(self, patterns: Sequence[str]) -> list[str]:
+        """Return seeded paths matching any of `patterns`, recording the call."""
         key = tuple(_normalize_relative_path(pattern) for pattern in patterns)
         self.glob_calls[key] = self.glob_calls.get(key, 0) + 1
 
@@ -155,13 +177,16 @@ class FakeFileSystem:
         ]
 
     def is_directory(self, path: str) -> bool:
+        """Check whether `path` was seeded as a directory."""
         return _normalize_relative_path(path) in self._directories
 
     def file_exists(self, path: str) -> bool:
+        """Check whether `path` was seeded as a file or directory."""
         normalized = _normalize_relative_path(path)
         return normalized in self._files or normalized in self._directories
 
     def read_dir(self, path: str) -> list[str]:
+        """List entry names directly under the seeded directory `path`."""
         normalized = _normalize_relative_path(path)
         if normalized not in self._directories:
             return []
@@ -180,6 +205,7 @@ class FakeFileSystem:
         return sorted(children)
 
     def read_file(self, path: str) -> str:
+        """Read the seeded text contents of `path`."""
         normalized = _normalize_relative_path(path)
         try:
             return self._contents[normalized]
