@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -203,7 +204,13 @@ class TestDiffScopedCheck:
         space_list = runner.invoke(app, _preprocess_argv(space_list_argv))
 
         assert space_list.exit_code == repeated.exit_code == 1
-        assert space_list.output == repeated.output
+        # Normalize the non-deterministic elapsed-time field ("in 1ms" vs
+        # "in 0ms") before comparing; the two invocations must otherwise be
+        # byte-identical.
+        elapsed = re.compile(r"in \d+ms")
+        assert elapsed.sub("in <t>ms", space_list.output) == elapsed.sub(
+            "in <t>ms", repeated.output
+        )
 
     def test_check_files_and_changed_together_errors(
         self,
