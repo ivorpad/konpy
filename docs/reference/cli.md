@@ -487,11 +487,17 @@ Machine-readable JSON object. It always includes unsuppressed diagnostics, suppr
     "warnings": 0,
     "suppressed": 1,
     "durationMs": 10.0
+  },
+  "truncation": {
+    "shown": 2,
+    "omitted": 0
   }
 }
 ```
 
-`diagnostics` contains unsuppressed diagnostics only. `suppressed` contains diagnostics suppressed by source comments. `severity` is `"error"` or `"warning"`. `line`, `description`, `hint`, `expected`, `found`, and `fixHint` are all omitted (never emitted as `null`) when not applicable to that diagnostic — see [Diagnostic intent and fix direction](#diagnostic-intent-and-fix-direction).
+`diagnostics` contains unsuppressed diagnostics only, truncated to `--max-diagnostics`. `suppressed` contains diagnostics suppressed by source comments. `severity` is `"error"` or `"warning"`. `line`, `description`, `hint`, `expected`, `found`, and `fixHint` are all omitted (never emitted as `null`) when not applicable to that diagnostic — see [Diagnostic intent and fix direction](#diagnostic-intent-and-fix-direction).
+
+`summary.errors`/`summary.warnings` are always the full pre-truncation totals — they never shrink when `diagnostics` is truncated. `truncation` is always present: `shown` is `diagnostics.length`, `omitted` is how many unsuppressed diagnostics were cut by `--max-diagnostics` (`0` when nothing was truncated). See [Truncation](#truncation).
 
 `--show-suppressed` does not change JSON output; suppressed details are always present so machine consumers can audit them.
 
@@ -556,3 +562,5 @@ When the number of unsuppressed diagnostics exceeds `--max-diagnostics`, only th
 ```
 
 The exit code still reflects all unsuppressed violations — only the printed output is truncated. Suppressed counts are computed from the full run result and are not truncated.
+
+Under `--format json`, the `diagnostics` array is truncated the same way, but `summary.errors`/`summary.warnings` are always the full pre-truncation totals, and a top-level `truncation: {shown, omitted}` key (always present, `omitted: 0` when nothing was cut) makes truncation explicit for machine consumers instead of leaving it to be inferred from `diagnostics.length` — see [`json`](#json).

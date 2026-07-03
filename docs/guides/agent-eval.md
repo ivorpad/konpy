@@ -72,7 +72,7 @@ Exit code contract for `scripts/eval_conventions.py`, distinct from konsistent's
 
 - **Single-repo-per-invocation.** There's no built-in fan-out across many repos; script it with a shell loop if you need to run the same A/B comparison across a fleet of target repos.
 - **Structural-convention counts only**, not a full code-quality score. This measures drift against *whatever conventions the target repo's `konsistent.json` declares* — a repo with few conventions defined will show little signal regardless of actual structural drift.
-- **`--max-diagnostics` is deliberately raised** to 1,000,000 by this script (vs. konsistent's own default of 100) so large diffs aren't silently truncated before counting. If you override it via `--extra-arg` (e.g. duplicating `--max-diagnostics` with a low value), you may undercount.
+- **`--max-diagnostics` is deliberately raised** to 1,000,000 by this script (vs. konsistent's own default of 100) so large diffs aren't truncated before this script counts them. `summary.errors`/`summary.warnings` in konsistent's `--format json` output are always the full pre-truncation totals regardless of `--max-diagnostics` (with a top-level `truncation: {shown, omitted}` key reporting how much was cut), so those two counts are safe either way -- but this script's own `totalDiagnostics` metric is `len(diagnostics)`, i.e. the size of the (possibly truncated) `diagnostics` array, so it still undercounts if you override `--max-diagnostics` to a low value via `--extra-arg`.
 - **No daemon/history.** Each `run` is a one-shot snapshot; comparison is done by diffing two saved JSON files on disk, not by querying a running service or database.
 
 ## See also
