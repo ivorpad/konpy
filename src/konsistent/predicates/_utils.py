@@ -1,40 +1,66 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
 
+from konsistent.config.schema import (
+    ClassDefinitionV1,
+    DeclarationDefinitionV1,
+    ExportDefinitionV1,
+    ExtendDefinitionV1,
+    FunctionDefinitionV1,
+    ImportDefinitionV1,
+    InterfaceDefinitionV1,
+)
 from konsistent.core.context import PredicateContext
 from konsistent.core.diagnostics import Diagnostic, DiagnosticSeverity, create_diagnostic
 from konsistent.python_ast.structure import FunctionInfo, TypeAnnotationInfo
 
+DefinitionEntry = (
+    str
+    | dict[str, str]
+    | ExportDefinitionV1
+    | ImportDefinitionV1
+    | DeclarationDefinitionV1
+    | FunctionDefinitionV1
+    | InterfaceDefinitionV1
+    | ClassDefinitionV1
+)
 
-def get_value(obj: Any, key: str, default: Any = None) -> Any:
+
+def get_value(obj: object, key: str, default: object = None) -> object:
+    """Read `key` from a mapping or attribute-style object, falling back to `default`."""
     if isinstance(obj, Mapping):
         return obj.get(key, default)
     return getattr(obj, key, default)
 
 
-def get_from_value(obj: Any) -> str | None:
+def get_from_value(obj: object) -> str | None:
+    """Return a definition entry's `from`/`from_` source, if any."""
     value = get_value(obj, "from_", None)
     if value is None:
         value = get_value(obj, "from", None)
     return value
 
 
-def definition_name(entry: Any, context: PredicateContext) -> str:
+def definition_name(entry: DefinitionEntry, context: PredicateContext) -> str:
+    """Resolve a definition entry (string or object) to its templated name."""
     if isinstance(entry, str):
         return context.resolve_template(entry)
     return context.resolve_template(str(get_value(entry, "name", "")))
 
 
-def definition_from(entry: Any, context: PredicateContext) -> str | None:
+def definition_from(entry: DefinitionEntry, context: PredicateContext) -> str | None:
+    """Resolve a definition entry's templated `from` source, if any."""
     value = get_from_value(entry)
     if not isinstance(value, str):
         return None
     return context.resolve_template(value)
 
 
-def resolve_extend_type(extend: Any, context: PredicateContext) -> str | None:
+def resolve_extend_type(
+    extend: ExtendDefinitionV1 | None, context: PredicateContext
+) -> str | None:
+    """Resolve an `extend` clause (string or object) to its templated type name."""
     if extend is None:
         return None
     if isinstance(extend, str):
@@ -42,7 +68,10 @@ def resolve_extend_type(extend: Any, context: PredicateContext) -> str | None:
     return context.resolve_template(str(get_value(extend, "type", "")))
 
 
-def resolve_implement_types(implement: list[Any] | None, context: PredicateContext) -> list[str]:
+def resolve_implement_types(
+    implement: list[ExtendDefinitionV1] | None, context: PredicateContext
+) -> list[str]:
+    """Resolve an `implement` list to its templated type names."""
     if implement is None:
         return []
     values: list[str] = []
@@ -54,6 +83,7 @@ def resolve_implement_types(implement: list[Any] | None, context: PredicateConte
 
 
 def type_matches(actual: TypeAnnotationInfo | None, expected: str) -> bool:
+    """Check whether a resolved type annotation matches the expected type name."""
     return actual is not None and (actual.text == expected or actual.base_name == expected)
 
 
@@ -61,12 +91,13 @@ def check_function_signature(
     *,
     predicate_name: str,
     function_info: FunctionInfo,
-    definition: Any,
+    definition: dict[str, str] | FunctionDefinitionV1,
     resolved_name: str,
     context: PredicateContext,
     convention_name: str | None = None,
     severity: DiagnosticSeverity | None = None,
 ) -> list[Diagnostic]:
+    """Check a function's parameter and return type annotations against a definition."""
     diagnostics: list[Diagnostic] = []
     receive_param = get_value(definition, "receiveParamOfType")
     receive_params = get_value(definition, "receiveParamsOfTypes")

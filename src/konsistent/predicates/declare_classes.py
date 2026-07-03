@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
-
+from konsistent.config.schema import ClassDefinitionV1
 from konsistent.core.context import PredicateContext
 from konsistent.core.diagnostics import Diagnostic, DiagnosticSeverity, create_diagnostic
 from konsistent.predicates._utils import (
@@ -21,7 +20,7 @@ from konsistent.python_ast.structure import ClassInfo, PyFileStructure
 
 def _check_class_heritage(
     *,
-    definition: Any,
+    definition: dict[str, str] | ClassDefinitionV1,
     class_info: ClassInfo,
     resolved_name: str,
     context: PredicateContext,
@@ -65,12 +64,13 @@ def _check_class_heritage(
 
 def check_declare_classes(
     *,
-    expected: list[Any],
+    expected: list[str | ClassDefinitionV1],
     context: PredicateContext,
     structure: PyFileStructure,
     convention_name: str | None = None,
     severity: DiagnosticSeverity | None = None,
 ) -> list[Diagnostic]:
+    """Check that each expected class is locally declared, unexported, with matching heritage."""
     diagnostics: list[Diagnostic] = []
     check_context = DeclarationCheckContext(
         context=context,

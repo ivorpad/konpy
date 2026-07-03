@@ -21,6 +21,7 @@ def check_import_from(
     convention_name: str | None = None,
     severity: DiagnosticSeverity | None = None,
 ) -> list[Diagnostic]:
+    """Check that the module imports from the expected source."""
     resolved = context.resolve_template(expected)
     found = any(
         _matches_source(source=source.from_, expected=resolved)

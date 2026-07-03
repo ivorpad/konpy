@@ -15,6 +15,7 @@ def check_have_type(
     convention_name: str | None = None,
     severity: DiagnosticSeverity | None = None,
 ) -> list[Diagnostic]:
+    """Check that the path is a file or directory as expected."""
     is_dir = file_system.is_directory(context.path)
     exists = file_system.file_exists(context.path)
     is_file = exists and not is_dir

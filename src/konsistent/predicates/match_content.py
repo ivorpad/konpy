@@ -15,6 +15,7 @@ def check_match_content(
     convention_name: str | None = None,
     severity: DiagnosticSeverity | None = None,
 ) -> list[Diagnostic]:
+    """Check that the file's content matches each expected regex pattern."""
     source = file_system.read_file(context.path)
     diagnostics: list[Diagnostic] = []
 

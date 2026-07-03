@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
-
+from konsistent.config.schema import ClassDefinitionV1
 from konsistent.core.context import PredicateContext
 from konsistent.core.diagnostics import Diagnostic, DiagnosticSeverity, create_diagnostic
 from konsistent.predicates._utils import (
@@ -15,12 +14,13 @@ from konsistent.python_ast.structure import PyFileStructure
 
 def check_export_classes(
     *,
-    expected: list[Any],
+    expected: list[str | ClassDefinitionV1],
     context: PredicateContext,
     structure: PyFileStructure,
     convention_name: str | None = None,
     severity: DiagnosticSeverity | None = None,
 ) -> list[Diagnostic]:
+    """Check that each expected class is exported and matches its heritage."""
     diagnostics: list[Diagnostic] = []
 
     for entry in expected:

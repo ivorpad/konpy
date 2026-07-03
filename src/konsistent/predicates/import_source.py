@@ -54,6 +54,7 @@ def check_import_source(
     convention_name: str | None = None,
     severity: DiagnosticSeverity | None = None,
 ) -> list[Diagnostic]:
+    """Check whether an import from the given source group is present or absent as expected."""
     is_type = import_kind == "type"
     found = next(
         (

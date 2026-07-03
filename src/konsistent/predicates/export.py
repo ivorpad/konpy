@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
-
+from konsistent.config.schema import ExportDefinitionV1
 from konsistent.core.context import PredicateContext
 from konsistent.core.diagnostics import Diagnostic, DiagnosticSeverity, create_diagnostic
 from konsistent.predicates._utils import definition_from, definition_name
@@ -10,12 +9,13 @@ from konsistent.python_ast.structure import PyFileStructure
 
 def check_export(
     *,
-    expected: list[Any],
+    expected: list[str | ExportDefinitionV1],
     context: PredicateContext,
     structure: PyFileStructure,
     convention_name: str | None = None,
     severity: DiagnosticSeverity | None = None,
 ) -> list[Diagnostic]:
+    """Check that each expected name is exported (non-type) from the module."""
     diagnostics: list[Diagnostic] = []
 
     for entry in expected:

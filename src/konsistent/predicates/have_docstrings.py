@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Literal
 
+from konsistent.config.schema import HaveDocstringsOptionsV1
 from konsistent.core.context import PredicateContext
 from konsistent.core.diagnostics import Diagnostic, DiagnosticSeverity, create_diagnostic
 from konsistent.predicates._utils import get_value
 from konsistent.python_ast.structure import DocstringTargetInfo, PyFileStructure
 
 
-def _option_enabled(expected: Any, key: str, *, default: bool) -> bool:
+def _option_enabled(
+    expected: Literal[True] | HaveDocstringsOptionsV1, key: str, *, default: bool
+) -> bool:
     if expected is True:
         return default
 
@@ -48,12 +51,13 @@ def _fix_hint(target: DocstringTargetInfo) -> str:
 
 def check_have_docstrings(
     *,
-    expected: Any,
+    expected: Literal[True] | HaveDocstringsOptionsV1,
     context: PredicateContext,
     structure: PyFileStructure,
     convention_name: str | None = None,
     severity: DiagnosticSeverity | None = None,
 ) -> list[Diagnostic]:
+    """Check that modules, classes, and/or functions have docstrings per the given options."""
     check_modules = _option_enabled(expected, "modules", default=True)
     check_classes = _option_enabled(expected, "classes", default=True)
     check_functions = _option_enabled(expected, "functions", default=True)

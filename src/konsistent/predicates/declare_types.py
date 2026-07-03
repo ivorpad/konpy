@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
-
+from konsistent.config.schema import DeclarationDefinitionV1
 from konsistent.core.context import PredicateContext
 from konsistent.core.diagnostics import Diagnostic, DiagnosticSeverity
 from konsistent.predicates.declaration_utils import (
@@ -17,12 +16,13 @@ from konsistent.python_ast.structure import PyFileStructure
 
 def check_declare_types(
     *,
-    expected: list[Any],
+    expected: list[str | DeclarationDefinitionV1],
     context: PredicateContext,
     structure: PyFileStructure,
     convention_name: str | None = None,
     severity: DiagnosticSeverity | None = None,
 ) -> list[Diagnostic]:
+    """Check that each expected type is locally declared and unexported."""
     diagnostics: list[Diagnostic] = []
     check_context = DeclarationCheckContext(
         context=context,

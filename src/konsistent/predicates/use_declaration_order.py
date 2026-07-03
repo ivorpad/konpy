@@ -41,6 +41,7 @@ def check_use_declaration_order(
     convention_name: str | None = None,
     severity: DiagnosticSeverity | None = None,
 ) -> list[Diagnostic]:
+    """Check that declared symbols appear in the expected order."""
     order_by_name: dict[str, int] = {}
     for entry in expected:
         name = context.resolve_template(entry)

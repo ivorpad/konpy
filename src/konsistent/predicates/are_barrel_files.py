@@ -18,6 +18,7 @@ def check_are_barrel_files(
     convention_name: str | None = None,
     severity: DiagnosticSeverity | None = None,
 ) -> list[Diagnostic]:
+    """Check that a barrel file contains only re-export statements, no declarations."""
     if not expected:
         return []
 

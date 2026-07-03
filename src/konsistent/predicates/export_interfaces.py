@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from typing import Any
-
+from konsistent.config.schema import ExtendDefinitionV1, InterfaceDefinitionV1
 from konsistent.core.context import PredicateContext
 from konsistent.core.diagnostics import Diagnostic, DiagnosticSeverity, create_diagnostic
 from konsistent.predicates._utils import definition_name, get_value, resolve_extend_type
 from konsistent.python_ast.structure import ExtendsClauseInfo, PyFileStructure
 
 
-def _allow_omissions(extend: Any) -> bool:
+def _allow_omissions(extend: ExtendDefinitionV1 | None) -> bool:
     if isinstance(extend, str):
         return False
     return bool(get_value(extend, "allowOmissions", False))
@@ -29,12 +28,13 @@ def _matches_extend(
 
 def check_export_interfaces(
     *,
-    expected: list[Any],
+    expected: list[str | InterfaceDefinitionV1],
     context: PredicateContext,
     structure: PyFileStructure,
     convention_name: str | None = None,
     severity: DiagnosticSeverity | None = None,
 ) -> list[Diagnostic]:
+    """Check that each expected interface is exported and extends the right base."""
     diagnostics: list[Diagnostic] = []
 
     for entry in expected:

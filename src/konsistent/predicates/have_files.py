@@ -11,6 +11,7 @@ def check_have_files(
     convention_name: str | None = None,
     severity: DiagnosticSeverity | None = None,
 ) -> list[Diagnostic]:
+    """Check that each expected file template resolves to an existing file."""
     diagnostics: list[Diagnostic] = []
     for file_template in expected:
         resolved = context.resolve_template(file_template)

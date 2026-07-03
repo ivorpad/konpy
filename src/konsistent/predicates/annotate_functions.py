@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Literal
 
+from konsistent.config.schema import AnnotateFunctionsOptionsV1
 from konsistent.core.context import PredicateContext
 from konsistent.core.diagnostics import Diagnostic, DiagnosticSeverity, create_diagnostic
 from konsistent.predicates._utils import get_value
 from konsistent.python_ast.structure import PyFileStructure
 
 
-def _option_enabled(expected: Any, key: str, *, default: bool) -> bool:
+def _option_enabled(
+    expected: Literal[True] | AnnotateFunctionsOptionsV1, key: str, *, default: bool
+) -> bool:
     if expected is True:
         return default
 
@@ -18,12 +21,13 @@ def _option_enabled(expected: Any, key: str, *, default: bool) -> bool:
 
 def check_annotate_functions(
     *,
-    expected: Any,
+    expected: Literal[True] | AnnotateFunctionsOptionsV1,
     context: PredicateContext,
     structure: PyFileStructure,
     convention_name: str | None = None,
     severity: DiagnosticSeverity | None = None,
 ) -> list[Diagnostic]:
+    """Check that public functions annotate their parameters and/or return type."""
     check_returns = _option_enabled(expected, "returns", default=True)
     check_params = _option_enabled(expected, "params", default=True)
     public_only = _option_enabled(expected, "publicOnly", default=True)

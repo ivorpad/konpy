@@ -13,6 +13,7 @@ def check_have_paired_file(
     convention_name: str | None = None,
     severity: DiagnosticSeverity | None = None,
 ) -> list[Diagnostic]:
+    """Check that the expected paired file template resolves to an existing file."""
     resolved = context.resolve_template(expected)
     if file_system.file_exists(resolved):
         return []
