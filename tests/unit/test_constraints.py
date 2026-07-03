@@ -1,6 +1,6 @@
 import pytest
 
-from konsistent.core.constraints import (
+from konpy.core.constraints import (
     PlaceholderConstraint,
     parse_placeholder_constraint,
     validate_matches_constraint,

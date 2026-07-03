@@ -1,6 +1,6 @@
 # Fixing violations
 
-Once `konsistent.json` is in place, running the CLI will surface violations. The mechanical part — renaming a file, adding an export, fixing a type — is usually obvious. The hard part is two decisions you have to make first:
+Once `konpy.json` is in place, running the CLI will surface violations. The mechanical part — renaming a file, adding an export, fixing a type — is usually obvious. The hard part is two decisions you have to make first:
 
 1. **Is the rule wrong, or is the code wrong?** When many files violate the same rule, the rule may encode a convention the codebase hasn't actually adopted. Fixing the code without questioning the rule produces churn.
 2. **Which violations are trivial, and which require design decisions?** Trivial fixes (renames, moves, re-exports) can be batched. Non-trivial fixes (new types, new logic, refactors) need scope decisions.
@@ -12,7 +12,7 @@ This guide walks through both.
 1. [Run the CLI and collect violations as JSON](#1-run-the-cli).
 2. [Group violations by rule](#2-group-violations-by-rule) and identify rules with high violation counts.
 3. [Decide rule vs. code](#3-decide-rule-vs-code) for each high-count rule.
-4. [Update `konsistent.json`](#4-update-konsistentjson) for any rules that need to change.
+4. [Update `konpy.json`](#4-update-konpyjson) for any rules that need to change.
 5. [Re-run the CLI](#5-re-run-and-confirm) to refresh the violation list.
 6. [Triage remaining violations into trivial vs. non-trivial](#6-triage-trivial-vs-non-trivial).
 7. [Decide on backwards-compatibility for renamed package-boundary exports](#7-decide-on-backwards-compatibility).
@@ -24,7 +24,7 @@ This guide walks through both.
 Use JSON output so the violations are easy to programmatically group:
 
 ```bash
-uv run konsistent check --format=json --max-diagnostics=1000
+uv run konpy check --format=json --max-diagnostics=1000
 ```
 
 Each violation has the shape:
@@ -62,7 +62,7 @@ Frame the question with:
 The options:
 
 - **Keep the rule, fix the code** — code is the outlier; proceed to fix violations.
-- **Change the rule to match what the code does** — the violating pattern is the real convention; update `konsistent.json`.
+- **Change the rule to match what the code does** — the violating pattern is the real convention; update `konpy.json`.
 - **Remove the rule** — the convention isn't worth enforcing.
 - **Other** — relax to `severity: warning`, narrow the path pattern, add an exception via path negation, split into a hybrid rule.
 
@@ -73,12 +73,12 @@ When "change the rule" admits more than one specific shape, surface the sub-opti
 
 For low-count rules, assume the code is wrong and skip ahead.
 
-## 4. Update `konsistent.json`
+## 4. Update `konpy.json`
 
 Apply config changes from step 3. Validate after every edit:
 
 ```bash
-uv run konsistent validate
+uv run konpy validate
 ```
 
 See [configuration.md](../reference/configuration.md) for the full schema, [predicates.md](../reference/predicates.md) for the predicate catalog, and [conditional-rules.md](../reference/conditional-rules.md) for `if`/`for` blocks.
@@ -88,7 +88,7 @@ See [configuration.md](../reference/configuration.md) for the full schema, [pred
 After config changes (or after step 3 if no changes were needed), re-run the CLI for a fresh violation list:
 
 ```bash
-uv run konsistent check --format=json --max-diagnostics=1000
+uv run konpy check --format=json --max-diagnostics=1000
 ```
 
 This is the last review of the rule set before mass code changes. If something looks off, return to step 3.
@@ -99,7 +99,7 @@ Classify every remaining violation. The triage rubric below covers each predicat
 
 ### Search before classifying — the most common trivial case
 
-`konsistent` reports the *expected* name and location. The actual symbol or file very often **already exists in the codebase under a different name or in a different file**. These are still trivial: rename, relocate, or re-export.
+`konpy` reports the *expected* name and location. The actual symbol or file very often **already exists in the codebase under a different name or in a different file**. These are still trivial: rename, relocate, or re-export.
 
 Before classifying any violation as non-trivial, search for likely matches:
 
@@ -265,12 +265,12 @@ Order:
 1. All trivial violations from step 6.
 2. The "attempt" non-trivial violations with available context.
 
-Group fixes by file when possible to minimize churn. Don't re-run `konsistent` between individual fixes — batch the edits.
+Group fixes by file when possible to minimize churn. Don't re-run `konpy` between individual fixes — batch the edits.
 
 When done, re-run the CLI:
 
 ```bash
-uv run konsistent check --format=json --max-diagnostics=1000
+uv run konpy check --format=json --max-diagnostics=1000
 ```
 
 Report what's resolved, what remains, and whether new violations appeared. If new violations appeared, investigate before declaring complete.
@@ -294,7 +294,7 @@ uv run ruff check
 
 ## Suppressing instead of fixing
 
-Suppression is the last resort, not a fix. Reach for `# konsistent: ignore[rule-name] -- reason` only after deciding the rule is intentionally not applicable to this exact line or file — and prefer changing the rule's scope in `konsistent.json` when the exception is systematic rather than local.
+Suppression is the last resort, not a fix. Reach for `# konpy: ignore[rule-name] -- reason` only after deciding the rule is intentionally not applicable to this exact line or file — and prefer changing the rule's scope in `konpy.json` when the exception is systematic rather than local.
 
 - Prefer fixing the violation, or narrowing the rule, over suppressing.
 - **AI agents: never add a suppression comment without explicit human approval.** The correct default is to fix the violation or ask for a decision.

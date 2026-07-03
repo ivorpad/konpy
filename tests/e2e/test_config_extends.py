@@ -26,8 +26,8 @@ def _make_package_extends_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     install_fake_distribution(
         tmp_path=tmp_path,
         monkeypatch=monkeypatch,
-        distribution_name="konsistent-e2e-extends-common-conventions",
-        import_package="konsistent_e2e_extends_common_conventions",
+        distribution_name="konpy-e2e-extends-common-conventions",
+        import_package="konpy_e2e_extends_common_conventions",
         package_json={
             "conventionSpecVersion": "v1",
             "conventions": [
@@ -44,12 +44,12 @@ def _make_package_extends_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     install_fake_distribution(
         tmp_path=tmp_path,
         monkeypatch=monkeypatch,
-        distribution_name="konsistent-e2e-base-config",
-        import_package="konsistent_e2e_base_config",
+        distribution_name="konpy-e2e-base-config",
+        import_package="konpy_e2e_base_config",
         package_json={
             "version": "v1",
             "conventionSources": {
-                "common": "konsistent-e2e-extends-common-conventions",
+                "common": "konpy-e2e-extends-common-conventions",
             },
             "conventions": [
                 {
@@ -63,10 +63,10 @@ def _make_package_extends_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     project_dir = tmp_path / "project"
     _write_file(project_dir / "packages" / "sample" / "py.typed")
     _write_json(
-        project_dir / "konsistent.json",
+        project_dir / "konpy.json",
         {
             "version": "v1",
-            "extends": ["konsistent-e2e-base-config"],
+            "extends": ["konpy-e2e-base-config"],
             "conventions": [],
         },
     )

@@ -236,7 +236,7 @@ class TestChangedOutsideGitRepo:
         # for `git diff --no-index` falling back on a non-repo, is a
         # multi-line usage/help dump that a human or hook-parsing agent
         # cannot act on).
-        (tmp_path / "konsistent.json").write_text(
+        (tmp_path / "konpy.json").write_text(
             '{"version": "v1", "conventions": []}\n',
             encoding="utf-8",
         )

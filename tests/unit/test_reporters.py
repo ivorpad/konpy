@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 
-from konsistent.core.diagnostics import Diagnostic
-from konsistent.core.reporters import (
+from konpy.core.diagnostics import Diagnostic
+from konpy.core.reporters import (
     count_severities,
     format_default,
     format_github,
@@ -11,8 +11,8 @@ from konsistent.core.reporters import (
     format_markdown,
     resolve_format,
 )
-from konsistent.core.runner import RunResult
-from konsistent.core.suppressions import AppliedSuppression, SuppressedDiagnostic
+from konpy.core.runner import RunResult
+from konpy.core.suppressions import AppliedSuppression, SuppressedDiagnostic
 
 
 def make_result(

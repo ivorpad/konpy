@@ -7,7 +7,7 @@ ${name.toPascalCase()}   // openai → "Openai"   (wrong: should be "OpenAI")
 ${name.toCamelCase()}    // openai → "openai"   (wrong: should be "openAI")
 ```
 
-Declare top-level case maps in `konsistent.json` to override the defaults.
+Declare top-level case maps in `konpy.json` to override the defaults.
 
 ## `kebabToPascalMap`
 
@@ -99,4 +99,4 @@ Add an entry to a case map when:
 Skip case maps when:
 - The kebab-case form is purely lowercase letters and the PascalCase / camelCase form follows standard rules. The defaults handle these correctly without overrides.
 
-Run `konsistent validate` after adding entries — typos in keys are silent (no error from the schema), but you'll see them quickly when `konsistent check` reports unexpected violations.
+Run `konpy validate` after adding entries — typos in keys are silent (no error from the schema), but you'll see them quickly when `konpy check` reports unexpected violations.

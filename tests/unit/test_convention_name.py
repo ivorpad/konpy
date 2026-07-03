@@ -2,9 +2,9 @@ from typing import Any
 
 from pydantic import TypeAdapter
 
-from konsistent.config.schema import MustBlockV1, MustPredicatesV1
-from konsistent.core.convention_name import generate_convention_name
-from konsistent.predicates.registry import PredicateRegistry, builtin_predicate_registry
+from konpy.config.schema import MustBlockV1, MustPredicatesV1
+from konpy.core.convention_name import generate_convention_name
+from konpy.predicates.registry import PredicateRegistry, builtin_predicate_registry
 
 
 def must(payload: dict) -> MustPredicatesV1:

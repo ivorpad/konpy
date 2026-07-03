@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from konsistent.cli._propose_prompt import build_propose_prompt
-from konsistent.cli._propose_support import AggregatedFinding
+from konpy.cli._propose_prompt import build_propose_prompt
+from konpy.cli._propose_support import AggregatedFinding
 
 
 def test_build_propose_prompt_embeds_contract_rubrics_evidence_and_predicates() -> None:
@@ -27,11 +27,11 @@ def test_build_propose_prompt_embeds_contract_rubrics_evidence_and_predicates() 
         predicates_reference="# Predicates\n\n## haveType\n",
     )
 
-    assert "You convert recurring konsistent hook agentic verification failures" in prompt
+    assert "You convert recurring konpy hook agentic verification failures" in prompt
     assert "reviewable reusable convention pack" in prompt
     assert "Mappability rubric:" in prompt
     assert "insufficient evidence" in prompt
-    assert "Never propose or reference a konsistent ignore suppression comment" in prompt
+    assert "Never propose or reference a konpy ignore suppression comment" in prompt
     assert "require explicit human approval and are out of scope" in prompt
 
     first_header = "## Finding group 1 (occurrences: 2, agent: claude)"

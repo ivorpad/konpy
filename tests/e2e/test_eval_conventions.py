@@ -1,11 +1,11 @@
 """E2E: `scripts/eval_conventions.py run <fixture>` against real fixture repos.
 
 Unlike the other `tests/e2e/test_*.py` modules, this does not go through the
-in-process `run_cli` fixture (that drives the `konsistent` Typer app
+in-process `run_cli` fixture (that drives the `konpy` Typer app
 directly). `scripts/eval_conventions.py` is a standalone script that itself
-shells out to the built `konsistent` CLI as a subprocess, so exercising it
+shells out to the built `konpy` CLI as a subprocess, so exercising it
 "end to end" means invoking the script as a real subprocess too -- covering
-the full path: script subprocess -> konsistent subprocess -> JSON parsing ->
+the full path: script subprocess -> konpy subprocess -> JSON parsing ->
 metrics summary.
 """
 

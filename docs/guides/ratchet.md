@@ -2,11 +2,11 @@
 
 ## The loop
 
-The ratchet loop turns repeated agentic feedback into deterministic checks: `konsistent hook --log` observes verified agentic failures, `konsistent hook-propose` mines the log into a reviewable `ReusableConventionsPackageV1` pack plus an unmapped report, a human reviews the proposal and wires survivors into `konsistent.json` via `conventionSources`, and deterministic checking (`konsistent check --files`, including the [`claude-code-hook.md`](./claude-code-hook.md) recipe) enforces them forever without a model. Each promotion shrinks the slice of review that needs an agent.
+The ratchet loop turns repeated agentic feedback into deterministic checks: `konpy hook --log` observes verified agentic failures, `konpy hook-propose` mines the log into a reviewable `ReusableConventionsPackageV1` pack plus an unmapped report, a human reviews the proposal and wires survivors into `konpy.json` via `conventionSources`, and deterministic checking (`konpy check --files`, including the [`claude-code-hook.md`](./claude-code-hook.md) recipe) enforces them forever without a model. Each promotion shrinks the slice of review that needs an agent.
 
 ## Turning on logging
 
-Add `--log .konsistent/hook-findings.jsonl` to the agentic hook command from [Agentic verification hooks](./hooks.md):
+Add `--log .konpy/hook-findings.jsonl` to the agentic hook command from [Agentic verification hooks](./hooks.md):
 
 ```json
 {
@@ -17,7 +17,7 @@ Add `--log .konsistent/hook-findings.jsonl` to the agentic hook command from [Ag
         "hooks": [
           {
             "type": "command",
-            "command": "konsistent hook --agent claude --model sonnet --match 'src/**/*.py' --prompt 'Check that this module defines what it claims to: class and function names match their bodies, docstrings are not aspirational.' --log .konsistent/hook-findings.jsonl"
+            "command": "konpy hook --agent claude --model sonnet --match 'src/**/*.py' --prompt 'Check that this module defines what it claims to: class and function names match their bodies, docstrings are not aspirational.' --log .konpy/hook-findings.jsonl"
           }
         ]
       }
@@ -29,10 +29,10 @@ Add `--log .konsistent/hook-findings.jsonl` to the agentic hook command from [Ag
 Logging is fail-open and never changes the hook exit-code contract: `0` still means pass or skipped, `1` still means infra fail-open, and `2` still means a verified fail verdict. If writing the log fails, the hook still exits `2`; after the normal reason lines, stderr gets one extra warning line prefixed with:
 
 ```text
-konsistent hook: --log warning:
+konpy hook: --log warning:
 ```
 
-Only verified `fail` verdicts are logged. Pass verdicts, skipped hook invocations, malformed payloads, agent subprocess failures, and unparseable agent output are not logged. Because `konsistent hook` returns immediately on the first failing matched path, each hook invocation logs at most one finding: the first failing path.
+Only verified `fail` verdicts are logged. Pass verdicts, skipped hook invocations, malformed payloads, agent subprocess failures, and unparseable agent output are not logged. Because `konpy hook` returns immediately on the first failing matched path, each hook invocation logs at most one finding: the first failing path.
 
 ## HookFinding JSONL schema
 
@@ -47,7 +47,7 @@ The log is newline-delimited JSON. Each line is one `HookFinding`.
 | `cwd` | Optional working directory from the host payload. |
 | `toolName` | Optional write tool name, such as `Write`, `Edit`, `MultiEdit`, or `apply_patch`. |
 | `filePath` | Matched file path that failed verification. |
-| `prompt` | Exact natural-language verification prompt passed to `konsistent hook`. |
+| `prompt` | Exact natural-language verification prompt passed to `konpy hook`. |
 | `agent` | Verifier agent used by the hook, such as `claude` or `codex`. |
 | `model` | Model value forwarded to the verifier agent. |
 | `reasons` | Non-empty list of concrete fail reasons returned by the verifier. |
@@ -60,22 +60,22 @@ Example line:
 
 ## Running `hook-propose`
 
-By default, `hook-propose` reads `.konsistent/hook-findings.jsonl` and writes `packs/hook-proposals.json`:
+By default, `hook-propose` reads `.konpy/hook-findings.jsonl` and writes `packs/hook-proposals.json`:
 
 ```bash
-konsistent hook-propose
+konpy hook-propose
 ```
 
 Pass an explicit findings log:
 
 ```bash
-konsistent hook-propose .konsistent/hook-findings.jsonl
+konpy hook-propose .konpy/hook-findings.jsonl
 ```
 
 Choose output and report paths:
 
 ```bash
-konsistent hook-propose .konsistent/hook-findings.jsonl \
+konpy hook-propose .konpy/hook-findings.jsonl \
   -o packs/ratcheted-conventions.json \
   --report reports/hook-unmapped.md
 ```
@@ -83,8 +83,8 @@ konsistent hook-propose .konsistent/hook-findings.jsonl \
 Choose the proposal agent and model:
 
 ```bash
-konsistent hook-propose --agent claude --model sonnet
-konsistent hook-propose --agent codex --model gpt-5-codex --timeout 600
+konpy hook-propose --agent claude --model sonnet
+konpy hook-propose --agent codex --model gpt-5-codex --timeout 600
 ```
 
 `--agent auto` is the default and selects the first available supported agent CLI, preferring `claude` before `codex`. `--model` defaults to `sonnet`; pass an explicit model when using `codex`.
@@ -131,11 +131,11 @@ Example:
 }
 ```
 
-`hook-propose` never edits `konsistent.json`.
+`hook-propose` never edits `konpy.json`.
 
 ## Suppressions
 
-The promotion prompt explicitly refuses to propose or reference `# konsistent: ignore[...]` suppression comments. Suppressions require explicit human approval and are out of scope for the ratchet. If a proposed convention would need an exception, review it manually under the [suppression consent policy](../reference/suppressions.md).
+The promotion prompt explicitly refuses to propose or reference `# konpy: ignore[...]` suppression comments. Suppressions require explicit human approval and are out of scope for the ratchet. If a proposed convention would need an exception, review it manually under the [suppression consent policy](../reference/suppressions.md).
 
 ## See also
 

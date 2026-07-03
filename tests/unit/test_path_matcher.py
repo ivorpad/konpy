@@ -1,5 +1,5 @@
-from konsistent.core.filesystem import FakeFileSystem
-from konsistent.core.path_matcher import has_placeholders, match_paths, pattern_to_glob
+from konpy.core.filesystem import FakeFileSystem
+from konpy.core.path_matcher import has_placeholders, match_paths, pattern_to_glob
 
 
 def create_mock_file_system(

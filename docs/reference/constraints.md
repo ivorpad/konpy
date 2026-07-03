@@ -50,7 +50,7 @@ The base rule (`src/__init__.py` required) applies to every package. The conditi
 
 ### Divergence from JS RegExp
 
-The original TypeScript `konsistent` compiled `matches`/`extract` patterns as JavaScript `RegExp`. The Python port uses Python `re`, so a few syntaxes differ. For simple character classes and anchors the behavior is identical, but note:
+The original TypeScript `konpy` compiled `matches`/`extract` patterns as JavaScript `RegExp`. The Python port uses Python `re`, so a few syntaxes differ. For simple character classes and anchors the behavior is identical, but note:
 
 - **Named groups** use `(?P<name>...)` (Python), not `(?<name>...)` (JS). Backreferences are `(?P=name)`.
 - **Inline flags** must appear at the **start** of the pattern in current Python versions — `(?i)abc`, not `abc(?i)`. A mid-pattern global flag raises an error and makes the constraint fail.

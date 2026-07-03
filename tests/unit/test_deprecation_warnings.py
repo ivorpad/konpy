@@ -1,5 +1,5 @@
-from konsistent.config.deprecation_warnings import collect_deprecation_warnings
-from konsistent.config.schema import ConfigV1
+from konpy.config.deprecation_warnings import collect_deprecation_warnings
+from konpy.config.schema import ConfigV1
 
 
 class TestCollectDeprecationWarnings:

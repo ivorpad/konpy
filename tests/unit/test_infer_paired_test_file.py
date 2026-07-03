@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from konsistent.infer.heuristics.paired_test_file import mine
-from konsistent.infer.models import InferFileRecord
-from konsistent.python_ast.structure import PyFileStructure
+from konpy.infer.heuristics.paired_test_file import mine
+from konpy.infer.models import InferFileRecord
+from konpy.python_ast.structure import PyFileStructure
 
 
 def make_structure() -> PyFileStructure:

@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from konsistent.config.schema import ReusableConventionsPackageV1
-from konsistent.predicates.registry import builtin_predicate_registry
+from konpy.config.schema import ReusableConventionsPackageV1
+from konpy.predicates.registry import builtin_predicate_registry
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 PACKS_DIR = REPO_ROOT / "packs"

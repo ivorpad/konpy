@@ -1,0 +1,55 @@
+{
+  "version": "v1",
+  "conventionSources": {
+    "bp": "./packs/python-best-practices.json"
+  },
+  "conventions": [
+    {
+      "use": "bp/init-files-are-barrels",
+      "paths": "src/konpy/**/__init__.py"
+    },
+    {
+      "use": "bp/absolute-imports-only",
+      "paths": ["src/konpy/**/*.py", "!src/konpy/**/__init__.py"]
+    },
+    {
+      "use": "bp/no-underscore-exports",
+      "paths": "src/konpy/**/*.py"
+    },
+    {
+      "use": "bp/docstrings-on-public-api",
+      "paths": ["src/konpy/**/*.py", "!src/konpy/**/__init__.py"]
+    },
+    {
+      "use": "bp/annotated-public-functions",
+      "paths": ["src/konpy/**/*.py", "!src/konpy/**/__init__.py"]
+    },
+    {
+      "name": "no-todo-fixme",
+      "description": "No TODO/FIXME markers in source.",
+      "paths": "src/konpy/**/*.py",
+      "mustNot": { "matchContent": ["\\bTODO\\b", "\\bFIXME\\b"] }
+    },
+    {
+      "name": "no-any-annotations",
+      "description": "typing.Any defeats the type checker; annotate precisely.",
+      "paths": "src/konpy/**/*.py",
+      "mustNot": { "matchContent": [": Any\\b", "-> Any\\b", "\\[Any\\]"] }
+    },
+    {
+      "name": "no-print-statements",
+      "description": "Use the reporter layer, never bare print(), outside the CLI.",
+      "paths": ["src/konpy/**/*.py", "!src/konpy/cli/**"],
+      "mustNot": { "matchContent": ["^\\s*print\\("] }
+    },
+    {
+      "name": "max-module-length",
+      "description": "Modules longer than 300 lines should be split.",
+      "paths": "src/konpy/**/*.py",
+      "mustNot": { "matchContent": ["\\A(?:[^\\n]*\\n){301}"] }
+    }
+  ],
+  "unusedCode": {
+    "include": ["src/konpy/**/*.py"]
+  }
+}

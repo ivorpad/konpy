@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from konsistent._version import __version__
+from konpy._version import __version__
 
 ANSI_ESCAPE_RE = re.compile(r"\x1b\[")
 GITHUB_ANNOTATION_RE = re.compile(r"^::(error|warning) file=.+::.+")
@@ -391,7 +391,7 @@ class TestOutputFormats:
 class TestFlags:
     def test_config_path_works_for_check_and_validate(self, fixtures_dir: Path, run_cli) -> None:
         fixture = _fixture(fixtures_dir, "empty-config")
-        config_path = fixture / "konsistent.json"
+        config_path = fixture / "konpy.json"
 
         exit_code, stdout, stderr = run_cli(
             fixture,
@@ -418,7 +418,7 @@ class TestFlags:
             fixtures_dir,
             "check",
             "--config-path",
-            "/nonexistent/konsistent.json",
+            "/nonexistent/konpy.json",
         )
         output = _combined(stdout, stderr)
 

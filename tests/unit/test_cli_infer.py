@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from konsistent.cli.infer import InferReportFormat, run_infer_command
-from konsistent.core.filesystem import FakeFileSystem
-from konsistent.infer.engine import HEURISTIC_NAMES
+from konpy.cli.infer import InferReportFormat, run_infer_command
+from konpy.core.filesystem import FakeFileSystem
+from konpy.infer.engine import HEURISTIC_NAMES
 
 
 def basic_fixture() -> FakeFileSystem:
@@ -55,7 +55,7 @@ class TestRunInferCommand:
     def test_output_path_writes_file_and_prints_confirmation(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        output = tmp_path / "konsistent.infer.json"
+        output = tmp_path / "konpy.infer.json"
 
         exit_code = call(output_path=str(output))
 
@@ -147,7 +147,7 @@ class TestRunInferCommand:
     ) -> None:
         blocker = tmp_path / "blocked"
         blocker.write_text("not a directory", encoding="utf-8")
-        output = blocker / "konsistent.infer.json"
+        output = blocker / "konpy.infer.json"
 
         exit_code = call(output_path=str(output))
 

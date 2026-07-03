@@ -1,5 +1,5 @@
-from konsistent.config.cli_placeholders import normalize_placeholder_arg, parse_cli_placeholders
-from konsistent.config.errors import Err, Ok
+from konpy.config.cli_placeholders import normalize_placeholder_arg, parse_cli_placeholders
+from konpy.config.errors import Err, Ok
 
 
 class TestParseCliPlaceholders:

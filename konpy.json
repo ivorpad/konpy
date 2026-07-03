@@ -1,0 +1,46 @@
+{
+  "$schema": "./konpy.schema.json",
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "packages-have-init",
+      "description": "Every konpy subpackage is a regular package.",
+      "paths": [
+        "src/konpy/cli",
+        "src/konpy/config",
+        "src/konpy/core",
+        "src/konpy/predicates",
+        "src/konpy/python_ast"
+      ],
+      "must": {
+        "haveType": "directory",
+        "haveFiles": ["__init__.py"]
+      }
+    },
+    {
+      "name": "predicate-modules-export-check",
+      "description": "Each predicate module exposes its check_<module> function.",
+      "paths": "src/konpy/predicates/{module}.py",
+      "excludeFiles": [
+        "src/konpy/predicates/__init__.py",
+        "src/konpy/predicates/registry.py",
+        "src/konpy/predicates/_handlers.py",
+        "src/konpy/predicates/_plugin.py",
+        "src/konpy/predicates/_utils.py",
+        "src/konpy/predicates/declaration_utils.py",
+        "src/konpy/predicates/import_.py"
+      ],
+      "must": {
+        "export": ["check_${module}"]
+      }
+    },
+    {
+      "name": "core-independent-of-cli",
+      "description": "Engine layers never import the CLI.",
+      "paths": ["src/konpy/core/*.py", "src/konpy/config/*.py", "src/konpy/python_ast/*.py"],
+      "mustNot": {
+        "importFrom": "konpy.cli"
+      }
+    }
+  ]
+}

@@ -3,8 +3,8 @@ from typing import Any
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from konsistent.config.schema import RawConfigV1, ReusableConventionsPackageV1
-from konsistent.predicates.registry import PredicateRegistry, builtin_predicate_registry
+from konpy.config.schema import RawConfigV1, ReusableConventionsPackageV1
+from konpy.predicates.registry import PredicateRegistry, builtin_predicate_registry
 
 
 def parses(payload: dict[str, Any]) -> bool:
@@ -29,7 +29,7 @@ class TestConfigV1Accepts:
                 id="dollar-schema",
             ),
             pytest.param(
-                config([], extends=["./base/konsistent.json"]),
+                config([], extends=["./base/konpy.json"]),
                 id="extends-array",
             ),
             pytest.param(
@@ -39,7 +39,7 @@ class TestConfigV1Accepts:
             pytest.param(
                 config(
                     [],
-                    extends=["./base/konsistent.json", "/abs/base/konsistent.json"],
+                    extends=["./base/konpy.json", "/abs/base/konpy.json"],
                     disable=["legacy-rule", "old-rule"],
                 ),
                 id="extends-and-disable",
@@ -737,7 +737,7 @@ class TestConfigV1Rejects:
                 id="placeholders-in-inner-block",
             ),
             pytest.param(
-                config([], extends="./base/konsistent.json"),
+                config([], extends="./base/konpy.json"),
                 id="extends-not-array",
             ),
             pytest.param(
@@ -828,10 +828,10 @@ def plugin_registry_for(*, key: str, value_model: Any = str) -> PredicateRegistr
 
 class TestPluginPredicateValidation:
     def test_accepts_plugins_top_level_key(self) -> None:
-        assert parses(config([], plugins=["konsistent-acme-plugin"])) is True
+        assert parses(config([], plugins=["konpy-acme-plugin"])) is True
 
     def test_rejects_plugins_when_not_array(self) -> None:
-        assert parses(config([], plugins="konsistent-acme-plugin")) is False
+        assert parses(config([], plugins="konpy-acme-plugin")) is False
 
     def test_rejects_plugins_when_item_is_not_string(self) -> None:
         assert parses(config([], plugins=[123])) is False
@@ -844,7 +844,7 @@ class TestPluginPredicateValidation:
                     "must": {"customRule": "expected"},
                 }
             ],
-            plugins=["konsistent-custom-plugin"],
+            plugins=["konpy-custom-plugin"],
         )
         registry = plugin_registry_for(key="customRule", value_model=str)
 
@@ -861,7 +861,7 @@ class TestPluginPredicateValidation:
                     "mustNot": {"customRule": "expected"},
                 }
             ],
-            plugins=["konsistent-custom-plugin"],
+            plugins=["konpy-custom-plugin"],
         )
         registry = plugin_registry_for(key="customRule", value_model=str)
 
@@ -878,7 +878,7 @@ class TestPluginPredicateValidation:
                     "must": {"customRule": 123},
                 }
             ],
-            plugins=["konsistent-custom-plugin"],
+            plugins=["konpy-custom-plugin"],
         )
         registry = plugin_registry_for(key="customRule", value_model=str)
 
@@ -895,7 +895,7 @@ class TestPluginPredicateValidation:
                     "must": {"otherRule": "expected"},
                 }
             ],
-            plugins=["konsistent-custom-plugin"],
+            plugins=["konpy-custom-plugin"],
         )
         registry = plugin_registry_for(key="customRule", value_model=str)
 
@@ -912,7 +912,7 @@ class TestPluginPredicateValidation:
                     "must": {"customRule": "expected"},
                 }
             ],
-            plugins=["konsistent-custom-plugin"],
+            plugins=["konpy-custom-plugin"],
         )
 
         assert parses(payload) is False

@@ -1,25 +1,25 @@
 # Inferring conventions from an existing codebase
 
-`konsistent infer` mines a repository for candidate structural conventions — statistical regularities strong enough to be worth enforcing — and emits a reviewable, `ReusableConventionsPackageV1`-shaped proposed pack plus a confidence/violators report. This is the same output contract `konsistent extract-rules` uses: `{"conventionSpecVersion": "v1", "conventions": [...]}`, validated against the reusable-pack schema before it is printed or written — never a `konsistent.json`/`RawConfigV1`-shaped document, so a proposal can never be mistaken for (or accidentally consumed as) a real config. It never edits `konsistent.json`, never reads one, and requires no agent call: all six heuristics are deterministic, running over the same `ast`/filesystem walkers `check` uses.
+`konpy infer` mines a repository for candidate structural conventions — statistical regularities strong enough to be worth enforcing — and emits a reviewable, `ReusableConventionsPackageV1`-shaped proposed pack plus a confidence/violators report. This is the same output contract `konpy extract-rules` uses: `{"conventionSpecVersion": "v1", "conventions": [...]}`, validated against the reusable-pack schema before it is printed or written — never a `konpy.json`/`RawConfigV1`-shaped document, so a proposal can never be mistaken for (or accidentally consumed as) a real config. It never edits `konpy.json`, never reads one, and requires no agent call: all six heuristics are deterministic, running over the same `ast`/filesystem walkers `check` uses.
 
 Think of it as the reverse of `check`: instead of telling you where your codebase violates known rules, it tells you which rules your codebase already mostly follows.
 
 ## Basic workflow
 
 ```bash
-konsistent infer
+konpy infer
 ```
 
 By default, the proposed pack prints to stdout and the report prints to stderr, so you can pipe the pack straight to a file while still seeing the report in your terminal:
 
 ```bash
-konsistent infer > konsistent.infer.pack.json
+konpy infer > konpy.infer.pack.json
 ```
 
 Or write both to explicit files:
 
 ```bash
-konsistent infer -o konsistent.infer.pack.json -r infer-report.md --format markdown
+konpy infer -o konpy.infer.pack.json -r infer-report.md --format markdown
 ```
 
 A proposal looks like this (one entry per convention in the `conventions` array):
@@ -56,7 +56,7 @@ Every proposal is `severity: "warning"`, so pointing `check` at a freshly inferr
 Restrict to specific heuristics with `--heuristic` (repeatable):
 
 ```bash
-konsistent infer --heuristic export-suffix --heuristic paired-test-file
+konpy infer --heuristic export-suffix --heuristic paired-test-file
 ```
 
 ## Tuning `--min-confidence` and `--min-support`
@@ -69,7 +69,7 @@ Every signal is a `(support, total)` pair — how many files matched the pattern
 Both comparisons are inclusive (`>=`). Raise `--min-confidence` for a stricter, higher-signal proposal set; lower it (together with `--min-support`) to see near-misses and marginal patterns you might still want to adopt deliberately:
 
 ```bash
-konsistent infer --min-confidence 0.75 --min-support 2
+konpy infer --min-confidence 0.75 --min-support 2
 ```
 
 `--max-violators` caps how many violator paths are listed per proposal in the report (default `10`); the underlying counts (`support`/`total`) are always exact, and an `omittedViolators`/`...and N more` note tells you how many were cut.
@@ -97,13 +97,13 @@ Use `--format json` when scripting around the output; the top-level keys are `fi
 
 1. Read the report next to the proposed pack — every proposal's violator list tells you exactly which files would need fixing (or excluding) if you adopted it.
 2. Delete or narrow proposals that don't reflect an intentional convention — six-heuristic pattern mining will surface real regularities *and* coincidences.
-3. Merge the survivors into your real `konsistent.json` by hand (copy the convention objects in, or point `conventionSources`/`extends` at the saved pack file), then run `konsistent check` to see the true violation count before committing to enforcing it as an error.
+3. Merge the survivors into your real `konpy.json` by hand (copy the convention objects in, or point `conventionSources`/`extends` at the saved pack file), then run `konpy check` to see the true violation count before committing to enforcing it as an error.
 
 ## Known limitations
 
 - **Fixed-depth scoping.** `export-suffix` and `paired-test-file` group by *exact* directory, not a recursive `**` pattern, because the `{name}` placeholder capture requires the convention's `paths` pattern and the matched file path to have the same segment count. A repo with many leaf directories (e.g. several `*/services/` subpackages) will get one small proposal per directory instead of one repo-wide rule. This is a grammar constraint, not a bug — merge near-duplicate proposals by hand if you want one recursive rule.
 - **Fixed suffix vocabulary.** `export-suffix` only recognizes a hard-coded list of suffixes (`Service`, `Adapter`, `Repository`, `Handler`, `Manager`, `Controller`, `Factory`, `Builder`, `Client`, `Provider`, `Gateway`, `Validator`, `Serializer`, `Middleware`, `Strategy`, `Worker`, `Resolver`). Other vocabularies (`*_impl.py`, `*_dao.py`, …) produce no export-suffix proposals in this release.
-- **No existing-config awareness.** `infer` always mines from a blank slate; it does not check whether a pattern is already enforced in your `konsistent.json` and will happily re-propose something you already have.
+- **No existing-config awareness.** `infer` always mines from a blank slate; it does not check whether a pattern is already enforced in your `konpy.json` and will happily re-propose something you already have.
 - **Non-stable names.** Convention names are regenerated fresh on every run (including deterministic `-2`/`-3` suffixing on directory-slug collisions), not diffed against a previous run — a directory rename can shift names across runs.
 
 See [`docs/reference/cli.md#infer`](../reference/cli.md#infer) for the full flag reference and exit codes.

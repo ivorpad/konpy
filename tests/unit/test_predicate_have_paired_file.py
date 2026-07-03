@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from konsistent.core.context import PredicateContext
-from konsistent.core.filesystem import FakeFileSystem
-from konsistent.core.placeholders import PlaceholderValue
-from konsistent.predicates.have_paired_file import check_have_paired_file
+from konpy.core.context import PredicateContext
+from konpy.core.filesystem import FakeFileSystem
+from konpy.core.placeholders import PlaceholderValue
+from konpy.predicates.have_paired_file import check_have_paired_file
 
 
 def context(

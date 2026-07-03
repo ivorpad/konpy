@@ -1,6 +1,6 @@
 import pytest
 
-from konsistent.core.placeholders import PlaceholderValue
+from konpy.core.placeholders import PlaceholderValue
 
 
 class TestToString:

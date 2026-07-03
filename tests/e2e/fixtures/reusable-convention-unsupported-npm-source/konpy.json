@@ -1,0 +1,7 @@
+{
+  "version": "v1",
+  "conventionSources": {
+    "common": "@konpy/common-conventions"
+  },
+  "conventions": []
+}

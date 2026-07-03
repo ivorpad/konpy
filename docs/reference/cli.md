@@ -1,52 +1,52 @@
 # CLI
 
-The `konsistent` CLI is the entry point for running checks, validating configs, and explicitly generating reviewable reusable-convention proposals from prose rule sources.
+The `konpy` CLI is the entry point for running checks, validating configs, and explicitly generating reviewable reusable-convention proposals from prose rule sources.
 
 Install it with `uv` or `pip`:
 
 ```bash
-uv add --dev konsistent      # add to a uv project
-uv run konsistent            # run it
-uvx konsistent               # run without installing
-pip install konsistent       # or install with pip
+uv add --dev konpy      # add to a uv project
+uv run konpy            # run it
+uvx konpy               # run without installing
+pip install konpy       # or install with pip
 ```
 
 ## Commands
 
 | Command | Description |
 | --- | --- |
-| `konsistent` | Shorthand for `konsistent check` |
-| `konsistent check` | Check structural conventions against your `konsistent.json` |
-| `konsistent validate` | Validate the `konsistent.json` configuration file |
-| `konsistent extract-rules` | Explicitly ask a local agent CLI to draft a reusable convention pack from prose rules |
-| `konsistent infer` | Mine the codebase for candidate structural conventions and emit a reviewable proposal |
-| `konsistent explain` | Render the resolved config as prevention-side guidance markdown/text for a code-writing agent |
-| `konsistent hook` | Run an agentic `PostToolUse` verification hook for Claude Code or Codex |
-| `konsistent help` | Show a quick reference of all commands and options |
-| `konsistent version` | Print the version number |
+| `konpy` | Shorthand for `konpy check` |
+| `konpy check` | Check structural conventions against your `konpy.json` |
+| `konpy validate` | Validate the `konpy.json` configuration file |
+| `konpy extract-rules` | Explicitly ask a local agent CLI to draft a reusable convention pack from prose rules |
+| `konpy infer` | Mine the codebase for candidate structural conventions and emit a reviewable proposal |
+| `konpy explain` | Render the resolved config as prevention-side guidance markdown/text for a code-writing agent |
+| `konpy hook` | Run an agentic `PostToolUse` verification hook for Claude Code or Codex |
+| `konpy help` | Show a quick reference of all commands and options |
+| `konpy version` | Print the version number |
 
-`konsistent` invoked without a subcommand runs `check`. `konsistent --help` runs `help`. `konsistent --version` prints the version. There is no `update` command.
+`konpy` invoked without a subcommand runs `check`. `konpy --help` runs `help`. `konpy --version` prints the version. There is no `update` command.
 
-Rule extraction is never implicit: `konsistent` only shells out to an agent when you run `konsistent extract-rules` directly, or when a `konsistent hook` invocation actually matches a write event.
+Rule extraction is never implicit: `konpy` only shells out to an agent when you run `konpy extract-rules` directly, or when a `konpy hook` invocation actually matches a write event.
 
 ## `check`
 
-Loads `konsistent.json`, runs every convention against the codebase, and reports violations.
+Loads `konpy.json`, runs every convention against the codebase, and reports violations.
 
 ```bash
-konsistent check
-konsistent check --format=json --max-diagnostics=1000
-konsistent check --error-on-warnings --diagnostic-level error
-konsistent check --show-suppressed
-konsistent check --files src/service.py
-konsistent check --changed
+konpy check
+konpy check --format=json --max-diagnostics=1000
+konpy check --error-on-warnings --diagnostic-level error
+konpy check --show-suppressed
+konpy check --files src/service.py
+konpy check --changed
 ```
 
 ### Flags
 
 | Flag | Type | Default | Description |
 | --- | --- | --- | --- |
-| `--config-path <path>` | string | `konsistent.json` (project root) | Path to the config file |
+| `--config-path <path>` | string | `konpy.json` (project root) | Path to the config file |
 | `--config-package <pkg>` | string | — | Accepted for upstream compatibility, but **always errors as unsupported** in the Python port. Use `--config-path` instead |
 | `--format <format>` | `default` \| `json` \| `github` \| `markdown` | `default` (auto-selects `github` in GitHub Actions) | Output format |
 | `--verbose` | boolean | `false` | Accepted for upstream compatibility; produces no distinct output |
@@ -59,7 +59,7 @@ konsistent check --changed
 | `--files <path> [<path> ...]` | string (repeatable or space list) | — | Restrict checking to these files. May be repeated (`--files a.py --files b.py`) or given as one space-separated occurrence (`--files a.py b.py`). Mutually exclusive with `--changed` |
 | `--changed` | boolean | `false` | Restrict checking to files changed since `HEAD` (`git diff --name-only HEAD`) plus untracked files (`git ls-files --others --exclude-standard`). Mutually exclusive with `--files` |
 
-`--config-package` is still unsupported. Installed Python distribution names are supported inside a local `konsistent.json` for `conventionSources` and `extends`; they do not enable loading the root config itself from a package.
+`--config-package` is still unsupported. Installed Python distribution names are supported inside a local `konpy.json` for `conventionSources` and `extends`; they do not enable loading the root config itself from a package.
 
 `--changed` shells out to `git` and **requires a git repository**: if the working directory is not inside one, `check` prints a single, deliberate message (`--changed requires a git repository (none found at <cwd>).`) to stderr and exits `1` — it never relays git's raw stderr/usage output for this case. If the underlying `git` invocation otherwise fails, `check` prints that git error to stderr and exits `1`. Neither case falls back to a full, unscoped scan. Only rely on `--changed` where a git repository is guaranteed, e.g. a CI job or a hook running inside a checked-out repo.
 
@@ -81,10 +81,10 @@ Two predicates need whole-project context and are handled specially:
 Examples:
 
 ```bash
-konsistent check --files src/service.py
-konsistent check --files src/service.py src/other.py
-konsistent check --files src/service.py --files src/other.py
-konsistent check --changed
+konpy check --files src/service.py
+konpy check --files src/service.py src/other.py
+konpy check --files src/service.py --files src/other.py
+konpy check --changed
 ```
 
 See also: the [Claude Code hook integration guide](../guides/claude-code-hook.md), which uses `--files` to check a single edited file after every `Edit`/`Write` tool call. Because selection is convention-level, this still gives full-fidelity feedback: if the edited file shares a convention with other files, violations on those other files are reported too, not silently missed.
@@ -98,11 +98,11 @@ Suppressed errors do not fail the command. Suppressed warnings do not fail `--er
 
 ## `validate`
 
-Parses and validates `konsistent.json` against the schema without running any checks against the filesystem.
+Parses and validates `konpy.json` against the schema without running any checks against the filesystem.
 
 ```bash
-konsistent validate
-konsistent validate --config-path=path/to/konsistent.json
+konpy validate
+konpy validate --config-path=path/to/konpy.json
 ```
 
 Exits `0` and prints `Configuration is valid.` on success. Exits `1` with a validation error on failure.
@@ -114,9 +114,9 @@ Exits `0` and prints `Configuration is valid.` on success. Exits `1` with a vali
 Explicitly asks a local agent CLI to convert prose rules into a reviewable [`ReusableConventionsPackageV1`](./reusable-conventions.md) proposal.
 
 ```bash
-konsistent extract-rules docs/team-style-guide.md
-konsistent extract-rules docs/team-style-guide.md -o packs/team-style.json
-konsistent extract-rules docs/team-style-guide.md --agent codex --report unmapped.md
+konpy extract-rules docs/team-style-guide.md
+konpy extract-rules docs/team-style-guide.md -o packs/team-style.json
+konpy extract-rules docs/team-style-guide.md --agent codex --report unmapped.md
 ```
 
 The command reads:
@@ -137,7 +137,7 @@ It sends that prompt to the selected agent CLI and expects one JSON object:
   "unmapped": [
     {
       "rule": "Use ruff for formatting.",
-      "reason": "Formatting is enforced by Ruff, not konsistent predicates."
+      "reason": "Formatting is enforced by Ruff, not konpy predicates."
     }
   ]
 }
@@ -162,7 +162,7 @@ packs/<source-stem>.json
 For example:
 
 ```bash
-konsistent extract-rules rules.md
+konpy extract-rules rules.md
 # writes ./packs/rules.json
 ```
 
@@ -186,7 +186,7 @@ If you pass `--agent claude` or `--agent codex`, only that binary is considered.
 
 ### Output and review workflow
 
-A successful run writes only the reusable convention pack proposal. It never edits or creates `konsistent.json`.
+A successful run writes only the reusable convention pack proposal. It never edits or creates `konpy.json`.
 
 After generation:
 
@@ -232,25 +232,25 @@ Invalid packs report pydantic validation issues in the same style as other confi
 
 ## `infer`
 
-Mines the current repository for candidate structural conventions using deterministic heuristics over the same AST/filesystem walkers `check` uses, and emits a reviewable proposal — no agent call, no existing-config awareness, and it never touches `konsistent.json`.
+Mines the current repository for candidate structural conventions using deterministic heuristics over the same AST/filesystem walkers `check` uses, and emits a reviewable proposal — no agent call, no existing-config awareness, and it never touches `konpy.json`.
 
 ```bash
-konsistent infer
-konsistent infer -o konsistent.infer.pack.json -r infer-report.md
-konsistent infer --heuristic export-suffix --heuristic paired-test-file
-konsistent infer --min-confidence 0.8 --min-support 5
+konpy infer
+konpy infer -o konpy.infer.pack.json -r infer-report.md
+konpy infer --heuristic export-suffix --heuristic paired-test-file
+konpy infer --min-confidence 0.8 --min-support 5
 ```
 
-Six independent heuristics each look for a statistical regularity — a suffix/export pattern, a test-pairing convention, docstring coverage, type-annotation coverage, `__init__.py` barrel purity, and absolute-vs-relative import dominance — and, for every signal whose sample size and pass-rate clear the configured thresholds, propose one `severity: "warning"` convention. The emitted proposal is validated against `ReusableConventionsPackageV1` — the same reviewable-pack contract `extract-rules` emits (`{"conventionSpecVersion": "v1", "conventions": [...]}`) — never a `RawConfigV1`/`konsistent.json`-shaped document. See [Inferring conventions](../guides/inferring-conventions.md) for the full heuristic reference and tuning guidance.
+Six independent heuristics each look for a statistical regularity — a suffix/export pattern, a test-pairing convention, docstring coverage, type-annotation coverage, `__init__.py` barrel purity, and absolute-vs-relative import dominance — and, for every signal whose sample size and pass-rate clear the configured thresholds, propose one `severity: "warning"` convention. The emitted proposal is validated against `ReusableConventionsPackageV1` — the same reviewable-pack contract `extract-rules` emits (`{"conventionSpecVersion": "v1", "conventions": [...]}`) — never a `RawConfigV1`/`konpy.json`-shaped document. See [Inferring conventions](../guides/inferring-conventions.md) for the full heuristic reference and tuning guidance.
 
 ### Output-channel contract
 
-The **proposed pack** is the primary artifact: stdout by default, or the `--output`/`-o` path. The **confidence/violators report** is secondary: stderr by default, or the `--report`/`-r` path. This makes `konsistent infer > konsistent.infer.pack.json` always work, and keeps the two artifacts independently redirectable:
+The **proposed pack** is the primary artifact: stdout by default, or the `--output`/`-o` path. The **confidence/violators report** is secondary: stderr by default, or the `--report`/`-r` path. This makes `konpy infer > konpy.infer.pack.json` always work, and keeps the two artifacts independently redirectable:
 
 ```bash
-konsistent infer > konsistent.infer.pack.json      # pack on stdout, report on stderr
-konsistent infer -o konsistent.infer.pack.json     # confirmation on stdout, report on stderr
-konsistent infer -o out.json -r report.md          # confirmations on stdout, both bodies in files
+konpy infer > konpy.infer.pack.json      # pack on stdout, report on stderr
+konpy infer -o konpy.infer.pack.json     # confirmation on stdout, report on stderr
+konpy infer -o out.json -r report.md          # confirmations on stdout, both bodies in files
 ```
 
 ### Flags
@@ -275,36 +275,36 @@ konsistent infer -o out.json -r report.md          # confirmations on stdout, bo
 
 ### Review workflow
 
-`infer` never edits `konsistent.json`. After generation:
+`infer` never edits `konpy.json`. After generation:
 
 1. inspect the proposed pack and the report side by side — every proposal lists its `support/total` counts and the (possibly truncated) violator file list;
 2. delete or narrow any proposal that does not reflect an intentional convention;
-3. only then merge the surviving conventions into your real `konsistent.json` (e.g. via `extends`, or by hand-copying entries).
+3. only then merge the surviving conventions into your real `konpy.json` (e.g. via `extends`, or by hand-copying entries).
 
-Every emitted convention hard-codes `severity: "warning"`, so once you have copied surviving conventions into a real `konsistent.json` (directly, or via `conventionSources`/`extends` pointing at the saved pack file), a first `konsistent check` never hard-fails CI before you have reviewed it. The pack itself is not a valid `konsistent.json` and `check`/`validate` will reject it if pointed at it directly — that rejection is intentional, not a bug.
+Every emitted convention hard-codes `severity: "warning"`, so once you have copied surviving conventions into a real `konpy.json` (directly, or via `conventionSources`/`extends` pointing at the saved pack file), a first `konpy check` never hard-fails CI before you have reviewed it. The pack itself is not a valid `konpy.json` and `check`/`validate` will reject it if pointed at it directly — that rejection is intentional, not a bug.
 
 ## `explain`
 
-Loads `konsistent.json`, resolves it exactly like `check`/`validate` do (after `extends`/`disable`/`conventionSources`/`plugins`), and renders every configured convention plus the `unusedCode` settings as concise Markdown (default) or plain-text guidance — suitable for pasting into `CLAUDE.md` or an equivalent agent instructions file so a code-writing agent follows the rules *before* writing code, instead of only being caught by `konsistent check` afterwards.
+Loads `konpy.json`, resolves it exactly like `check`/`validate` do (after `extends`/`disable`/`conventionSources`/`plugins`), and renders every configured convention plus the `unusedCode` settings as concise Markdown (default) or plain-text guidance — suitable for pasting into `CLAUDE.md` or an equivalent agent instructions file so a code-writing agent follows the rules *before* writing code, instead of only being caught by `konpy check` afterwards.
 
 `explain` never touches the filesystem being linted and performs no diagnostic evaluation: it does not glob files, parse Python source, or run any predicate. `--diagnostic-level`, `--max-diagnostics`, `--colors`, `--error-on-warnings`, and `--show-suppressed` do not apply to it and are not accepted. It always renders every configured convention regardless of severity.
 
 ```bash
-konsistent explain
-konsistent explain --format text
-konsistent explain --config-path path/to/konsistent.json > CLAUDE.md
+konpy explain
+konpy explain --format text
+konpy explain --config-path path/to/konpy.json > CLAUDE.md
 ```
 
 ### Flags
 
 | Flag | Type | Default | Description |
 | --- | --- | --- | --- |
-| `--config-path <path>` | string | `konsistent.json` (project root) | Path to the config file |
+| `--config-path <path>` | string | `konpy.json` (project root) | Path to the config file |
 | `--config-package <pkg>` | string | — | Accepted for upstream compatibility, but **always errors as unsupported** in the Python port. Use `--config-path` instead |
 | `--format <md\|text>` | `md` \| `text` | `md` | Output format |
 | `--placeholder <name:value>` | string (repeatable) | — | Inject a placeholder into every convention's `placeholders` map, overriding any entry already there. May be passed multiple times |
 
-Output is written to stdout only; there is no `--fix`/`--emit-patch`/file-write flag. Redirect it (`konsistent explain > CLAUDE.md`) or copy/paste the relevant sections into your agent instructions file.
+Output is written to stdout only; there is no `--fix`/`--emit-patch`/file-write flag. Redirect it (`konpy explain > CLAUDE.md`) or copy/paste the relevant sections into your agent instructions file.
 
 Template placeholders (`${name}`, `${name.method(...)}`) inside `paths` or predicate values are rendered **verbatim, unresolved** — there is no per-file match context at explain time, only the resolved config. This is a deliberate scope decision, not a bug.
 
@@ -313,7 +313,7 @@ Sample Markdown output:
 ```md
 # Project conventions
 
-Structural conventions enforced by `konsistent`. Follow these before writing or editing Python files in this repository.
+Structural conventions enforced by `konpy`. Follow these before writing or editing Python files in this repository.
 
 ## Conventions
 
@@ -324,18 +324,18 @@ Structural conventions enforced by `konsistent`. Follow these before writing or 
 
 ## Suppressions
 
-Suppression comments (`konsistent: ignore[rule]`) are for approved exceptions only. Never add one without explicit human approval -- see `docs/reference/suppressions.md`. Fix the violation, or ask a human to approve a suppression with a reason.
+Suppression comments (`konpy: ignore[rule]`) are for approved exceptions only. Never add one without explicit human approval -- see `docs/reference/suppressions.md`. Fix the violation, or ask a human to approve a suppression with a reason.
 ```
 
-Each convention bullet shows its resolved name (generated the same way `check`'s suppression-comment matching would name it, when no explicit `name` is set), paths, `description`, `hint`, and `severity`, followed by its `must`/`mustNot` predicates. Conventions with multiple `must` blocks label each block by name (or `block N`) so conditional (`if`/`for`/`excludeFiles`) rules stay unambiguous. When `unusedCode` is configured, a `## Unused code` section lists the fully resolved include/exclude globs, entrypoint files, registry decorators, hook names, model base classes, and any explicit `allow` list — including framework presets, not just what you wrote in `konsistent.json`. Every render ends with a standing `## Suppressions` note reiterating the [suppression consent policy](./suppressions.md#ai-agents): agents must never add a `# konsistent: ignore[...]` comment without explicit human approval.
+Each convention bullet shows its resolved name (generated the same way `check`'s suppression-comment matching would name it, when no explicit `name` is set), paths, `description`, `hint`, and `severity`, followed by its `must`/`mustNot` predicates. Conventions with multiple `must` blocks label each block by name (or `block N`) so conditional (`if`/`for`/`excludeFiles`) rules stay unambiguous. When `unusedCode` is configured, a `## Unused code` section lists the fully resolved include/exclude globs, entrypoint files, registry decorators, hook names, model base classes, and any explicit `allow` list — including framework presets, not just what you wrote in `konpy.json`. Every render ends with a standing `## Suppressions` note reiterating the [suppression consent policy](./suppressions.md#ai-agents): agents must never add a `# konpy: ignore[...]` comment without explicit human approval.
 
 ## `hook`
 
-Runs an agentic `PostToolUse` verification hook for Claude Code or Codex. Unlike every other command, `hook` reads its input as a JSON hook payload on stdin rather than operating on `konsistent.json` or the filesystem directly, and it is the only subcommand that ever shells out to an agent as a side effect of normal use (`extract-rules` only does so when invoked explicitly).
+Runs an agentic `PostToolUse` verification hook for Claude Code or Codex. Unlike every other command, `hook` reads its input as a JSON hook payload on stdin rather than operating on `konpy.json` or the filesystem directly, and it is the only subcommand that ever shells out to an agent as a side effect of normal use (`extract-rules` only does so when invoked explicitly).
 
 ```bash
-konsistent hook --agent claude --match 'src/**/*.py' --prompt 'Docstrings are not aspirational: verify each function body actually does what its docstring claims.'
-konsistent hook --agent codex --match 'src/**/*.py' --match 'tests/**/*.py' --prompt '...' --timeout 120
+konpy hook --agent claude --match 'src/**/*.py' --prompt 'Docstrings are not aspirational: verify each function body actually does what its docstring claims.'
+konpy hook --agent codex --match 'src/**/*.py' --match 'tests/**/*.py' --prompt '...' --timeout 120
 ```
 
 It is meant to be wired into a coding agent's own hook config (Claude Code `.claude/settings.json`, Codex `.codex/hooks.json`), not run interactively — see [Agentic verification hooks](../guides/hooks.md) for setup snippets and worked examples.
@@ -371,31 +371,31 @@ Exit `2` is never used for infra trouble, and exit `1` is never used for an actu
 
 A `claude -p` or `codex exec` spawned from inside the hook would, by default, inherit the very same hooks — including this one. Two guards prevent that:
 
-- **Sentinel env var.** `konsistent hook` sets `KONSISTENT_HOOK_ACTIVE=1` in the child agent's environment before spawning it. If `konsistent hook` ever sees that variable already set — because it's running inside a nested agent invocation — it exits 0 immediately without doing any work.
+- **Sentinel env var.** `konpy hook` sets `KONPY_HOOK_ACTIVE=1` in the child agent's environment before spawning it. If `konpy hook` ever sees that variable already set — because it's running inside a nested agent invocation — it exits 0 immediately without doing any work.
 - **Read-only child.** The verifier agent is invoked with flags that keep it from writing anything: `claude` gets `--allowedTools Read Grep Glob` plus an inline `--settings '{"hooks":{}}'` (no temp file; unlisted tools are auto-denied in `-p` mode); `codex` gets `--sandbox read-only`. A child that can't write can't re-trigger a `PostToolUse` write hook in the first place.
 
 ### Suppressions
 
-A fail verdict's reasons are self-correction feedback, same as any other linter/test failure surfaced through a hook. Nothing about `hook`'s prompt or exit-code contract instructs an agent to add a `# konsistent: ignore[...]` comment — see the [suppression consent policy](./suppressions.md#ai-agents), which still applies in full if the feedback ever seems to call for a suppression rather than a fix.
+A fail verdict's reasons are self-correction feedback, same as any other linter/test failure surfaced through a hook. Nothing about `hook`'s prompt or exit-code contract instructs an agent to add a `# konpy: ignore[...]` comment — see the [suppression consent policy](./suppressions.md#ai-agents), which still applies in full if the feedback ever seems to call for a suppression rather than a fix.
 
-`konsistent hook` never invokes `konsistent check` or `konsistent validate`, and vice versa; the two are independent mechanisms. See [Which hook mechanism should I use?](../guides/hooks.md#which-hook-mechanism-should-i-use) for the comparison with the deterministic `check --files` `PostToolUse` recipe.
+`konpy hook` never invokes `konpy check` or `konpy validate`, and vice versa; the two are independent mechanisms. See [Which hook mechanism should I use?](../guides/hooks.md#which-hook-mechanism-should-i-use) for the comparison with the deterministic `check --files` `PostToolUse` recipe.
 
 ## `hook-propose`
 
-Promotes logged `konsistent hook` fail findings into a reviewable [`ReusableConventionsPackageV1`](./reusable-conventions.md) proposal plus an unmapped report. It never edits `konsistent.json`.
+Promotes logged `konpy hook` fail findings into a reviewable [`ReusableConventionsPackageV1`](./reusable-conventions.md) proposal plus an unmapped report. It never edits `konpy.json`.
 
 ```bash
-konsistent hook-propose
-konsistent hook-propose .konsistent/hook-findings.jsonl
-konsistent hook-propose findings.jsonl -o packs/ratchet.json --report reports/ratchet-unmapped.md
-konsistent hook-propose --agent codex --model gpt-5-codex --timeout 600
+konpy hook-propose
+konpy hook-propose .konpy/hook-findings.jsonl
+konpy hook-propose findings.jsonl -o packs/ratchet.json --report reports/ratchet-unmapped.md
+konpy hook-propose --agent codex --model gpt-5-codex --timeout 600
 ```
 
 ### Argument
 
 | Argument | Default | Description |
 | --- | --- | --- |
-| `[findings-path]` | `.konsistent/hook-findings.jsonl` | JSONL log written by `konsistent hook --log` |
+| `[findings-path]` | `.konpy/hook-findings.jsonl` | JSONL log written by `konpy hook --log` |
 
 ### Flags
 
@@ -421,7 +421,7 @@ konsistent hook-propose --agent codex --model gpt-5-codex --timeout 600
 }
 ```
 
-The returned `pack` is validated with the reusable-conventions schema before anything is written. The generated pack is a proposal for human review; wire accepted conventions into `konsistent.json` manually with `conventionSources`.
+The returned `pack` is validated with the reusable-conventions schema before anything is written. The generated pack is a proposal for human review; wire accepted conventions into `konpy.json` manually with `conventionSources`.
 
 If the findings file is missing or contains no valid fail findings, the command exits `0`, prints a calm “No fail findings to promote” message, invokes no agent, and writes nothing.
 
@@ -486,7 +486,7 @@ Checked 1 file in 5ms. No unsuppressed violations found. Suppressed 1 finding.
 
 ### `github`
 
-GitHub Actions annotations (`::error file=...,line=...::message` and `::warning ...`). Auto-selected when `GITHUB_ACTIONS=true` is set in the environment, so `konsistent check` in a GitHub workflow needs no extra flags.
+GitHub Actions annotations (`::error file=...,line=...::message` and `::warning ...`). Auto-selected when `GITHUB_ACTIONS=true` is set in the environment, so `konpy check` in a GitHub workflow needs no extra flags.
 
 By default, suppressed diagnostics are not emitted as GitHub annotations. With `--show-suppressed`, suppressed diagnostics are emitted as notices:
 
@@ -606,7 +606,7 @@ A block's own `description`/`hint` override the parent convention's when both ar
 
 `expected`/`found`/`fix_hint` are populated by the predicates where they can be expressed unambiguously: `exportClasses`, `exportConstants`, `havePairedFile`, `haveDocstrings`, `annotateFunctions`, `importFrom`, `importFrom*`/`importTypes*` (current-dir/parents/externals groups), and `matchContent`. Other predicates leave these fields `None` rather than guessing — a vague hint is worse than no hint.
 
-All five fields are additive and optional everywhere they appear: omitted from JSON when absent (never emitted as `null`), and producing no extra line/cell in `default`/`markdown` output when absent. `fix_hint` is data only — konsistent never applies it automatically and never emits suppression comments; see [Suppressions](./suppressions.md) for the consent policy on machine-authored changes.
+All five fields are additive and optional everywhere they appear: omitted from JSON when absent (never emitted as `null`), and producing no extra line/cell in `default`/`markdown` output when absent. `fix_hint` is data only — konpy never applies it automatically and never emits suppression comments; see [Suppressions](./suppressions.md) for the consent policy on machine-authored changes.
 
 ## Truncation
 

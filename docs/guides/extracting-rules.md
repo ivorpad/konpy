@@ -1,8 +1,8 @@
 # Extracting rules from prose
 
-`konsistent extract-rules` turns a prose source — such as a team style guide, an internal checklist, or an agent skill file — into a reviewable reusable-convention pack proposal.
+`konpy extract-rules` turns a prose source — such as a team style guide, an internal checklist, or an agent skill file — into a reviewable reusable-convention pack proposal.
 
-Extraction is always explicit. `konsistent check` and `konsistent validate` never invoke an agent.
+Extraction is always explicit. `konpy check` and `konpy validate` never invoke an agent.
 
 ## Basic workflow
 
@@ -18,7 +18,7 @@ Python modules should use Ruff formatting.
 Run extraction:
 
 ```bash
-konsistent extract-rules docs/team-rules.md
+konpy extract-rules docs/team-rules.md
 ```
 
 By default this writes:
@@ -30,7 +30,7 @@ packs/team-rules.json
 You can choose the destination:
 
 ```bash
-konsistent extract-rules docs/team-rules.md -o packs/team-style.json
+konpy extract-rules docs/team-rules.md -o packs/team-style.json
 ```
 
 The generated file is a [`ReusableConventionsPackageV1`](../reference/reusable-conventions.md) proposal:
@@ -77,18 +77,18 @@ Example:
 }
 ```
 
-`extract-rules` never edits `konsistent.json` for you.
+`extract-rules` never edits `konpy.json` for you.
 
-Sibling workflow: [`konsistent hook-propose`](ratchet.md) uses the same reviewable-pack idea, but its input is logged `konsistent hook` fail findings instead of a prose source file.
+Sibling workflow: [`konpy hook-propose`](ratchet.md) uses the same reviewable-pack idea, but its input is logged `konpy hook` fail findings instead of a prose source file.
 
 ## Agent selection
 
 The command shells out to a local agent CLI.
 
 ```bash
-konsistent extract-rules docs/team-rules.md --agent auto
-konsistent extract-rules docs/team-rules.md --agent claude
-konsistent extract-rules docs/team-rules.md --agent codex
+konpy extract-rules docs/team-rules.md --agent auto
+konpy extract-rules docs/team-rules.md --agent claude
+konpy extract-rules docs/team-rules.md --agent codex
 ```
 
 `--agent auto` is the default. It selects the first available binary on `PATH`:
@@ -109,18 +109,18 @@ If neither binary is found, the command exits with an error naming both `claude`
 
 ## Unmapped rules
 
-The extraction prompt tells the agent not to silently drop rules. Anything that cannot be expressed with `konsistent` predicates should be returned as unmapped.
+The extraction prompt tells the agent not to silently drop rules. Anything that cannot be expressed with `konpy` predicates should be returned as unmapped.
 
 Without `--report`, unmapped rules are printed to stdout:
 
 ```bash
-konsistent extract-rules docs/team-rules.md
+konpy extract-rules docs/team-rules.md
 ```
 
 With `--report`, they are written to a Markdown file:
 
 ```bash
-konsistent extract-rules docs/team-rules.md --report unmapped-rules.md
+konpy extract-rules docs/team-rules.md --report unmapped-rules.md
 ```
 
 Typical unmapped rules include:
@@ -137,7 +137,7 @@ Use the unmapped list as a follow-up checklist. Some items may belong in another
 
 ## What can be mapped
 
-`konsistent` is best at structural repository rules:
+`konpy` is best at structural repository rules:
 
 - files or directories must exist;
 - matched paths must be files or directories;
@@ -164,6 +164,6 @@ The agent must return one JSON object with this shape:
 }
 ```
 
-`konsistent` validates `pack` with the reusable-conventions schema before writing. If validation fails, the command exits non-zero and writes nothing.
+`konpy` validates `pack` with the reusable-conventions schema before writing. If validation fails, the command exits non-zero and writes nothing.
 
 This means a generated file is at least schema-valid, but it still needs human review.

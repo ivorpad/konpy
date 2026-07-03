@@ -6,9 +6,9 @@ from itertools import groupby
 
 from pydantic import ValidationError
 
-from konsistent.config.schema import ReusableConventionsPackageV1
-from konsistent.core.filesystem import FakeFileSystem
-from konsistent.infer.engine import HEURISTIC_NAMES, build_pack, run_infer
+from konpy.config.schema import ReusableConventionsPackageV1
+from konpy.core.filesystem import FakeFileSystem
+from konpy.infer.engine import HEURISTIC_NAMES, build_pack, run_infer
 
 
 def fs(contents: Mapping[str, str]) -> FakeFileSystem:

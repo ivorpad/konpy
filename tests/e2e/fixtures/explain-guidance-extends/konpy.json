@@ -1,0 +1,6 @@
+{
+  "version": "v1",
+  "extends": ["./shared/base-konpy.json"],
+  "disable": ["package-must-have-license"],
+  "conventions": []
+}

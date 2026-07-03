@@ -1,6 +1,6 @@
 import pytest
 
-from konsistent.core.case_utils import (
+from konpy.core.case_utils import (
     derive_camel_to_pascal_map,
     invert_map,
     split_words,

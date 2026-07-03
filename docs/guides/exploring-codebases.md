@@ -1,8 +1,8 @@
 # Exploring codebases
 
-Before writing a `konsistent.json`, explore the codebase to identify structural patterns that are worth enforcing. This guide explains what to look for and how to distinguish real patterns from coincidence.
+Before writing a `konpy.json`, explore the codebase to identify structural patterns that are worth enforcing. This guide explains what to look for and how to distinguish real patterns from coincidence.
 
-The objective is **not** to write a config that produces zero violations on day one. The objective is to encode the conventions the codebase already follows (or wants to follow), even when 100% adherence hasn't happened yet. `konsistent` will then surface the deviations.
+The objective is **not** to write a config that produces zero violations on day one. The objective is to encode the conventions the codebase already follows (or wants to follow), even when 100% adherence hasn't happened yet. `konpy` will then surface the deviations.
 
 ## General approach
 
@@ -96,7 +96,7 @@ Some files exist only in some entries (test files, admin modules). When they exi
 - If a `tests.py` file exists, does it import the project's fixtures or test-context helper? (Project convention; lint rules don't know about it.)
 - If a route module exists, does it export the expected handler symbols (`router`, `GET`, `POST`, …)?
 
-Avoid encoding rules that the test framework, packaging tool, or type checker would already reject — those are wasted CPU. Konsistent is for the structural conventions that nothing else catches.
+Avoid encoding rules that the test framework, packaging tool, or type checker would already reject — those are wasted CPU. Konpy is for the structural conventions that nothing else catches.
 
 ## Identifying patterns vs. noise
 
@@ -106,9 +106,9 @@ A structural convention must appear **at least 3 times** to be considered a patt
 
 ### Majority rules
 
-Patterns may not be adhered to 100% across the codebase — that's exactly what `konsistent` is for. When you see variation:
+Patterns may not be adhered to 100% across the codebase — that's exactly what `konpy` is for. When you see variation:
 
-- **8 files follow pattern A, 3 follow pattern B** → This is ONE pattern (A). The 3 outliers are likely violations that `konsistent` should flag.
+- **8 files follow pattern A, 3 follow pattern B** → This is ONE pattern (A). The 3 outliers are likely violations that `konpy` should flag.
 - **5 files follow pattern A, 4 follow pattern B** → Ambiguous. Decide which convention to enforce, or skip it.
 - **10 files follow a pattern, 1 doesn't** → Strong pattern. The outlier is a violation.
 
@@ -123,7 +123,7 @@ When examining names, look past minor inconsistencies to see the underlying patt
 
 ### Don't force patterns
 
-If a group of directories genuinely has no structural consistency, don't invent conventions. `konsistent` should encode patterns that actually exist (or should exist), not impose arbitrary structure.
+If a group of directories genuinely has no structural consistency, don't invent conventions. `konpy` should encode patterns that actually exist (or should exist), not impose arbitrary structure.
 
 ## Exploration checklist
 
@@ -141,7 +141,7 @@ Use this as a systematic walkthrough:
 3. **Check for acronyms/special casing**: Do any identifiers use acronyms (AI, API, DB, URL) that need [`kebabToPascalMap`](../reference/case-maps.md) or [`kebabToCamelMap`](../reference/case-maps.md) overrides?
 4. **Prioritize**: Start with the strongest patterns (most occurrences, clearest naming). Add weaker patterns only if they still meet the 3+ threshold.
 
-## Translate findings into `konsistent.json`
+## Translate findings into `konpy.json`
 
 For every pattern you identify:
 - Path → glob with placeholders for the parts that vary.

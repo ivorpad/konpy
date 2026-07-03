@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from konsistent.infer.naming import slugify, top_level_segment
+from konpy.infer.naming import slugify, top_level_segment
 
 
 class TestSlugify:
@@ -8,7 +8,7 @@ class TestSlugify:
         assert slugify("") == "root"
 
     def test_nested_path(self) -> None:
-        assert slugify("src/konsistent/services") == "src-konsistent-services"
+        assert slugify("src/konpy/services") == "src-konpy-services"
 
     def test_collapses_and_strips_separators(self) -> None:
         assert slugify("Src//Foo_Bar") == "src-foo-bar"

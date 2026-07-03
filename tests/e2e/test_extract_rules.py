@@ -73,4 +73,4 @@ def test_extract_rules_uses_stub_agent_and_writes_default_pack(
     assert "packs/rules.json" in stdout
     assert "Unmapped rules:" in stdout
     assert "Use ruff for formatting." in stdout
-    assert not (project_dir / "konsistent.json").exists()
+    assert not (project_dir / "konpy.json").exists()

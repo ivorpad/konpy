@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from konsistent.infer.heuristics.import_dominance import mine
-from konsistent.infer.models import InferFileRecord
-from konsistent.python_ast.structure import ImportSourceInfo, PyFileStructure, SourcePosition
+from konpy.infer.heuristics.import_dominance import mine
+from konpy.infer.models import InferFileRecord
+from konpy.python_ast.structure import ImportSourceInfo, PyFileStructure, SourcePosition
 
 _POS = SourcePosition(line=1, column=0)
 

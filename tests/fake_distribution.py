@@ -48,7 +48,7 @@ def install_fake_distribution(
         record_entries.append(module_path.relative_to(site_dir).as_posix())
 
     if package_json_text is not None or package_json is not _UNSET:
-        package_json_path = package_dir / "konsistent.json"
+        package_json_path = package_dir / "konpy.json"
         package_json_path.write_text(
             package_json_text if package_json_text is not None else json.dumps(package_json),
             encoding="utf-8",
@@ -76,7 +76,7 @@ def install_fake_distribution(
         record_entries.append(entry_points_path.relative_to(site_dir).as_posix())
 
     if dist_info_json_text is not None or dist_info_json is not _UNSET:
-        dist_info_json_path = dist_info_dir / "konsistent.json"
+        dist_info_json_path = dist_info_dir / "konpy.json"
         dist_info_json_path.write_text(
             dist_info_json_text
             if dist_info_json_text is not None

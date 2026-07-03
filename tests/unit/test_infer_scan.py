@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from konsistent.core.filesystem import FakeFileSystem
-from konsistent.infer.scan import collect_file_records
-from konsistent.unused.engine import DEFAULT_INCLUDE, DEFAULT_TEST_GLOBS
+from konpy.core.filesystem import FakeFileSystem
+from konpy.infer.scan import collect_file_records
+from konpy.unused.engine import DEFAULT_INCLUDE, DEFAULT_TEST_GLOBS
 
 
 def scan(

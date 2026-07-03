@@ -4,10 +4,10 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from konsistent.config.errors import Err, Ok
-from konsistent.config.reference_expander import deep_merge, expand_references
-from konsistent.config.schema import ReusableConventionV1
-from konsistent.config.source_resolver import SourceMap
+from konpy.config.errors import Err, Ok
+from konpy.config.reference_expander import deep_merge, expand_references
+from konpy.config.schema import ReusableConventionV1
+from konpy.config.source_resolver import SourceMap
 
 
 def build_source_map(entries: dict[str, list[dict[str, Any]]]) -> SourceMap:

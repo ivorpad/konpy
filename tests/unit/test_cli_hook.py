@@ -7,9 +7,9 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from konsistent.cli.agent_runner import AgentInvocation, AgentRunResult
-from konsistent.cli.app import _preprocess_argv, app
-from konsistent.cli.hook import (
+from konpy.cli.agent_runner import AgentInvocation, AgentRunResult
+from konpy.cli.app import _preprocess_argv, app
+from konpy.cli.hook import (
     CLAUDE_WRITE_TOOLS,
     CODEX_WRITE_TOOLS,
     DEFAULT_TIMEOUT,
@@ -22,7 +22,7 @@ from konsistent.cli.hook import (
     path_matches_any,
     run_hook_command,
 )
-from konsistent.config.errors import Err
+from konpy.config.errors import Err
 
 runner = CliRunner()
 
@@ -390,7 +390,7 @@ class TestInfraFailOpen:
     def test_which_missing_exits_one(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        monkeypatch.setattr("konsistent.cli.agent_runner.shutil.which", lambda _binary: None)
+        monkeypatch.setattr("konpy.cli.agent_runner.shutil.which", lambda _binary: None)
 
         exit_code = run_hook_command(
             match=["src/**/*.py"],
@@ -470,7 +470,7 @@ class TestDefaultSubprocessWiring:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "konsistent.cli.agent_runner.shutil.which",
+            "konpy.cli.agent_runner.shutil.which",
             lambda binary: f"/fake/bin/{binary}",
         )
         captured: dict[str, object] = {}
@@ -486,7 +486,7 @@ class TestDefaultSubprocessWiring:
             return AgentRunResult(returncode=0, stdout=verdict_response(), stderr="")
 
         monkeypatch.setattr(
-            "konsistent.cli.hook.run_agent_subprocess", fake_run_agent_subprocess
+            "konpy.cli.hook.run_agent_subprocess", fake_run_agent_subprocess
         )
 
         exit_code = run_hook_command(
@@ -516,7 +516,7 @@ class TestDefaultSubprocessWiring:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "konsistent.cli.agent_runner.shutil.which",
+            "konpy.cli.agent_runner.shutil.which",
             lambda binary: f"/fake/bin/{binary}",
         )
         captured: dict[str, object] = {}
@@ -528,7 +528,7 @@ class TestDefaultSubprocessWiring:
             return AgentRunResult(returncode=0, stdout=verdict_response(), stderr="")
 
         monkeypatch.setattr(
-            "konsistent.cli.hook.run_agent_subprocess", fake_run_agent_subprocess
+            "konpy.cli.hook.run_agent_subprocess", fake_run_agent_subprocess
         )
 
         exit_code = run_hook_command(
@@ -563,7 +563,7 @@ class TestHookChildArgs:
 
 class TestExtractTargetPaths:
     def test_claude_file_path_extracted(self) -> None:
-        from konsistent.cli.hook import HookPayload
+        from konpy.cli.hook import HookPayload
 
         payload = HookPayload.model_validate(
             {"tool_name": "Write", "tool_input": {"file_path": "src/x.py"}}
@@ -572,14 +572,14 @@ class TestExtractTargetPaths:
         assert extract_target_paths(payload) == ["src/x.py"]
 
     def test_claude_missing_file_path_returns_empty(self) -> None:
-        from konsistent.cli.hook import HookPayload
+        from konpy.cli.hook import HookPayload
 
         payload = HookPayload.model_validate({"tool_name": "Write", "tool_input": {}})
 
         assert extract_target_paths(payload) == []
 
     def test_absolute_claude_path_is_normalized_relative_to_cwd(self) -> None:
-        from konsistent.cli.hook import HookPayload
+        from konpy.cli.hook import HookPayload
 
         payload = HookPayload.model_validate(
             {
@@ -592,7 +592,7 @@ class TestExtractTargetPaths:
         assert extract_target_paths(payload) == ["src/x.py"]
 
     def test_codex_path_key_takes_precedence_over_scan(self) -> None:
-        from konsistent.cli.hook import HookPayload
+        from konpy.cli.hook import HookPayload
 
         payload = HookPayload.model_validate(
             {
@@ -607,7 +607,7 @@ class TestExtractTargetPaths:
         assert extract_target_paths(payload) == ["src/direct.py"]
 
     def test_non_write_tool_returns_empty(self) -> None:
-        from konsistent.cli.hook import HookPayload
+        from konpy.cli.hook import HookPayload
 
         payload = HookPayload.model_validate({"tool_name": "Bash", "tool_input": {}})
 
@@ -757,7 +757,7 @@ class TestCliWiring:
         assert "--prompt" in result.stderr
 
     def test_unknown_option_exits_one_not_two(self) -> None:
-        # An unrecognized option (e.g. a flag from a newer konsistent copied
+        # An unrecognized option (e.g. a flag from a newer konpy copied
         # into an older install's hook command) must not trigger Click's
         # UsageError, which exits 2 -- reserved exclusively for a verified
         # fail verdict. The hook command collects unknown options via
@@ -804,7 +804,7 @@ class TestCliWiring:
             assert result.exit_code != 2, f"{argv} unexpectedly exited 2: {result.stderr}"
 
     def test_match_option_repeats(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr("konsistent.cli.agent_runner.shutil.which", lambda _b: None)
+        monkeypatch.setattr("konpy.cli.agent_runner.shutil.which", lambda _b: None)
         stdin = payload_json(tool_input={"file_path": "b/x.py"})
 
         result = runner.invoke(
@@ -828,7 +828,7 @@ class TestCliWiring:
     def test_match_option_skips_when_none_of_the_repeated_globs_match(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr("konsistent.cli.agent_runner.shutil.which", lambda _b: None)
+        monkeypatch.setattr("konpy.cli.agent_runner.shutil.which", lambda _b: None)
         stdin = payload_json(tool_input={"file_path": "other/x.py"})
 
         result = runner.invoke(
@@ -869,7 +869,7 @@ class TestRunAgentSubprocessModel:
     ) -> None:
         import subprocess
 
-        from konsistent.cli import agent_runner
+        from konpy.cli import agent_runner
 
         captured: dict[str, object] = {}
 
@@ -902,7 +902,7 @@ class TestRunAgentSubprocessModel:
     ) -> None:
         import subprocess
 
-        from konsistent.cli import agent_runner
+        from konpy.cli import agent_runner
 
         captured: dict[str, object] = {}
 
@@ -966,7 +966,7 @@ class TestHookFindingLog:
             return Err("boom")
 
         monkeypatch.setattr(
-            "konsistent.cli.hook.append_hook_finding",
+            "konpy.cli.hook.append_hook_finding",
             fake_append_hook_finding,
         )
 
@@ -981,7 +981,7 @@ class TestHookFindingLog:
         )
 
         captured = capsys.readouterr()
-        warning = "konsistent hook: --log warning: boom"
+        warning = "konpy hook: --log warning: boom"
         assert exit_code == 2
         assert reason in captured.err
         assert warning in captured.err

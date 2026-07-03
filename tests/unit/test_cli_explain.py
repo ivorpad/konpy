@@ -5,7 +5,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from konsistent.cli.app import app
+from konpy.cli.app import app
 from tests.fake_distribution import install_fake_distribution, reusable_convention_package
 
 runner = CliRunner()
@@ -17,7 +17,7 @@ def write_json(path: Path, value: object) -> None:
 
 class TestExplainCommand:
     def test_default_format_is_markdown(self, tmp_path: Path) -> None:
-        config_path = tmp_path / "konsistent.json"
+        config_path = tmp_path / "konpy.json"
         write_json(
             config_path,
             {
@@ -38,7 +38,7 @@ class TestExplainCommand:
         assert "## Conventions" in result.output
 
     def test_format_text_flag_produces_plain_text(self, tmp_path: Path) -> None:
-        config_path = tmp_path / "konsistent.json"
+        config_path = tmp_path / "konpy.json"
         write_json(
             config_path,
             {
@@ -88,7 +88,7 @@ class TestExplainCommand:
         assert "Could not read config file" in result.output
 
     def test_invalid_config_exits_one_and_prints_validation_error(self, tmp_path: Path) -> None:
-        config_path = tmp_path / "konsistent.json"
+        config_path = tmp_path / "konpy.json"
         write_json(config_path, {"conventions": []})
 
         result = runner.invoke(app, ["explain", "--config-path", str(config_path)])
@@ -104,7 +104,7 @@ class TestExplainCommand:
         assert "--config-package is not supported by the Python port." in result.output
 
     def test_bad_placeholder_exits_one_before_loading_config(self, tmp_path: Path) -> None:
-        config_path = tmp_path / "konsistent.json"
+        config_path = tmp_path / "konpy.json"
         write_json(config_path, {"version": "v1", "conventions": []})
 
         result = runner.invoke(
@@ -122,7 +122,7 @@ class TestExplainCommand:
         assert 'Invalid --placeholder "1bad:value"' in result.output
 
     def test_placeholder_option_is_applied_and_render_succeeds(self, tmp_path: Path) -> None:
-        config_path = tmp_path / "konsistent.json"
+        config_path = tmp_path / "konpy.json"
         write_json(
             config_path,
             {
@@ -151,7 +151,7 @@ class TestExplainCommand:
         assert "openai" in result.output
 
     def test_placeholder_conflict_with_path_capture_exits_one(self, tmp_path: Path) -> None:
-        config_path = tmp_path / "konsistent.json"
+        config_path = tmp_path / "konpy.json"
         write_json(
             config_path,
             {
@@ -250,17 +250,17 @@ class TestExplainCommand:
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-cli-explain-conventions",
-            import_package="konsistent_test_cli_explain_conventions",
+            distribution_name="konpy-test-cli-explain-conventions",
+            import_package="konpy_test_cli_explain_conventions",
             package_json=reusable_convention_package("package-must-have-readme"),
         )
-        config_path = tmp_path / "konsistent.json"
+        config_path = tmp_path / "konpy.json"
         write_json(
             config_path,
             {
                 "version": "v1",
                 "conventionSources": {
-                    "common": "konsistent-test-cli-explain-conventions",
+                    "common": "konpy-test-cli-explain-conventions",
                 },
                 "conventions": ["common/package-must-have-readme"],
             },
@@ -278,7 +278,7 @@ class TestExplainCommand:
         monkeypatch,
     ) -> None:
         plugin_source = '''
-from konsistent.plugin import PredicatePlugin
+from konpy.plugin import PredicatePlugin
 
 
 def handler(*, expected, context, structure, convention_name=None, severity=None):
@@ -295,21 +295,21 @@ plugin = PredicatePlugin(
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-cli-explain-plugin",
-            import_package="konsistent_test_cli_explain_plugin",
+            distribution_name="konpy-test-cli-explain-plugin",
+            import_package="konpy_test_cli_explain_plugin",
             modules={"rules": plugin_source},
             entry_points={
-                "konsistent.predicates": {
-                    "requireMarker": "konsistent_test_cli_explain_plugin.rules:plugin",
+                "konpy.predicates": {
+                    "requireMarker": "konpy_test_cli_explain_plugin.rules:plugin",
                 }
             },
         )
-        config_path = tmp_path / "konsistent.json"
+        config_path = tmp_path / "konpy.json"
         write_json(
             config_path,
             {
                 "version": "v1",
-                "plugins": ["konsistent-test-cli-explain-plugin"],
+                "plugins": ["konpy-test-cli-explain-plugin"],
                 "conventions": [
                     {
                         "name": "plugin-rule",
@@ -327,7 +327,7 @@ plugin = PredicatePlugin(
         assert "PLUGIN_OK" in result.output
 
     def test_unusedCode_present_renders_section(self, tmp_path: Path) -> None:
-        config_path = tmp_path / "konsistent.json"
+        config_path = tmp_path / "konpy.json"
         write_json(
             config_path,
             {"version": "v1", "conventions": [], "unusedCode": {}},
@@ -339,7 +339,7 @@ plugin = PredicatePlugin(
         assert "## Unused code" in result.output
 
     def test_no_unusedCode_key_omits_section(self, tmp_path: Path) -> None:
-        config_path = tmp_path / "konsistent.json"
+        config_path = tmp_path / "konpy.json"
         write_json(config_path, {"version": "v1", "conventions": []})
 
         result = runner.invoke(app, ["explain", "--config-path", str(config_path)])
@@ -355,7 +355,7 @@ plugin = PredicatePlugin(
     def test_bare_explain_invocation_is_not_swallowed_by_default_check_shim(
         self, tmp_path: Path
     ) -> None:
-        config_path = tmp_path / "konsistent.json"
+        config_path = tmp_path / "konpy.json"
         write_json(config_path, {"version": "v1", "conventions": []})
 
         result = runner.invoke(app, ["explain", "--config-path", str(config_path)])

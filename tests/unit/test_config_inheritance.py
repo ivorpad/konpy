@@ -4,9 +4,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-from konsistent.config.errors import Err, Ok
-from konsistent.config.inheritance import collect_config_plugins, resolve_config_inheritance
-from konsistent.config.plugin_loader import load_plugin_registry
+from konpy.config.errors import Err, Ok
+from konpy.config.inheritance import collect_config_plugins, resolve_config_inheritance
+from konpy.config.plugin_loader import load_plugin_registry
 from tests.fake_distribution import install_fake_distribution, raw_config_package
 
 
@@ -28,7 +28,7 @@ def convention_names(conventions: list[Any]) -> list[str | None]:
 class TestResolveConfigInheritance:
     def test_merges_parent_then_child_and_strips_load_only_keys(self, tmp_path: Path) -> None:
         base_path = tmp_path / "base.json"
-        root_path = tmp_path / "konsistent.json"
+        root_path = tmp_path / "konpy.json"
 
         write_json(
             base_path,
@@ -66,7 +66,7 @@ class TestResolveConfigInheritance:
 
     def test_disable_does_not_remove_same_file_convention(self, tmp_path: Path) -> None:
         base_path = tmp_path / "base.json"
-        root_path = tmp_path / "konsistent.json"
+        root_path = tmp_path / "konpy.json"
 
         write_json(
             base_path,
@@ -103,7 +103,7 @@ class TestResolveConfigInheritance:
 
     def test_disable_does_not_remove_string_or_use_refs(self, tmp_path: Path) -> None:
         base_path = tmp_path / "base.json"
-        root_path = tmp_path / "konsistent.json"
+        root_path = tmp_path / "konpy.json"
 
         write_json(
             base_path,
@@ -143,7 +143,7 @@ class TestResolveConfigInheritance:
     ) -> None:
         shared_dir = tmp_path / "shared"
         base_path = shared_dir / "base.json"
-        root_path = tmp_path / "konsistent.json"
+        root_path = tmp_path / "konpy.json"
 
         write_json(
             base_path,
@@ -168,7 +168,7 @@ class TestResolveConfigInheritance:
         }
 
     def test_missing_parent_path_returns_clear_error(self, tmp_path: Path) -> None:
-        root_path = tmp_path / "konsistent.json"
+        root_path = tmp_path / "konpy.json"
         root_raw = {
             "version": "v1",
             "extends": ["./missing.json"],
@@ -192,8 +192,8 @@ class TestResolveConfigInheritance:
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-base-config",
-            import_package="konsistent_test_base_config",
+            distribution_name="konpy-test-base-config",
+            import_package="konpy_test_base_config",
             package_json={
                 "version": "v1",
                 "kebabToPascalMap": {"openai": "OpenAI"},
@@ -206,10 +206,10 @@ class TestResolveConfigInheritance:
                 ],
             },
         )
-        root_path = tmp_path / "konsistent.json"
+        root_path = tmp_path / "konpy.json"
         root_raw = {
             "version": "v1",
-            "extends": ["konsistent-test-base-config"],
+            "extends": ["konpy-test-base-config"],
             "conventions": [
                 {
                     "name": "child-rule",
@@ -226,7 +226,7 @@ class TestResolveConfigInheritance:
         assert result.value["kebabToPascalMap"] == {"openai": "OpenAI"}
         assert convention_names(result.value["conventions"]) == ["base-rule", "child-rule"]
 
-    def test_package_extends_loads_dist_info_konsistent_json_fallback(
+    def test_package_extends_loads_dist_info_konpy_json_fallback(
         self,
         tmp_path: Path,
         monkeypatch,
@@ -234,14 +234,14 @@ class TestResolveConfigInheritance:
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-dist-info-base-config",
-            import_package="konsistent_test_dist_info_base_config",
+            distribution_name="konpy-test-dist-info-base-config",
+            import_package="konpy_test_dist_info_base_config",
             dist_info_json=raw_config_package("from-dist-info"),
         )
-        root_path = tmp_path / "konsistent.json"
+        root_path = tmp_path / "konpy.json"
         root_raw = {
             "version": "v1",
-            "extends": ["konsistent-test-dist-info-base-config"],
+            "extends": ["konpy-test-dist-info-base-config"],
             "conventions": [],
         }
         write_json(root_path, root_raw)
@@ -259,18 +259,18 @@ class TestResolveConfigInheritance:
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-source-parent-config",
-            import_package="konsistent_test_source_parent_config",
+            distribution_name="konpy-test-source-parent-config",
+            import_package="konpy_test_source_parent_config",
             package_json={
                 "version": "v1",
-                "conventionSources": {"common": "konsistent-test-common-conventions"},
+                "conventionSources": {"common": "konpy-test-common-conventions"},
                 "conventions": [],
             },
         )
-        root_path = tmp_path / "konsistent.json"
+        root_path = tmp_path / "konpy.json"
         root_raw = {
             "version": "v1",
-            "extends": ["konsistent-test-source-parent-config"],
+            "extends": ["konpy-test-source-parent-config"],
             "conventions": ["common/package-must-have-readme"],
         }
         write_json(root_path, root_raw)
@@ -279,7 +279,7 @@ class TestResolveConfigInheritance:
 
         assert isinstance(result, Ok)
         assert result.value["conventionSources"] == {
-            "common": "konsistent-test-common-conventions"
+            "common": "konpy-test-common-conventions"
         }
         assert result.value["conventions"] == ["common/package-must-have-readme"]
 
@@ -291,18 +291,18 @@ class TestResolveConfigInheritance:
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-relative-source-parent-config",
-            import_package="konsistent_test_relative_source_parent_config",
+            distribution_name="konpy-test-relative-source-parent-config",
+            import_package="konpy_test_relative_source_parent_config",
             package_json={
                 "version": "v1",
                 "conventionSources": {"common": "./local-conventions.json"},
                 "conventions": [],
             },
         )
-        root_path = tmp_path / "konsistent.json"
+        root_path = tmp_path / "konpy.json"
         root_raw = {
             "version": "v1",
-            "extends": ["konsistent-test-relative-source-parent-config"],
+            "extends": ["konpy-test-relative-source-parent-config"],
             "conventions": [],
         }
         write_json(root_path, root_raw)
@@ -311,9 +311,9 @@ class TestResolveConfigInheritance:
 
         assert isinstance(result, Err)
         assert result.error == (
-            f'Config extends "konsistent-test-relative-source-parent-config" from '
+            f'Config extends "konpy-test-relative-source-parent-config" from '
             f"{root_path.resolve()}: package config at package "
-            "konsistent_test_relative_source_parent_config/konsistent.json declares relative "
+            "konpy_test_relative_source_parent_config/konpy.json declares relative "
             'conventionSources["common"] = "./local-conventions.json". Relative '
             "conventionSources are not supported inside package-loaded configs; use an "
             "absolute path or an installed package name."
@@ -327,18 +327,18 @@ class TestResolveConfigInheritance:
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-relative-extends-parent-config",
-            import_package="konsistent_test_relative_extends_parent_config",
+            distribution_name="konpy-test-relative-extends-parent-config",
+            import_package="konpy_test_relative_extends_parent_config",
             package_json={
                 "version": "v1",
                 "extends": ["./base.json"],
                 "conventions": [],
             },
         )
-        root_path = tmp_path / "konsistent.json"
+        root_path = tmp_path / "konpy.json"
         root_raw = {
             "version": "v1",
-            "extends": ["konsistent-test-relative-extends-parent-config"],
+            "extends": ["konpy-test-relative-extends-parent-config"],
             "conventions": [],
         }
         write_json(root_path, root_raw)
@@ -348,7 +348,7 @@ class TestResolveConfigInheritance:
         assert isinstance(result, Err)
         assert result.error == (
             'Config extends "./base.json" from package '
-            "konsistent_test_relative_extends_parent_config/konsistent.json: relative "
+            "konpy_test_relative_extends_parent_config/konpy.json: relative "
             "local-path extends are not supported inside package-loaded configs. Use an "
             "absolute path or an installed package name."
         )
@@ -361,29 +361,29 @@ class TestResolveConfigInheritance:
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-cycle-a-config",
-            import_package="konsistent_test_cycle_a_config",
+            distribution_name="konpy-test-cycle-a-config",
+            import_package="konpy_test_cycle_a_config",
             package_json={
                 "version": "v1",
-                "extends": ["konsistent-test-cycle-b-config"],
+                "extends": ["konpy-test-cycle-b-config"],
                 "conventions": [],
             },
         )
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-cycle-b-config",
-            import_package="konsistent_test_cycle_b_config",
+            distribution_name="konpy-test-cycle-b-config",
+            import_package="konpy_test_cycle_b_config",
             package_json={
                 "version": "v1",
-                "extends": ["konsistent-test-cycle-a-config"],
+                "extends": ["konpy-test-cycle-a-config"],
                 "conventions": [],
             },
         )
-        root_path = tmp_path / "konsistent.json"
+        root_path = tmp_path / "konpy.json"
         root_raw = {
             "version": "v1",
-            "extends": ["konsistent-test-cycle-a-config"],
+            "extends": ["konpy-test-cycle-a-config"],
             "conventions": [],
         }
         write_json(root_path, root_raw)
@@ -393,16 +393,16 @@ class TestResolveConfigInheritance:
         assert isinstance(result, Err)
         assert result.error == (
             "Config inheritance cycle detected: package "
-            "konsistent_test_cycle_a_config/konsistent.json -> package "
-            "konsistent_test_cycle_b_config/konsistent.json -> package "
-            "konsistent_test_cycle_a_config/konsistent.json."
+            "konpy_test_cycle_a_config/konpy.json -> package "
+            "konpy_test_cycle_b_config/konpy.json -> package "
+            "konpy_test_cycle_a_config/konpy.json."
         )
 
     def test_package_extends_not_installed_returns_clear_error(self, tmp_path: Path) -> None:
-        root_path = tmp_path / "konsistent.json"
+        root_path = tmp_path / "konpy.json"
         root_raw = {
             "version": "v1",
-            "extends": ["konsistent-test-definitely-not-installed-parent"],
+            "extends": ["konpy-test-definitely-not-installed-parent"],
             "conventions": [],
         }
         write_json(root_path, root_raw)
@@ -411,7 +411,7 @@ class TestResolveConfigInheritance:
 
         assert isinstance(result, Err)
         assert result.error == (
-            f'Config extends "konsistent-test-definitely-not-installed-parent" from '
+            f'Config extends "konpy-test-definitely-not-installed-parent" from '
             f"{root_path.resolve()}: installed Python distribution not found. Install it or "
             "use a local path in extends."
         )
@@ -424,14 +424,14 @@ class TestResolveConfigInheritance:
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-malformed-parent-config",
-            import_package="konsistent_test_malformed_parent_config",
+            distribution_name="konpy-test-malformed-parent-config",
+            import_package="konpy_test_malformed_parent_config",
             package_json_text="{ not json",
         )
-        root_path = tmp_path / "konsistent.json"
+        root_path = tmp_path / "konpy.json"
         root_raw = {
             "version": "v1",
-            "extends": ["konsistent-test-malformed-parent-config"],
+            "extends": ["konpy-test-malformed-parent-config"],
             "conventions": [],
         }
         write_json(root_path, root_raw)
@@ -440,9 +440,9 @@ class TestResolveConfigInheritance:
 
         assert isinstance(result, Err)
         assert result.error == (
-            f'Config extends "konsistent-test-malformed-parent-config" from '
+            f'Config extends "konpy-test-malformed-parent-config" from '
             f"{root_path.resolve()}: malformed JSON at package "
-            "konsistent_test_malformed_parent_config/konsistent.json."
+            "konpy_test_malformed_parent_config/konpy.json."
         )
 
     def test_package_extends_invalid_config_returns_clear_error(
@@ -453,14 +453,14 @@ class TestResolveConfigInheritance:
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-invalid-parent-config",
-            import_package="konsistent_test_invalid_parent_config",
+            distribution_name="konpy-test-invalid-parent-config",
+            import_package="konpy_test_invalid_parent_config",
             package_json={"conventions": []},
         )
-        root_path = tmp_path / "konsistent.json"
+        root_path = tmp_path / "konpy.json"
         root_raw = {
             "version": "v1",
-            "extends": ["konsistent-test-invalid-parent-config"],
+            "extends": ["konpy-test-invalid-parent-config"],
             "conventions": [],
         }
         write_json(root_path, root_raw)
@@ -469,14 +469,14 @@ class TestResolveConfigInheritance:
 
         assert isinstance(result, Err)
         assert (
-            f'Config extends "konsistent-test-invalid-parent-config" from '
+            f'Config extends "konpy-test-invalid-parent-config" from '
             f"{root_path.resolve()}: invalid config at package "
-            "konsistent_test_invalid_parent_config/konsistent.json:"
+            "konpy_test_invalid_parent_config/konpy.json:"
         ) in result.error
         assert "version" in result.error
 
     def test_invalid_package_extends_name_returns_clear_error(self, tmp_path: Path) -> None:
-        root_path = tmp_path / "konsistent.json"
+        root_path = tmp_path / "konpy.json"
         root_raw = {
             "version": "v1",
             "extends": ["@scope/base-config"],
@@ -496,7 +496,7 @@ class TestResolveConfigInheritance:
 
 def inheritance_plugin_source(*, key: str = "requireMarker") -> str:
     return f'''
-from konsistent.plugin import PredicatePlugin
+from konpy.plugin import PredicatePlugin
 
 
 def handler(*, expected, context, structure, convention_name=None, severity=None):
@@ -527,7 +527,7 @@ def install_inheritance_plugin(
         import_package=import_package,
         modules={"rules": inheritance_plugin_source(key=key)},
         entry_points={
-            "konsistent.predicates": {
+            "konpy.predicates": {
                 key: f"{import_package}.rules:plugin",
             }
         },
@@ -537,19 +537,19 @@ def install_inheritance_plugin(
 class TestResolveConfigInheritancePlugins:
     def test_collect_config_plugins_reads_parent_then_child(self, tmp_path: Path) -> None:
         parent_path = tmp_path / "base.json"
-        root_path = tmp_path / "konsistent.json"
+        root_path = tmp_path / "konpy.json"
         write_json(
             parent_path,
             {
                 "version": "v1",
-                "plugins": ["konsistent-test-parent-plugin"],
+                "plugins": ["konpy-test-parent-plugin"],
                 "conventions": [],
             },
         )
         root_raw = {
             "version": "v1",
             "extends": ["./base.json"],
-            "plugins": ["konsistent-test-child-plugin"],
+            "plugins": ["konpy-test-child-plugin"],
             "conventions": [],
         }
         write_json(root_path, root_raw)
@@ -558,8 +558,8 @@ class TestResolveConfigInheritancePlugins:
 
         assert isinstance(result, Ok)
         assert result.value == [
-            "konsistent-test-parent-plugin",
-            "konsistent-test-child-plugin",
+            "konpy-test-parent-plugin",
+            "konpy-test-child-plugin",
         ]
 
     def test_collect_config_plugins_dedupes_by_normalized_distribution_name(
@@ -567,19 +567,19 @@ class TestResolveConfigInheritancePlugins:
         tmp_path: Path,
     ) -> None:
         parent_path = tmp_path / "base.json"
-        root_path = tmp_path / "konsistent.json"
+        root_path = tmp_path / "konpy.json"
         write_json(
             parent_path,
             {
                 "version": "v1",
-                "plugins": ["konsistent-test-repeat-plugin"],
+                "plugins": ["konpy-test-repeat-plugin"],
                 "conventions": [],
             },
         )
         root_raw = {
             "version": "v1",
             "extends": ["./base.json"],
-            "plugins": ["konsistent_test_repeat_plugin"],
+            "plugins": ["konpy_test_repeat_plugin"],
             "conventions": [],
         }
         write_json(root_path, root_raw)
@@ -587,23 +587,23 @@ class TestResolveConfigInheritancePlugins:
         result = collect_config_plugins(raw=root_raw, config_path=root_path)
 
         assert isinstance(result, Ok)
-        assert result.value == ["konsistent-test-repeat-plugin"]
+        assert result.value == ["konpy-test-repeat-plugin"]
 
     def test_resolve_inheritance_merges_plugins_parent_then_child(self, tmp_path: Path) -> None:
         parent_path = tmp_path / "base.json"
-        root_path = tmp_path / "konsistent.json"
+        root_path = tmp_path / "konpy.json"
         write_json(
             parent_path,
             {
                 "version": "v1",
-                "plugins": ["konsistent-test-parent-plugin"],
+                "plugins": ["konpy-test-parent-plugin"],
                 "conventions": [],
             },
         )
         root_raw = {
             "version": "v1",
             "extends": ["./base.json"],
-            "plugins": ["konsistent-test-child-plugin"],
+            "plugins": ["konpy-test-child-plugin"],
             "conventions": [],
         }
         write_json(root_path, root_raw)
@@ -612,8 +612,8 @@ class TestResolveConfigInheritancePlugins:
 
         assert isinstance(result, Ok)
         assert result.value["plugins"] == [
-            "konsistent-test-parent-plugin",
-            "konsistent-test-child-plugin",
+            "konpy-test-parent-plugin",
+            "konpy-test-child-plugin",
         ]
 
     def test_parent_plugin_predicate_validates_when_parent_declares_plugin(
@@ -624,17 +624,17 @@ class TestResolveConfigInheritancePlugins:
         install_inheritance_plugin(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-inheritance-plugin",
-            import_package="konsistent_test_inheritance_plugin",
+            distribution_name="konpy-test-inheritance-plugin",
+            import_package="konpy_test_inheritance_plugin",
             key="requireMarker",
         )
         parent_path = tmp_path / "base.json"
-        root_path = tmp_path / "konsistent.json"
+        root_path = tmp_path / "konpy.json"
         write_json(
             parent_path,
             {
                 "version": "v1",
-                "plugins": ["konsistent-test-inheritance-plugin"],
+                "plugins": ["konpy-test-inheritance-plugin"],
                 "conventions": [
                     {
                         "name": "parent-plugin-rule",
@@ -663,17 +663,17 @@ class TestResolveConfigInheritancePlugins:
         )
 
         assert isinstance(result, Ok)
-        assert result.value["plugins"] == ["konsistent-test-inheritance-plugin"]
+        assert result.value["plugins"] == ["konpy-test-inheritance-plugin"]
         assert result.value["conventions"][0]["must"] == {"requireMarker": "PLUGIN_OK"}
 
     def test_parent_plugin_predicate_fails_without_registry(self, tmp_path: Path) -> None:
         parent_path = tmp_path / "base.json"
-        root_path = tmp_path / "konsistent.json"
+        root_path = tmp_path / "konpy.json"
         write_json(
             parent_path,
             {
                 "version": "v1",
-                "plugins": ["konsistent-test-inheritance-plugin"],
+                "plugins": ["konpy-test-inheritance-plugin"],
                 "conventions": [
                     {
                         "name": "parent-plugin-rule",

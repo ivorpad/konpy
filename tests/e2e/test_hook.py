@@ -180,7 +180,7 @@ class TestHookEndToEnd:
             verdict_payload={"verdict": "fail", "reasons": ["should never run"]},
         )
         _prepend_stub_bin_to_path(monkeypatch, stub_bin)
-        monkeypatch.setenv("KONSISTENT_HOOK_ACTIVE", "1")
+        monkeypatch.setenv("KONPY_HOOK_ACTIVE", "1")
 
         exit_code, _stdout, stderr = run_cli_stdin(
             project_dir,

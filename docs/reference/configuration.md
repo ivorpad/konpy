@@ -1,14 +1,14 @@
-# konsistent.json
+# konpy.json
 
-The `konsistent.json` file declares the structural conventions the CLI enforces. By default it lives at the project root; use `--config-path` to put it elsewhere. (The `--config-package` flag exists for upstream compatibility but always errors as unsupported in the Python port — see [cli.md](./cli.md#flags).)
+The `konpy.json` file declares the structural conventions the CLI enforces. By default it lives at the project root; use `--config-path` to put it elsewhere. (The `--config-package` flag exists for upstream compatibility but always errors as unsupported in the Python port — see [cli.md](./cli.md#flags).)
 
 ## Top-level shape
 
 ```json
 {
-  "$schema": "./konsistent.schema.json",
+  "$schema": "./konpy.schema.json",
   "version": "v1",
-  "plugins": ["acme-konsistent-rules"],
+  "plugins": ["acme-konpy-rules"],
   "kebabToPascalMap": { "openai": "OpenAI" },
   "kebabToCamelMap": { "openai": "openAI" },
   "conventions": [
@@ -27,10 +27,10 @@ The `konsistent.json` file declares the structural conventions the CLI enforces.
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `version` | `"v1"` | yes | Configuration version. Currently always `"v1"`. |
-| `$schema` | string | no | Path to `konsistent.schema.json` for editor autocomplete. |
-| `extends` | `string[]` | no | Load and merge parent `konsistent.json` files before this config. Local paths resolve relative to the config file that declares them. Bare Python distribution names resolve installed package configs. |
+| `$schema` | string | no | Path to `konpy.schema.json` for editor autocomplete. |
+| `extends` | `string[]` | no | Load and merge parent `konpy.json` files before this config. Local paths resolve relative to the config file that declares them. Bare Python distribution names resolve installed package configs. |
 | `disable` | `string[]` | no | Remove inherited named conventions by raw top-level convention `name`. Applies only during inheritance and is not present at runtime. |
-| `plugins` | `string[]` | no | Explicitly opt into installed Python distributions that expose plugin predicates through `konsistent.predicates` entry points. See [plugins.md](./plugins.md). |
+| `plugins` | `string[]` | no | Explicitly opt into installed Python distributions that expose plugin predicates through `konpy.predicates` entry points. See [plugins.md](./plugins.md). |
 | `conventions` | `Convention[]` | yes | Array of convention rules (see below). Each entry can be a hand-written convention, a string reference, or a `use` reference — see [reusable-conventions.md](./reusable-conventions.md). |
 | `conventionSources` | `Record<string, string>` | no | Vendor-prefix bindings for local reusable-convention JSON files or installed Python distribution convention packages. See [reusable-conventions.md](./reusable-conventions.md). |
 | `kebabToPascalMap` | `Record<string, string>` | no | Override default kebab → PascalCase conversion. See [case-maps.md](./case-maps.md). |
@@ -43,7 +43,7 @@ The `konsistent.json` file declares the structural conventions the CLI enforces.
 ```json
 {
   "version": "v1",
-  "plugins": ["acme-konsistent-rules"],
+  "plugins": ["acme-konpy-rules"],
   "conventions": [
     {
       "name": "acme-marker",
@@ -56,11 +56,11 @@ The `konsistent.json` file declares the structural conventions the CLI enforces.
 }
 ```
 
-Plugins are explicit opt-in only. `konsistent` never auto-discovers entry points from installed packages that are not named in `plugins`.
+Plugins are explicit opt-in only. `konpy` never auto-discovers entry points from installed packages that are not named in `plugins`.
 
-Each listed distribution is resolved through Python package metadata and filtered to entry points in the `konsistent.predicates` group. Plugin predicate keys are then accepted in `must` and `mustNot` only for that config load.
+Each listed distribution is resolved through Python package metadata and filtered to entry points in the `konpy.predicates` group. Plugin predicate keys are then accepted in `must` and `mustNot` only for that config load.
 
-The checked-in JSON Schema can expose the top-level `plugins` field, but it cannot statically enumerate arbitrary plugin predicate keys. Use `konsistent validate` to runtime-validate plugin keys and plugin value models.
+The checked-in JSON Schema can expose the top-level `plugins` field, but it cannot statically enumerate arbitrary plugin predicate keys. Use `konpy validate` to runtime-validate plugin keys and plugin value models.
 
 See [plugins.md](./plugins.md) for plugin authoring, entry-point rules, collision errors, `mustNot`, and placeholder validation.
 
@@ -71,7 +71,7 @@ Use `extends` to build project variants from shared base configs:
 ```json
 {
   "version": "v1",
-  "extends": ["./shared/base-konsistent.json"],
+  "extends": ["./shared/base-konpy.json"],
   "disable": ["legacy-package-license"],
   "conventions": [
     {
@@ -85,12 +85,12 @@ Use `extends` to build project variants from shared base configs:
 }
 ```
 
-Each `extends` entry loads a full `konsistent.json` using the same path classification as `conventionSources`:
+Each `extends` entry loads a full `konpy.json` using the same path classification as `conventionSources`:
 
 | Value shape | Interpretation |
 | --- | --- |
 | Starts with `.` or is absolute | Relative or absolute path to another config file. Relative paths resolve against the config file that declares the `extends` entry. |
-| Bare Python distribution name | Installed distribution lookup. `konsistent` looks for `<top-level import package>/konsistent.json`, then for a `konsistent.json` file listed among the distribution's `.dist-info` files. |
+| Bare Python distribution name | Installed distribution lookup. `konpy` looks for `<top-level import package>/konpy.json`, then for a `konpy.json` file listed among the distribution's `.dist-info` files. |
 | Contains `/` or npm-style `@scope/pkg` syntax | Invalid Python distribution name. Use a local path or a valid installed Python distribution name. |
 
 Installed distribution names must match `[A-Za-z0-9][A-Za-z0-9._-]*[A-Za-z0-9]`.
@@ -159,7 +159,7 @@ Replacement happens before reusable-reference expansion. That means replacement 
 ```json
 {
   "version": "v1",
-  "extends": ["./shared/base-konsistent.json"],
+  "extends": ["./shared/base-konpy.json"],
   "disable": ["package-must-have-license"],
   "conventions": []
 }
@@ -177,7 +177,7 @@ Rules:
 
 Relative paths inside a local parent config stay relative to that parent file.
 
-For inherited local `conventionSources`, konsistent rewrites local relative source paths to absolute paths during raw inheritance loading. This makes the final merged config resolve reusable convention files from the directory where they were declared, not from the child config's directory.
+For inherited local `conventionSources`, konpy rewrites local relative source paths to absolute paths during raw inheritance loading. This makes the final merged config resolve reusable convention files from the directory where they were declared, not from the child config's directory.
 
 The root config's own `conventionSources` keep the existing behavior and resolve relative to the root config file's directory.
 
@@ -199,7 +199,7 @@ All inheritance errors are surfaced by the CLI before any scanning starts.
 | Empty `extends` entry | `Config extends entry in <including_config_path> has empty value.` |
 | Invalid package `extends` name | `Config extends "<value>" from <including_path>: invalid Python distribution name. Bare package sources must match [A-Za-z0-9][A-Za-z0-9._-]*[A-Za-z0-9].` |
 | Package `extends` distribution not installed | `Config extends "<value>" from <including_path>: installed Python distribution not found. Install it or use a local path in extends.` |
-| Package `extends` distribution has no `konsistent.json` | `Config extends "<value>" from <including_path>: installed Python distribution does not contain konsistent.json. Looked for <top-level import package>/konsistent.json and a distribution file named konsistent.json.` |
+| Package `extends` distribution has no `konpy.json` | `Config extends "<value>" from <including_path>: installed Python distribution does not contain konpy.json. Looked for <top-level import package>/konpy.json and a distribution file named konpy.json.` |
 | Relative local-path `extends` inside package-loaded config | `Config extends "<value>" from <including_path>: relative local-path extends are not supported inside package-loaded configs. Use an absolute path or an installed package name.` |
 | Relative `conventionSources` inside package-loaded config | `Config extends "<package_value>" from <including_path>: package config at <location> declares relative conventionSources["<prefix>"] = "<source_value>". Relative conventionSources are not supported inside package-loaded configs; use an absolute path or an installed package name.` |
 | Unreadable parent config | `Config extends "<value>" from <including_path>: could not read file at <resolved_path>.` |
@@ -235,7 +235,7 @@ A convention is a rule that says "files matching `paths` must satisfy `must` and
 | `excludeFiles` | `string[]` | no | Glob patterns to exclude from the matched paths. |
 | `placeholders` | `Record<string, string>` | no | Static placeholder values for names that are not captured from `paths`. See [Static placeholder values](./path-patterns.md#static-placeholder-values). |
 
-The configuration is `strict` — unknown fields cause a validation error. Run `konsistent validate` to catch typos.
+The configuration is `strict` — unknown fields cause a validation error. Run `konpy validate` to catch typos.
 
 ### `hint`
 
@@ -337,6 +337,6 @@ Skip specific files from a convention without changing the path pattern:
 
 ## Validation
 
-Run [`konsistent validate`](./cli.md#validate) after every edit to catch schema errors. The schema ships in the repo as `konsistent.schema.json`.
+Run [`konpy validate`](./cli.md#validate) after every edit to catch schema errors. The schema ships in the repo as `konpy.schema.json`.
 
-For plugin predicates, the static JSON Schema can validate `plugins` itself but cannot enumerate plugin-provided predicate keys. `konsistent validate` loads the configured plugin descriptors and performs plugin-aware runtime validation.
+For plugin predicates, the static JSON Schema can validate `plugins` itself but cannot enumerate plugin-provided predicate keys. `konpy validate` loads the configured plugin descriptors and performs plugin-aware runtime validation.

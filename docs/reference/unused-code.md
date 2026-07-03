@@ -14,7 +14,7 @@ It reuses the config layer, the filesystem/path matcher, and the standard-librar
 
 ## Enabling it
 
-Add an `unusedCode` object to `konsistent.json`. A bare `{}` is already
+Add an `unusedCode` object to `konpy.json`. A bare `{}` is already
 low-noise thanks to shipped framework presets:
 
 ```json

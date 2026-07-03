@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 
-from konsistent.infer.models import InferProposal, InferReport, InferSkipped
-from konsistent.infer.report import render_report_json, render_report_markdown, render_report_text
+from konpy.infer.models import InferProposal, InferReport, InferSkipped
+from konpy.infer.report import render_report_json, render_report_markdown, render_report_text
 
 
 def sample_report(*, with_proposals: bool = True, with_skipped: bool = True) -> InferReport:

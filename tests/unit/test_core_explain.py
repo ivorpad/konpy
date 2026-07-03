@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from konsistent.config.schema import ConfigV1
-from konsistent.core.convention_name import generate_convention_name
-from konsistent.core.explain import (
+from konpy.config.schema import ConfigV1
+from konpy.core.convention_name import generate_convention_name
+from konpy.core.explain import (
     build_explained_config,
     render_explain,
 )
-from konsistent.unused import resolve_config
+from konpy.unused import resolve_config
 
 
 def _config(**overrides: object) -> ConfigV1:
@@ -355,7 +355,7 @@ class TestBuildExplainedConfig:
 
     def test_unused_code_section_present_with_resolved_engine_defaults(self) -> None:
         config = _config(conventions=[], unusedCode={})
-        from konsistent.config.schema import UnusedCodeV1
+        from konpy.config.schema import UnusedCodeV1
 
         resolved = resolve_config(UnusedCodeV1())
 

@@ -3,12 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from konsistent.cli._hook_findings import (
+from konpy.cli._hook_findings import (
     HookFinding,
     append_hook_finding,
     read_hook_findings,
 )
-from konsistent.config.errors import Err, Ok
+from konpy.config.errors import Err, Ok
 
 
 def _finding(

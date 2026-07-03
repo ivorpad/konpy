@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from konsistent.config.errors import Err, Ok
-from konsistent.config.source_resolver import classify_source, resolve_sources
+from konpy.config.errors import Err, Ok
+from konpy.config.source_resolver import classify_source, resolve_sources
 from tests.fake_distribution import install_fake_distribution, reusable_convention_package
 
 
@@ -29,8 +29,8 @@ def not_installed_error(prefix: str, value: str) -> str:
 def missing_json_error(prefix: str, value: str, import_package: str) -> str:
     return (
         f'Convention source "{prefix}" → "{value}": installed Python distribution does not '
-        "contain konsistent.json. Looked for "
-        f"{import_package}/konsistent.json and a distribution file named konsistent.json."
+        "contain konpy.json. Looked for "
+        f"{import_package}/konpy.json and a distribution file named konpy.json."
     )
 
 
@@ -172,7 +172,7 @@ class TestResolveSources:
         assert isinstance(result, Err)
         assert result.error == 'Convention source "common" has empty value.'
 
-    def test_resolves_package_source_from_top_level_import_package_konsistent_json(
+    def test_resolves_package_source_from_top_level_import_package_konpy_json(
         self,
         tmp_path: Path,
         monkeypatch,
@@ -180,13 +180,13 @@ class TestResolveSources:
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-common-conventions",
-            import_package="konsistent_test_common_conventions",
+            distribution_name="konpy-test-common-conventions",
+            import_package="konpy_test_common_conventions",
             package_json=reusable_convention_package("package-must-have-readme"),
         )
 
         result = resolve_sources(
-            convention_sources={"common": "konsistent-test-common-conventions"},
+            convention_sources={"common": "konpy-test-common-conventions"},
             config_dir=tmp_path,
         )
 
@@ -195,7 +195,7 @@ class TestResolveSources:
             "Every package must have README."
         )
 
-    def test_resolves_package_source_from_dist_info_konsistent_json_fallback(
+    def test_resolves_package_source_from_dist_info_konpy_json_fallback(
         self,
         tmp_path: Path,
         monkeypatch,
@@ -203,13 +203,13 @@ class TestResolveSources:
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-dist-info-conventions",
-            import_package="konsistent_test_dist_info_conventions",
+            distribution_name="konpy-test-dist-info-conventions",
+            import_package="konpy_test_dist_info_conventions",
             dist_info_json=reusable_convention_package("from-dist-info"),
         )
 
         result = resolve_sources(
-            convention_sources={"common": "konsistent-test-dist-info-conventions"},
+            convention_sources={"common": "konpy-test-dist-info-conventions"},
             config_dir=tmp_path,
         )
 
@@ -224,14 +224,14 @@ class TestResolveSources:
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-precedence-conventions",
-            import_package="konsistent_test_precedence_conventions",
+            distribution_name="konpy-test-precedence-conventions",
+            import_package="konpy_test_precedence_conventions",
             package_json=reusable_convention_package("from-package"),
             dist_info_json=reusable_convention_package("from-dist-info"),
         )
 
         result = resolve_sources(
-            convention_sources={"common": "konsistent-test-precedence-conventions"},
+            convention_sources={"common": "konpy-test-precedence-conventions"},
             config_dir=tmp_path,
         )
 
@@ -244,8 +244,8 @@ class TestResolveSources:
         [
             "@scope/sample-conventions",
             "@scope/conditional-conventions",
-            "@konsistent-test/definitely-not-installed",
-            "@scope/no-konsistent-export",
+            "@konpy-test/definitely-not-installed",
+            "@scope/no-konpy-export",
             "@scope/no-exports",
             "@scope/bad-shape",
             "@scope/escape-exports-relative",
@@ -267,7 +267,7 @@ class TestResolveSources:
         assert result.error == invalid_package_name_error("common", specifier)
 
     def test_not_installed_bare_package_returns_package_error(self, tmp_path: Path) -> None:
-        specifier = "konsistent-test-definitely-not-installed-conventions"
+        specifier = "konpy-test-definitely-not-installed-conventions"
 
         result = resolve_sources(
             convention_sources={"common": specifier},
@@ -277,7 +277,7 @@ class TestResolveSources:
         assert isinstance(result, Err)
         assert result.error == not_installed_error("common", specifier)
 
-    def test_installed_distribution_without_konsistent_json_returns_clear_error(
+    def test_installed_distribution_without_konpy_json_returns_clear_error(
         self,
         tmp_path: Path,
         monkeypatch,
@@ -285,20 +285,20 @@ class TestResolveSources:
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-no-json-conventions",
-            import_package="konsistent_test_no_json_conventions",
+            distribution_name="konpy-test-no-json-conventions",
+            import_package="konpy_test_no_json_conventions",
         )
 
         result = resolve_sources(
-            convention_sources={"common": "konsistent-test-no-json-conventions"},
+            convention_sources={"common": "konpy-test-no-json-conventions"},
             config_dir=tmp_path,
         )
 
         assert isinstance(result, Err)
         assert result.error == missing_json_error(
             "common",
-            "konsistent-test-no-json-conventions",
-            "konsistent_test_no_json_conventions",
+            "konpy-test-no-json-conventions",
+            "konpy_test_no_json_conventions",
         )
 
     def test_installed_distribution_with_malformed_json_returns_clear_error(
@@ -309,20 +309,20 @@ class TestResolveSources:
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-malformed-conventions",
-            import_package="konsistent_test_malformed_conventions",
+            distribution_name="konpy-test-malformed-conventions",
+            import_package="konpy_test_malformed_conventions",
             package_json_text="{ not json",
         )
 
         result = resolve_sources(
-            convention_sources={"common": "konsistent-test-malformed-conventions"},
+            convention_sources={"common": "konpy-test-malformed-conventions"},
             config_dir=tmp_path,
         )
 
         assert isinstance(result, Err)
         assert result.error == (
-            'Convention source "common" → "konsistent-test-malformed-conventions": '
-            "malformed JSON at package konsistent_test_malformed_conventions/konsistent.json."
+            'Convention source "common" → "konpy-test-malformed-conventions": '
+            "malformed JSON at package konpy_test_malformed_conventions/konpy.json."
         )
 
     def test_installed_distribution_with_invalid_reusable_package_returns_clear_error(
@@ -333,21 +333,21 @@ class TestResolveSources:
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-invalid-conventions",
-            import_package="konsistent_test_invalid_conventions",
+            distribution_name="konpy-test-invalid-conventions",
+            import_package="konpy_test_invalid_conventions",
             package_json={"conventionSpecVersion": "v2", "conventions": []},
         )
 
         result = resolve_sources(
-            convention_sources={"common": "konsistent-test-invalid-conventions"},
+            convention_sources={"common": "konpy-test-invalid-conventions"},
             config_dir=tmp_path,
         )
 
         assert isinstance(result, Err)
         assert (
-            'Convention source "common" → "konsistent-test-invalid-conventions": invalid '
+            'Convention source "common" → "konpy-test-invalid-conventions": invalid '
             "reusable-convention package at package "
-            "konsistent_test_invalid_conventions/konsistent.json:"
+            "konpy_test_invalid_conventions/konpy.json:"
         ) in result.error
         assert "conventionSpecVersion" in result.error
 

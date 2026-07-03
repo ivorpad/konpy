@@ -1,5 +1,5 @@
-from konsistent.core.placeholders import PlaceholderValue
-from konsistent.core.templates import resolve_template
+from konpy.core.placeholders import PlaceholderValue
+from konpy.core.templates import resolve_template
 
 
 def make_placeholders(

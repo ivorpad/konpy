@@ -3,8 +3,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from konsistent.config.errors import Err, Ok
-from konsistent.core.diff_scope import compute_changed_files, resolve_diff_scope
+from konpy.config.errors import Err, Ok
+from konpy.core.diff_scope import compute_changed_files, resolve_diff_scope
 
 
 def _init_git_repo(repo: Path) -> None:

@@ -1,7 +1,7 @@
-from konsistent.core.context import PredicateContext
-from konsistent.core.filesystem import FakeFileSystem
-from konsistent.core.placeholders import PlaceholderValue
-from konsistent.predicates.have_files import check_have_files
+from konpy.core.context import PredicateContext
+from konpy.core.filesystem import FakeFileSystem
+from konpy.core.placeholders import PlaceholderValue
+from konpy.predicates.have_files import check_have_files
 
 
 def context(

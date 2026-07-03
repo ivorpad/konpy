@@ -1,2 +1,2 @@
-# konsistent: ignore[source-files] -- no longer needed
+# konpy: ignore[source-files] -- no longer needed
 VALUE = 1

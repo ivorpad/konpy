@@ -6,10 +6,10 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from konsistent.cli._hook_findings import HookFinding
-from konsistent.cli.agent_runner import AgentInvocation, AgentRunResult, ExtractAgent
-from konsistent.cli.app import app
-from konsistent.cli.propose import run_propose_command
+from konpy.cli._hook_findings import HookFinding
+from konpy.cli.agent_runner import AgentInvocation, AgentRunResult, ExtractAgent
+from konpy.cli.app import app
+from konpy.cli.propose import run_propose_command
 
 cli_runner = CliRunner()
 
@@ -402,7 +402,7 @@ class TestCliWiring:
 
         assert result.exit_code == 0
         assert "hook-propose" in result.output
-        assert ".konsistent/hook-findings.jsonl" in result.output
+        assert ".konpy/hook-findings.jsonl" in result.output
         assert "--timeout" in result.output
 
     def test_hook_propose_unknown_option_exits_nonzero(self) -> None:

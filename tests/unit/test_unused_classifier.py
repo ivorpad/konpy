@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from konsistent.config.schema import UnusedCodeV1
-from konsistent.unused.classifier import ResolvedUnusedConfig, classify
-from konsistent.unused.definitions import Definition, DefinitionKind
-from konsistent.unused.engine import resolve_config
-from konsistent.unused.references import ReferenceIndex, RefStats
+from konpy.config.schema import UnusedCodeV1
+from konpy.unused.classifier import ResolvedUnusedConfig, classify
+from konpy.unused.definitions import Definition, DefinitionKind
+from konpy.unused.engine import resolve_config
+from konpy.unused.references import ReferenceIndex, RefStats
 
 
 def config(**overrides: object) -> ResolvedUnusedConfig:

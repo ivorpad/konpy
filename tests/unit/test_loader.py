@@ -3,15 +3,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from konsistent.config.errors import Err, Ok
-from konsistent.config.loader import (
+from konpy.config.errors import Err, Ok
+from konpy.config.loader import (
     CONFIG_FILENAME,
     apply_cli_placeholders,
     load_config,
     load_config_runtime,
     path_declared_names,
 )
-from konsistent.config.schema import ConventionV1
+from konpy.config.schema import ConventionV1
 from tests.fake_distribution import (
     install_fake_distribution,
     raw_config_package,
@@ -26,7 +26,7 @@ def write_json(path: Path, value: object) -> None:
 def unsupported_config_package_error() -> str:
     return (
         "--config-package is not supported by the Python port. Use --config-path with a "
-        "local konsistent.json file."
+        "local konpy.json file."
     )
 
 
@@ -192,8 +192,8 @@ class TestLoadConfig:
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-loader-conventions",
-            import_package="konsistent_test_loader_conventions",
+            distribution_name="konpy-test-loader-conventions",
+            import_package="konpy_test_loader_conventions",
             package_json=reusable_convention_package("package-must-have-readme"),
         )
         config_path = tmp_path / CONFIG_FILENAME
@@ -201,7 +201,7 @@ class TestLoadConfig:
             config_path,
             {
                 "version": "v1",
-                "conventionSources": {"common": "konsistent-test-loader-conventions"},
+                "conventionSources": {"common": "konpy-test-loader-conventions"},
                 "conventions": ["common/package-must-have-readme"],
             },
         )
@@ -308,7 +308,7 @@ class TestLoadConfig:
 
     def test_errors_when_both_config_path_and_config_package_are_passed(self) -> None:
         result = load_config(
-            config_path="/some/path/konsistent.json",
+            config_path="/some/path/konpy.json",
             config_package="@scope/some-pkg",
         )
 
@@ -731,7 +731,7 @@ class TestLoadConfigInheritance:
             parent_path,
             {
                 "version": "v1",
-                "extends": ["./konsistent.json"],
+                "extends": ["./konpy.json"],
                 "conventions": [],
             },
         )
@@ -870,8 +870,8 @@ class TestLoadConfigInheritance:
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-loader-base-config",
-            import_package="konsistent_test_loader_base_config",
+            distribution_name="konpy-test-loader-base-config",
+            import_package="konpy_test_loader_base_config",
             package_json=raw_config_package("base-rule"),
         )
         config_path = tmp_path / CONFIG_FILENAME
@@ -879,7 +879,7 @@ class TestLoadConfigInheritance:
             config_path,
             {
                 "version": "v1",
-                "extends": ["konsistent-test-loader-base-config"],
+                "extends": ["konpy-test-loader-base-config"],
                 "conventions": [],
             },
         )
@@ -897,19 +897,19 @@ class TestLoadConfigInheritance:
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-loader-parent-conventions",
-            import_package="konsistent_test_loader_parent_conventions",
+            distribution_name="konpy-test-loader-parent-conventions",
+            import_package="konpy_test_loader_parent_conventions",
             package_json=reusable_convention_package("package-must-have-readme"),
         )
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-loader-parent-config",
-            import_package="konsistent_test_loader_parent_config",
+            distribution_name="konpy-test-loader-parent-config",
+            import_package="konpy_test_loader_parent_config",
             package_json={
                 "version": "v1",
                 "conventionSources": {
-                    "common": "konsistent-test-loader-parent-conventions",
+                    "common": "konpy-test-loader-parent-conventions",
                 },
                 "conventions": ["common/package-must-have-readme"],
             },
@@ -919,7 +919,7 @@ class TestLoadConfigInheritance:
             config_path,
             {
                 "version": "v1",
-                "extends": ["konsistent-test-loader-parent-config"],
+                "extends": ["konpy-test-loader-parent-config"],
                 "conventions": [],
             },
         )
@@ -928,7 +928,7 @@ class TestLoadConfigInheritance:
 
         assert isinstance(result, Ok)
         assert result.value.conventionSources == {
-            "common": "konsistent-test-loader-parent-conventions"
+            "common": "konpy-test-loader-parent-conventions"
         }
         assert result.value.conventions[0].name == "package-must-have-readme"
 
@@ -989,7 +989,7 @@ class TestLoadConfigInheritance:
 
 def plugin_source(*, key: str = "requireMarker", value_model: str = "str") -> str:
     return f'''
-from konsistent.plugin import PredicatePlugin
+from konpy.plugin import PredicatePlugin
 
 
 def handler(*, expected, context, structure, convention_name=None, severity=None):
@@ -1009,8 +1009,8 @@ def install_marker_plugin(
     *,
     tmp_path: Path,
     monkeypatch,
-    distribution_name: str = "konsistent-test-loader-plugin",
-    import_package: str = "konsistent_test_loader_plugin",
+    distribution_name: str = "konpy-test-loader-plugin",
+    import_package: str = "konpy_test_loader_plugin",
     key: str = "requireMarker",
     value_model: str = "str",
 ) -> None:
@@ -1021,7 +1021,7 @@ def install_marker_plugin(
         import_package=import_package,
         modules={"rules": plugin_source(key=key, value_model=value_model)},
         entry_points={
-            "konsistent.predicates": {
+            "konpy.predicates": {
                 key: f"{import_package}.rules:plugin",
             }
         },
@@ -1040,7 +1040,7 @@ class TestLoadConfigPlugins:
             config_path,
             {
                 "version": "v1",
-                "plugins": ["konsistent-test-loader-plugin"],
+                "plugins": ["konpy-test-loader-plugin"],
                 "conventions": [
                     {
                         "name": "plugin-rule",
@@ -1054,7 +1054,7 @@ class TestLoadConfigPlugins:
         result = load_config_runtime(config_path=config_path)
 
         assert isinstance(result, Ok)
-        assert result.value.config.plugins == ["konsistent-test-loader-plugin"]
+        assert result.value.config.plugins == ["konpy-test-loader-plugin"]
         assert "requireMarker" in result.value.predicate_registry.handlers
         assert result.value.config.conventions[0].must is not None
         assert result.value.config.conventions[0].must.model_extra == {
@@ -1093,7 +1093,7 @@ class TestLoadConfigPlugins:
             config_path,
             {
                 "version": "v1",
-                "plugins": ["konsistent-test-loader-missing-plugin"],
+                "plugins": ["konpy-test-loader-missing-plugin"],
                 "conventions": [],
             },
         )
@@ -1102,7 +1102,7 @@ class TestLoadConfigPlugins:
 
         assert isinstance(result, Err)
         assert result.error == (
-            'Plugin "konsistent-test-loader-missing-plugin": installed Python distribution '
+            'Plugin "konpy-test-loader-missing-plugin": installed Python distribution '
             "not found. Install it or remove it from plugins."
         )
 
@@ -1121,7 +1121,7 @@ class TestLoadConfigPlugins:
             config_path,
             {
                 "version": "v1",
-                "plugins": ["konsistent-test-loader-plugin"],
+                "plugins": ["konpy-test-loader-plugin"],
                 "conventions": [
                     {
                         "name": "plugin-rule",
@@ -1162,7 +1162,7 @@ class TestLoadConfigPlugins:
             config_path,
             {
                 "version": "v1",
-                "plugins": ["konsistent-test-loader-plugin"],
+                "plugins": ["konpy-test-loader-plugin"],
                 "conventionSources": {"plugin": "./plugin-conventions.json"},
                 "conventions": ["plugin/plugin-reusable-rule"],
             },
@@ -1187,7 +1187,7 @@ class TestLoadConfigPlugins:
             config_path,
             {
                 "version": "v1",
-                "plugins": ["konsistent-test-loader-plugin"],
+                "plugins": ["konpy-test-loader-plugin"],
                 "conventions": [
                     {
                         "name": "plugin-rule",
@@ -1216,7 +1216,7 @@ class TestLoadConfigPlugins:
             parent_path,
             {
                 "version": "v1",
-                "plugins": ["konsistent-test-loader-plugin"],
+                "plugins": ["konpy-test-loader-plugin"],
                 "conventions": [
                     {
                         "name": "parent-plugin-rule",
@@ -1239,7 +1239,7 @@ class TestLoadConfigPlugins:
         result = load_config_runtime(config_path=config_path)
 
         assert isinstance(result, Ok)
-        assert result.value.config.plugins == ["konsistent-test-loader-plugin"]
+        assert result.value.config.plugins == ["konpy-test-loader-plugin"]
         assert result.value.config.conventions[0].name == "parent-plugin-rule"
         assert result.value.config.conventions[0].must is not None
         assert result.value.config.conventions[0].must.model_extra == {
@@ -1254,15 +1254,15 @@ class TestLoadConfigPlugins:
         install_marker_plugin(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-parent-plugin",
-            import_package="konsistent_test_parent_plugin",
+            distribution_name="konpy-test-parent-plugin",
+            import_package="konpy_test_parent_plugin",
             key="parentRule",
         )
         install_marker_plugin(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-child-plugin",
-            import_package="konsistent_test_child_plugin",
+            distribution_name="konpy-test-child-plugin",
+            import_package="konpy_test_child_plugin",
             key="childRule",
         )
         parent_path = tmp_path / "base.json"
@@ -1270,7 +1270,7 @@ class TestLoadConfigPlugins:
             parent_path,
             {
                 "version": "v1",
-                "plugins": ["konsistent-test-parent-plugin"],
+                "plugins": ["konpy-test-parent-plugin"],
                 "conventions": [
                     {
                         "name": "parent-plugin-rule",
@@ -1286,7 +1286,7 @@ class TestLoadConfigPlugins:
             {
                 "version": "v1",
                 "extends": ["./base.json"],
-                "plugins": ["konsistent-test-child-plugin"],
+                "plugins": ["konpy-test-child-plugin"],
                 "conventions": [
                     {
                         "name": "child-plugin-rule",
@@ -1301,8 +1301,8 @@ class TestLoadConfigPlugins:
 
         assert isinstance(result, Ok)
         assert result.value.config.plugins == [
-            "konsistent-test-parent-plugin",
-            "konsistent-test-child-plugin",
+            "konpy-test-parent-plugin",
+            "konpy-test-child-plugin",
         ]
         assert "parentRule" in result.value.predicate_registry.handlers
         assert "childRule" in result.value.predicate_registry.handlers

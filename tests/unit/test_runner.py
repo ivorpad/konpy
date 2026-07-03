@@ -5,17 +5,17 @@ from typing import Any
 
 from pydantic import TypeAdapter
 
-from konsistent.config.schema import ConfigV1
-from konsistent.core.context import PredicateContext
-from konsistent.core.diagnostics import Diagnostic, DiagnosticSeverity, create_diagnostic
-from konsistent.core.filesystem import FakeFileSystem, FileSystem
-from konsistent.core.runner import run
-from konsistent.predicates.registry import (
+from konpy.config.schema import ConfigV1
+from konpy.core.context import PredicateContext
+from konpy.core.diagnostics import Diagnostic, DiagnosticSeverity, create_diagnostic
+from konpy.core.filesystem import FakeFileSystem, FileSystem
+from konpy.core.runner import run
+from konpy.predicates.registry import (
     PredicateHandler,
     PredicateRegistry,
     builtin_predicate_registry,
 )
-from konsistent.python_ast.structure import PyFileStructure
+from konpy.python_ast.structure import PyFileStructure
 
 
 def config(conventions: list[dict], **extra: object) -> ConfigV1:
@@ -1184,7 +1184,7 @@ class TestDiffScope:
                 contents={
                     "src/a.py": "def dead_a():\n    return 1\n",
                     "src/b.py": (
-                        "# konsistent: ignore[unused-code] -- legacy\n"
+                        "# konpy: ignore[unused-code] -- legacy\n"
                         "def dead_b():\n"
                         "    return 1\n"
                     ),
@@ -1212,7 +1212,7 @@ class TestDiffScope:
                 contents={
                     "src/a.py": "def used():\n    return 1\n",
                     "tests/test_a.py": (
-                        "# konsistent: ignore-file[no-such-rule] -- fixture\n"
+                        "# konpy: ignore-file[no-such-rule] -- fixture\n"
                         "from src.a import used\n"
                         "used()\n"
                     ),
@@ -1242,7 +1242,7 @@ class TestDiffScope:
             ),
             file_system=FakeFileSystem(
                 files=["src/b.py"],
-                contents={"src/a.py": '# konsistent: ignore[b-rule] -- reason\nVALUE = 1\n'},
+                contents={"src/a.py": '# konpy: ignore[b-rule] -- reason\nVALUE = 1\n'},
             ),
             target_files=frozenset({"src/a.py"}),
         )
@@ -1366,7 +1366,7 @@ def plugin_config(
     return ConfigV1.model_validate(
         {
             "version": "v1",
-            "plugins": ["konsistent-test-runner-plugin"],
+            "plugins": ["konpy-test-runner-plugin"],
             "conventions": conventions,
             **extra,
         },
@@ -1680,7 +1680,7 @@ class TestRuntimeSuppressions:
             file_system=FakeFileSystem(
                 contents={
                     "src/service.py": (
-                        "# konsistent: ignore[annotations] -- legacy API\n"
+                        "# konpy: ignore[annotations] -- legacy API\n"
                         "def create(value):\n"
                         "    return value\n"
                     )
@@ -1709,7 +1709,7 @@ class TestRuntimeSuppressions:
             file_system=FakeFileSystem(
                 contents={
                     "src/service.py": (
-                        "# konsistent: ignore-file[no-paired-tests] -- generated\n"
+                        "# konpy: ignore-file[no-paired-tests] -- generated\n"
                         "VALUE = 1\n"
                     )
                 },
@@ -1738,7 +1738,7 @@ class TestRuntimeSuppressions:
             file_system=FakeFileSystem(
                 contents={
                     "src/service.py": (
-                        "# konsistent: ignore[annotate-functions]\n"
+                        "# konpy: ignore[annotate-functions]\n"
                         "def create(value):\n"
                         "    return value\n"
                     )
@@ -1794,7 +1794,7 @@ class TestRuntimeSuppressions:
             file_system=FakeFileSystem(
                 contents={
                     "src/module.py": (
-                        "# konsistent: ignore[plugin-marker] -- generated fixture\n"
+                        "# konpy: ignore[plugin-marker] -- generated fixture\n"
                         "VALUE = 1\n"
                     )
                 },
@@ -1812,7 +1812,7 @@ class TestRuntimeSuppressions:
             file_system=FakeFileSystem(
                 contents={
                     "src/service.py": (
-                        "# konsistent: ignore[unused-code] -- public API\n"
+                        "# konpy: ignore[unused-code] -- public API\n"
                         "def orphaned():\n"
                         "    return 1\n"
                     )
@@ -1838,7 +1838,7 @@ class TestRuntimeSuppressions:
             ),
             file_system=FakeFileSystem(
                 contents={
-                    "src/index.py": "# konsistent: ignore[source-files]\nVALUE = 1\n"
+                    "src/index.py": "# konpy: ignore[source-files]\nVALUE = 1\n"
                 },
             ),
         )
@@ -1863,7 +1863,7 @@ class TestRuntimeSuppressions:
             ),
             file_system=FakeFileSystem(
                 contents={
-                    "src/index.py": "# konsistent: ignore[not-a-rule]\nVALUE = 1\n"
+                    "src/index.py": "# konpy: ignore[not-a-rule]\nVALUE = 1\n"
                 },
             ),
         )
@@ -1885,7 +1885,7 @@ class TestRuntimeSuppressions:
             ),
             file_system=FakeFileSystem(
                 contents={
-                    "src/index.py": "# konsistent: ignore[source-files]\nVALUE = 1\n"
+                    "src/index.py": "# konpy: ignore[source-files]\nVALUE = 1\n"
                 },
             ),
             report_suppression_warnings=False,
@@ -1898,7 +1898,7 @@ class TestRuntimeSuppressions:
         self,
     ) -> None:
         file_system = CountingFileSystem(
-            contents={"src/shared.py": "# konsistent: ignore[exports]\nVALUE = 1\n"},
+            contents={"src/shared.py": "# konpy: ignore[exports]\nVALUE = 1\n"},
         )
 
         result = run(

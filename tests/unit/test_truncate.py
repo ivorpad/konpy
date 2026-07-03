@@ -1,5 +1,5 @@
-from konsistent.core.diagnostics import Diagnostic
-from konsistent.core.truncate import format_truncation_message, truncate_diagnostics
+from konpy.core.diagnostics import Diagnostic
+from konpy.core.truncate import format_truncation_message, truncate_diagnostics
 
 
 def make_diag(msg: str) -> Diagnostic:

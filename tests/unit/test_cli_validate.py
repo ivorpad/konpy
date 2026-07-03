@@ -5,7 +5,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from konsistent.cli.app import app
+from konpy.cli.app import app
 from tests.fake_distribution import install_fake_distribution, reusable_convention_package
 
 runner = CliRunner()
@@ -17,7 +17,7 @@ def write_json(path: Path, value: object) -> None:
 
 class TestValidateCommand:
     def test_valid_config_exits_zero_and_prints_success(self, tmp_path: Path) -> None:
-        config_path = tmp_path / "konsistent.json"
+        config_path = tmp_path / "konpy.json"
         write_json(config_path, {"version": "v1", "conventions": []})
 
         result = runner.invoke(app, ["validate", "--config-path", str(config_path)])
@@ -33,17 +33,17 @@ class TestValidateCommand:
         install_fake_distribution(
             tmp_path=tmp_path,
             monkeypatch=monkeypatch,
-            distribution_name="konsistent-test-cli-validate-conventions",
-            import_package="konsistent_test_cli_validate_conventions",
+            distribution_name="konpy-test-cli-validate-conventions",
+            import_package="konpy_test_cli_validate_conventions",
             package_json=reusable_convention_package("package-must-have-readme"),
         )
-        config_path = tmp_path / "konsistent.json"
+        config_path = tmp_path / "konpy.json"
         write_json(
             config_path,
             {
                 "version": "v1",
                 "conventionSources": {
-                    "common": "konsistent-test-cli-validate-conventions",
+                    "common": "konpy-test-cli-validate-conventions",
                 },
                 "conventions": ["common/package-must-have-readme"],
             },
@@ -55,7 +55,7 @@ class TestValidateCommand:
         assert "Configuration is valid." in result.output
 
     def test_invalid_config_exits_one_and_prints_error(self, tmp_path: Path) -> None:
-        config_path = tmp_path / "konsistent.json"
+        config_path = tmp_path / "konpy.json"
         write_json(config_path, {"conventions": []})
 
         result = runner.invoke(app, ["validate", "--config-path", str(config_path)])
@@ -65,7 +65,7 @@ class TestValidateCommand:
         assert "version" in result.output
 
     def test_bad_placeholder_exits_one_before_loading_config(self, tmp_path: Path) -> None:
-        config_path = tmp_path / "konsistent.json"
+        config_path = tmp_path / "konpy.json"
         write_json(config_path, {"version": "v1", "conventions": []})
 
         result = runner.invoke(
@@ -83,7 +83,7 @@ class TestValidateCommand:
         assert 'Invalid --placeholder "1bad:value"' in result.output
 
     def test_placeholder_option_is_applied_during_validation(self, tmp_path: Path) -> None:
-        config_path = tmp_path / "konsistent.json"
+        config_path = tmp_path / "konpy.json"
         write_json(
             config_path,
             {
@@ -112,7 +112,7 @@ class TestValidateCommand:
         assert "Configuration is valid." in result.output
 
     def test_placeholder_validation_error_exits_one(self, tmp_path: Path) -> None:
-        config_path = tmp_path / "konsistent.json"
+        config_path = tmp_path / "konpy.json"
         write_json(
             config_path,
             {
@@ -142,7 +142,7 @@ class TestValidateCommand:
         assert 'captures "{providerId}" from paths' in result.output
 
     def test_deprecation_warning_output_precedes_success(self, tmp_path: Path) -> None:
-        config_path = tmp_path / "konsistent.json"
+        config_path = tmp_path / "konpy.json"
         write_json(
             config_path,
             {
@@ -179,7 +179,7 @@ class TestValidateCommand:
 
 def plugin_source(*, key: str = "requireMarker") -> str:
     return f'''
-from konsistent.plugin import PredicatePlugin
+from konpy.plugin import PredicatePlugin
 
 
 def handler(*, expected, context, structure, convention_name=None, severity=None):
@@ -199,8 +199,8 @@ def install_validate_plugin(
     *,
     tmp_path: Path,
     monkeypatch,
-    distribution_name: str = "konsistent-test-cli-validate-plugin",
-    import_package: str = "konsistent_test_cli_validate_plugin",
+    distribution_name: str = "konpy-test-cli-validate-plugin",
+    import_package: str = "konpy_test_cli_validate_plugin",
     key: str = "requireMarker",
 ) -> None:
     install_fake_distribution(
@@ -210,7 +210,7 @@ def install_validate_plugin(
         import_package=import_package,
         modules={"rules": plugin_source(key=key)},
         entry_points={
-            "konsistent.predicates": {
+            "konpy.predicates": {
                 key: f"{import_package}.rules:plugin",
             }
         },
@@ -224,12 +224,12 @@ class TestValidateCommandPlugins:
         monkeypatch,
     ) -> None:
         install_validate_plugin(tmp_path=tmp_path, monkeypatch=monkeypatch)
-        config_path = tmp_path / "konsistent.json"
+        config_path = tmp_path / "konpy.json"
         write_json(
             config_path,
             {
                 "version": "v1",
-                "plugins": ["konsistent-test-cli-validate-plugin"],
+                "plugins": ["konpy-test-cli-validate-plugin"],
                 "conventions": [
                     {
                         "name": "plugin-rule",
@@ -249,12 +249,12 @@ class TestValidateCommandPlugins:
         self,
         tmp_path: Path,
     ) -> None:
-        config_path = tmp_path / "konsistent.json"
+        config_path = tmp_path / "konpy.json"
         write_json(
             config_path,
             {
                 "version": "v1",
-                "plugins": ["konsistent-test-cli-validate-missing-plugin"],
+                "plugins": ["konpy-test-cli-validate-missing-plugin"],
                 "conventions": [],
             },
         )
@@ -263,7 +263,7 @@ class TestValidateCommandPlugins:
 
         assert result.exit_code == 1
         assert (
-            'Plugin "konsistent-test-cli-validate-missing-plugin": installed Python '
+            'Plugin "konpy-test-cli-validate-missing-plugin": installed Python '
             "distribution not found. Install it or remove it from plugins."
         ) in result.output
 
@@ -273,7 +273,7 @@ class TestValidateCommandPlugins:
         monkeypatch,
     ) -> None:
         install_validate_plugin(tmp_path=tmp_path, monkeypatch=monkeypatch)
-        config_path = tmp_path / "konsistent.json"
+        config_path = tmp_path / "konpy.json"
         write_json(
             config_path,
             {

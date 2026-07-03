@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import textwrap
 
-from konsistent.core.context import PredicateContext
-from konsistent.core.filesystem import FakeFileSystem
-from konsistent.core.placeholders import PlaceholderValue
-from konsistent.predicates.import_ import check_import
-from konsistent.predicates.import_types import check_import_types
-from konsistent.python_ast.parser import parse_file_structure
+from konpy.core.context import PredicateContext
+from konpy.core.filesystem import FakeFileSystem
+from konpy.core.placeholders import PlaceholderValue
+from konpy.predicates.import_ import check_import
+from konpy.predicates.import_types import check_import_types
+from konpy.python_ast.parser import parse_file_structure
 
 
 def parse_source(source: str):

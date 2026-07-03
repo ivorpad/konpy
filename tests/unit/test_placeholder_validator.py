@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from konsistent.config.errors import Err, Ok
-from konsistent.config.placeholder_validator import validate_placeholders
-from konsistent.config.schema import ConventionV1
+from konpy.config.errors import Err, Ok
+from konpy.config.placeholder_validator import validate_placeholders
+from konpy.config.schema import ConventionV1
 
 
 def convention(data: dict[str, Any]) -> ConventionV1:

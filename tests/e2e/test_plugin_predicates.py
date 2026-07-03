@@ -20,7 +20,7 @@ def _write_file(path: Path, value: str = "") -> None:
 
 def _plugin_source() -> str:
     return '''
-from konsistent.plugin import PredicatePlugin, create_diagnostic
+from konpy.plugin import PredicatePlugin, create_diagnostic
 
 
 def handler(*, expected, context, structure, convention_name=None, severity=None):
@@ -51,12 +51,12 @@ def _install_plugin(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     install_fake_distribution(
         tmp_path=tmp_path,
         monkeypatch=monkeypatch,
-        distribution_name="konsistent-e2e-plugin",
-        import_package="konsistent_e2e_plugin",
+        distribution_name="konpy-e2e-plugin",
+        import_package="konpy_e2e_plugin",
         modules={"rules": _plugin_source()},
         entry_points={
-            "konsistent.predicates": {
-                "requireMarker": "konsistent_e2e_plugin.rules:plugin",
+            "konpy.predicates": {
+                "requireMarker": "konpy_e2e_plugin.rules:plugin",
             }
         },
     )
@@ -69,10 +69,10 @@ def _make_project(*, tmp_path: Path, marker_present: bool) -> Path:
         "# PLUGIN_OK\nVALUE = 1\n" if marker_present else "VALUE = 1\n",
     )
     _write_json(
-        project_dir / "konsistent.json",
+        project_dir / "konpy.json",
         {
             "version": "v1",
-            "plugins": ["konsistent-e2e-plugin"],
+            "plugins": ["konpy-e2e-plugin"],
             "conventions": [
                 {
                     "name": "module-marker",
@@ -141,7 +141,7 @@ def test_plugin_predicate_requires_explicit_opt_in(
     project_dir = tmp_path / "plugin-project-no-opt-in"
     _write_file(project_dir / "src" / "module.py", "# PLUGIN_OK\n")
     _write_json(
-        project_dir / "konsistent.json",
+        project_dir / "konpy.json",
         {
             "version": "v1",
             "conventions": [

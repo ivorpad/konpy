@@ -1,4 +1,4 @@
-from konsistent.core.format_time import format_time
+from konpy.core.format_time import format_time
 
 
 class TestFormatTime:

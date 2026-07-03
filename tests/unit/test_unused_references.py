@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 import textwrap
 
-from konsistent.unused.references import (
+from konpy.unused.references import (
     PythonRefSource,
     RefStats,
     build_reference_index,

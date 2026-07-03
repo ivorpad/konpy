@@ -1,8 +1,8 @@
-# konsistent documentation
+# konpy documentation
 
-`konsistent` is a CLI linter that checks whether files and directories in your Python codebase match declared structural patterns. It fills a gap that Ruff, Flake8, and Pylint don't cover: they enforce code style and best practices within files, but none of them verify project-level structural conventions — like "every provider package must export the same shape" or "every adapter must extend the base class."
+`konpy` is a CLI linter that checks whether files and directories in your Python codebase match declared structural patterns. It fills a gap that Ruff, Flake8, and Pylint don't cover: they enforce code style and best practices within files, but none of them verify project-level structural conventions — like "every provider package must export the same shape" or "every adapter must extend the base class."
 
-konsistent reads a declarative `konsistent.json` and analyzes your Python source via the standard-library `ast` module — it never imports or executes your code.
+konpy reads a declarative `konpy.json` and analyzes your Python source via the standard-library `ast` module — it never imports or executes your code.
 
 _Inspired by [Vercel's konsistent](https://github.com/vercel-labs/konsistent), reimplemented from scratch for Python._
 
@@ -22,16 +22,16 @@ _Inspired by [Vercel's konsistent](https://github.com/vercel-labs/konsistent), r
 - [CI integration](./guides/ci-integration.md) — GitHub Actions, output formats, PR comments.
 - [Authoring reusable conventions](./guides/authoring-reusable-conventions.md) — publish a convention package others can consume.
 - [Extracting rules](./guides/extracting-rules.md) — use an explicit local agent command to draft reusable conventions from prose.
-- [Inferring conventions](./guides/inferring-conventions.md) — mine an existing codebase for candidate conventions with `konsistent infer`.
-- [Claude Code hook integration](./guides/claude-code-hook.md) — deterministic hook: run `konsistent check --files` automatically after Claude edits a file, no LLM call.
-- [Agentic verification hooks](./guides/hooks.md) — `konsistent hook`: spawn a read-only verifier agent from a Claude Code/Codex `PostToolUse` hook for checks a structural predicate can't express. See that guide's "Which hook mechanism should I use?" for how it differs from the deterministic recipe above.
+- [Inferring conventions](./guides/inferring-conventions.md) — mine an existing codebase for candidate conventions with `konpy infer`.
+- [Claude Code hook integration](./guides/claude-code-hook.md) — deterministic hook: run `konpy check --files` automatically after Claude edits a file, no LLM call.
+- [Agentic verification hooks](./guides/hooks.md) — `konpy hook`: spawn a read-only verifier agent from a Claude Code/Codex `PostToolUse` hook for checks a structural predicate can't express. See that guide's "Which hook mechanism should I use?" for how it differs from the deterministic recipe above.
 - [The ratchet](./guides/ratchet.md) — persist verified agentic hook failures and promote recurring patterns into reviewable deterministic convention packs.
-- [Agent evaluation](./guides/agent-eval.md) — A/B-compare agent runs using konsistent's own diagnostics as the metric.
+- [Agent evaluation](./guides/agent-eval.md) — A/B-compare agent runs using konpy's own diagnostics as the metric.
 
 ## Reference
 
-- [CLI](./reference/cli.md) — commands, flags, output formats, exit codes, [diagnostic intent and fix direction](./reference/cli.md#diagnostic-intent-and-fix-direction) (`description`, `hint`, `expected`, `found`, `fix_hint`), and [`konsistent explain`](./reference/cli.md#explain) — render the resolved config as prevention-side agent guidance for a `CLAUDE.md`.
-- [konsistent.json configuration](./reference/configuration.md) — top-level schema, convention shape, and the optional [`hint`](./reference/configuration.md#hint) field.
+- [CLI](./reference/cli.md) — commands, flags, output formats, exit codes, [diagnostic intent and fix direction](./reference/cli.md#diagnostic-intent-and-fix-direction) (`description`, `hint`, `expected`, `found`, `fix_hint`), and [`konpy explain`](./reference/cli.md#explain) — render the resolved config as prevention-side agent guidance for a `CLAUDE.md`.
+- [konpy.json configuration](./reference/configuration.md) — top-level schema, convention shape, and the optional [`hint`](./reference/configuration.md#hint) field.
 - [Path patterns](./reference/path-patterns.md) — globs, placeholders, case transformations, negation.
 - [Predicates](./reference/predicates.md) — every built-in `must` predicate and how `mustNot` works.
 - [Plugins](./reference/plugins.md) — custom predicate entry points, descriptor API, opt-in loading, and runtime validation.
@@ -41,7 +41,7 @@ _Inspired by [Vercel's konsistent](https://github.com/vercel-labs/konsistent), r
 - [Reusable conventions](./reference/reusable-conventions.md) — `conventionSources`, string and `use` references, merge semantics, error reference.
 - [Reusable packs](./reference/packs.md) — per-convention reference for the shipped packs (`python-best-practices.json`, `hexagonal-architecture.json`, `src-layout.json`), including each pack's layout assumptions and hints.
 - [Unused-code detection](./reference/unused-code.md) — the optional `unusedCode` classifier: taxonomy, config keys, framework presets, limitations.
-- [Suppressions](./reference/suppressions.md) — inline `# konsistent: ignore[...]` comments for approved exceptions, visibility guarantees, and the rules AI agents must follow.
+- [Suppressions](./reference/suppressions.md) — inline `# konpy: ignore[...]` comments for approved exceptions, visibility guarantees, and the rules AI agents must follow.
 
 ## Reusable packs
 
@@ -55,14 +55,14 @@ Full per-convention reference for all three: [Reusable packs](./reference/packs.
 
 ## Schema
 
-The machine-readable schema ships in the repo as `konsistent.schema.json`. Reference it from your `konsistent.json` for editor autocomplete:
+The machine-readable schema ships in the repo as `konpy.schema.json`. Reference it from your `konpy.json` for editor autocomplete:
 
 ```json
 {
-  "$schema": "./konsistent.schema.json",
+  "$schema": "./konpy.schema.json",
   "version": "v1",
   "conventions": []
 }
 ```
 
-The schema includes built-in config keys such as `plugins`, but plugin predicate keys are validated dynamically by `konsistent validate` / `konsistent check` after the configured plugin distributions are loaded.
+The schema includes built-in config keys such as `plugins`, but plugin predicate keys are validated dynamically by `konpy validate` / `konpy check` after the configured plugin distributions are loaded.

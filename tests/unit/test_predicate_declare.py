@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import textwrap
 
-from konsistent.core.context import PredicateContext
-from konsistent.core.filesystem import FakeFileSystem
-from konsistent.core.placeholders import PlaceholderValue
-from konsistent.predicates.declare_classes import check_declare_classes
-from konsistent.predicates.declare_constants import check_declare_constants
-from konsistent.predicates.declare_functions import check_declare_functions
-from konsistent.predicates.declare_interfaces import check_declare_interfaces
-from konsistent.predicates.declare_types import check_declare_types
-from konsistent.python_ast.parser import parse_file_structure
+from konpy.core.context import PredicateContext
+from konpy.core.filesystem import FakeFileSystem
+from konpy.core.placeholders import PlaceholderValue
+from konpy.predicates.declare_classes import check_declare_classes
+from konpy.predicates.declare_constants import check_declare_constants
+from konpy.predicates.declare_functions import check_declare_functions
+from konpy.predicates.declare_interfaces import check_declare_interfaces
+from konpy.predicates.declare_types import check_declare_types
+from konpy.python_ast.parser import parse_file_structure
 
 
 def parse_source(source: str):

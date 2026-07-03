@@ -3,10 +3,10 @@ from __future__ import annotations
 import textwrap
 from collections.abc import Mapping
 
-from konsistent.config.schema import UnusedCodeV1
-from konsistent.core.diagnostics import Diagnostic
-from konsistent.core.filesystem import FakeFileSystem
-from konsistent.unused.engine import run_unused_code, run_unused_code_with_metadata
+from konpy.config.schema import UnusedCodeV1
+from konpy.core.diagnostics import Diagnostic
+from konpy.core.filesystem import FakeFileSystem
+from konpy.unused.engine import run_unused_code, run_unused_code_with_metadata
 
 
 def fs(contents: Mapping[str, str]) -> FakeFileSystem:

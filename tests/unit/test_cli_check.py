@@ -7,7 +7,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from konsistent.cli.app import _preprocess_argv, app
+from konpy.cli.app import _preprocess_argv, app
 from tests.fake_distribution import install_fake_distribution
 
 runner = CliRunner()
@@ -24,7 +24,7 @@ def write_file(path: Path, value: str = "") -> None:
 
 def write_config(tmp_path: Path, conventions: list[dict[str, object]]) -> None:
     write_json(
-        tmp_path / "konsistent.json",
+        tmp_path / "konpy.json",
         {
             "version": "v1",
             "conventions": conventions,
@@ -78,7 +78,7 @@ def make_warning_project(tmp_path: Path) -> None:
 def make_file_level_suppression_project(tmp_path: Path) -> None:
     write_file(
         tmp_path / "src" / "service.py",
-        "# konsistent: ignore-file[paired-tests] -- generated\nVALUE = 1\n",
+        "# konpy: ignore-file[paired-tests] -- generated\nVALUE = 1\n",
     )
     write_config(
         tmp_path,
@@ -95,12 +95,12 @@ def make_file_level_suppression_project(tmp_path: Path) -> None:
 def make_unused_suppression_project(tmp_path: Path) -> None:
     write_file(
         tmp_path / "src" / "service.py",
-        "# konsistent: ignore[unused-code] -- legacy API\n"
+        "# konpy: ignore[unused-code] -- legacy API\n"
         "def orphaned():\n"
         "    return 1\n",
     )
     write_json(
-        tmp_path / "konsistent.json",
+        tmp_path / "konpy.json",
         {
             "version": "v1",
             "conventions": [],
@@ -453,7 +453,7 @@ class TestCheckCommand:
     ) -> None:
         write_file(
             tmp_path / "src" / "index.py",
-            "# konsistent: ignore[source-files]\nVALUE = 1\n",
+            "# konpy: ignore[source-files]\nVALUE = 1\n",
         )
         write_config(
             tmp_path,
@@ -519,7 +519,7 @@ class TestCheckCommand:
         (tmp_path / "src" / "b.py").mkdir(parents=True)
         write_file(
             tmp_path / "src" / "suppressed.py",
-            "# konsistent: ignore-file[paired-tests] -- generated\nVALUE = 1\n",
+            "# konpy: ignore-file[paired-tests] -- generated\nVALUE = 1\n",
         )
         write_config(
             tmp_path,
@@ -629,7 +629,7 @@ class TestCheckCommand:
     ) -> None:
         write_file(
             tmp_path / "src" / "index.py",
-            "# konsistent: ignore[source-files]\nVALUE = 1\n",
+            "# konpy: ignore[source-files]\nVALUE = 1\n",
         )
         write_config(
             tmp_path,
@@ -718,7 +718,7 @@ class TestBareInvocationShim:
 
 def plugin_check_source(*, key: str = "requireMarker") -> str:
     return f'''
-from konsistent.plugin import PredicatePlugin, create_diagnostic
+from konpy.plugin import PredicatePlugin, create_diagnostic
 
 
 def handler(*, expected, context, structure, convention_name=None, severity=None):
@@ -749,8 +749,8 @@ def install_check_plugin(
     *,
     tmp_path: Path,
     monkeypatch,
-    distribution_name: str = "konsistent-test-cli-check-plugin",
-    import_package: str = "konsistent_test_cli_check_plugin",
+    distribution_name: str = "konpy-test-cli-check-plugin",
+    import_package: str = "konpy_test_cli_check_plugin",
     key: str = "requireMarker",
 ) -> None:
     install_fake_distribution(
@@ -760,7 +760,7 @@ def install_check_plugin(
         import_package=import_package,
         modules={"rules": plugin_check_source(key=key)},
         entry_points={
-            "konsistent.predicates": {
+            "konpy.predicates": {
                 key: f"{import_package}.rules:plugin",
             }
         },
@@ -769,10 +769,10 @@ def install_check_plugin(
 
 def write_plugin_config(tmp_path: Path) -> None:
     write_json(
-        tmp_path / "konsistent.json",
+        tmp_path / "konpy.json",
         {
             "version": "v1",
-            "plugins": ["konsistent-test-cli-check-plugin"],
+            "plugins": ["konpy-test-cli-check-plugin"],
             "conventions": [
                 {
                     "name": "plugin-marker",

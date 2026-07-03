@@ -16,7 +16,7 @@ class TestSchemaArtifact:
         checked_in = ARTIFACT_PATH.read_text(encoding="utf-8")
         regenerated = generate_schema_text()
         assert checked_in == regenerated, (
-            "konsistent.schema.json is stale — run: uv run python scripts/generate_schema.py"
+            "konpy.schema.json is stale — run: uv run python scripts/generate_schema.py"
         )
 
     def test_artifact_declares_v1(self) -> None:

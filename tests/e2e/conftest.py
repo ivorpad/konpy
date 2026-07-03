@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from konsistent.cli.app import _preprocess_argv, app
+from konpy.cli.app import _preprocess_argv, app
 
 
 def _make_runner() -> CliRunner:

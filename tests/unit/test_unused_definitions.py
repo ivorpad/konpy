@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 import textwrap
 
-from konsistent.unused.definitions import Definition, collect_definitions
+from konpy.unused.definitions import Definition, collect_definitions
 
 
 def collect(source: str) -> list[Definition]:

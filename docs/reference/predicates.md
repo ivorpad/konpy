@@ -2,7 +2,7 @@
 
 Predicates are the assertions inside a convention's `must` or `mustNot` block. Each predicate checks one structural property of the matched path. Listing multiple predicates in the same `must` is equivalent to AND — they all must pass. Listing predicates in `mustNot` reverses the result — a matched path fails when it satisfies one of those predicates.
 
-`konsistent` parses each Python module with the standard-library `ast` module. The definitions of "export", "type", "interface", and "import" below are all expressed in those Python terms.
+`konpy` parses each Python module with the standard-library `ast` module. The definitions of "export", "type", "interface", and "import" below are all expressed in those Python terms.
 
 ## What counts as an export
 
@@ -31,7 +31,7 @@ The catalog below documents built-in predicates. Configs may also opt into plugi
 ```json
 {
   "version": "v1",
-  "plugins": ["acme-konsistent-rules"],
+  "plugins": ["acme-konpy-rules"],
   "conventions": [
     {
       "paths": "src/*.py",
@@ -483,7 +483,7 @@ Assert whether the file has value imports from absolute (non-relative) module sp
 "must": { "importFromExternals": true }
 ```
 
-`true` requires at least one non-type absolute import (`import os`, `from pydantic import BaseModel`). `false` forbids those imports. Any absolute specifier counts as external because `konsistent` does not resolve whether it points inside or outside the project. Type-only imports are ignored.
+`true` requires at least one non-type absolute import (`import os`, `from pydantic import BaseModel`). `false` forbids those imports. Any absolute specifier counts as external because `konpy` does not resolve whether it points inside or outside the project. Type-only imports are ignored.
 
 ### `importTypesFromCurrentDir`
 
@@ -653,7 +653,7 @@ Plugin predicates are custom predicate keys declared by installed Python distrib
 ```json
 {
   "version": "v1",
-  "plugins": ["acme-konsistent-rules"],
+  "plugins": ["acme-konpy-rules"],
   "conventions": [
     {
       "paths": "src/*.py",
@@ -697,4 +697,4 @@ Multiple predicates in the same `must` are AND-ed:
 
 For OR-style logic (apply different predicates to different files), use [conditional rules](./conditional-rules.md) — the array form of `must` with `if`/`for` blocks.
 
-Note that **reusable conventions** (those consumed via `conventionSources`) are restricted to flat object-form `must` and `mustNot` predicates — the `MustBlock[]` form is unavailable on the author side. Hand-written conventions in your own `konsistent.json` can still use `MustBlock[]` in `must`. See [reusable-conventions.md](./reusable-conventions.md#restrictions).
+Note that **reusable conventions** (those consumed via `conventionSources`) are restricted to flat object-form `must` and `mustNot` predicates — the `MustBlock[]` form is unavailable on the author side. Hand-written conventions in your own `konpy.json` can still use `MustBlock[]` in `must`. See [reusable-conventions.md](./reusable-conventions.md#restrictions).

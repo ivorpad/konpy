@@ -1,13 +1,13 @@
-"""Lightweight A/B proof harness for konsistent.
+"""Lightweight A/B proof harness for konpy.
 
-Runs `konsistent check --format json` against a target repository and reduces
+Runs `konpy check --format json` against a target repository and reduces
 the output into a stable, diffable metrics summary, so two agent runs (e.g.
-"with `konsistent explain` guidance injected + hook enforcement" vs "without")
+"with `konpy explain` guidance injected + hook enforcement" vs "without")
 can be compared quantitatively. This is stdlib-only and shells out to the
-`konsistent` CLI (or `python -m konsistent`) as a subprocess; it does not
-import the `konsistent` package.
+`konpy` CLI (or `python -m konpy`) as a subprocess; it does not
+import the `konpy` package.
 
-It is a repo-dev script, not part of the installable `konsistent` package —
+It is a repo-dev script, not part of the installable `konpy` package —
 it lives beside `scripts/generate_schema.py` and is tested the same way (see
 `tests/unit/test_eval_conventions.py`).
 
@@ -18,9 +18,9 @@ Usage:
 
 Run from the repo root: `uv run python scripts/eval_conventions.py run .`
 
-Note on truncation: konsistent's own `--format json` truncates both the
+Note on truncation: konpy's own `--format json` truncates both the
 `diagnostics` array and the `summary.errors`/`summary.warnings` counts to
-`--max-diagnostics` (default 100 in konsistent itself) before rendering. This
+`--max-diagnostics` (default 100 in konpy itself) before rendering. This
 script always passes an explicit, much higher `--max-diagnostics` (default
 1,000,000, see DEFAULT_MAX_DIAGNOSTICS) so metrics are not silently
 undercounted. If you override `--max-diagnostics` to a low value here, or
@@ -47,7 +47,7 @@ SCHEMA_VERSION = 1
 DEFAULT_TOP_FILES = 10
 DEFAULT_TIMEOUT_SECONDS = 120.0
 DEFAULT_MAX_DIAGNOSTICS = (
-    1_000_000  # override konsistent's low default (100) so counts aren't truncated
+    1_000_000  # override konpy's low default (100) so counts aren't truncated
 )
 STDOUT_SNIPPET_LIMIT = 2000  # chars of stdout/stderr included in EvalError messages
 
@@ -71,7 +71,7 @@ _SUMMARY_ROW_ORDER = (
 
 
 class EvalError(RuntimeError):
-    """Harness-level failure: bad target path, unparseable konsistent output,
+    """Harness-level failure: bad target path, unparseable konpy output,
     subprocess launch failure, or timeout. Never raised for a target repo
     simply having lint violations -- that is the normal/expected case."""
 
@@ -85,26 +85,26 @@ class RunOutcome:
     wall_clock_ms: float
 
 
-# Injectable for tests: same call shape as run_konsistent_check.
+# Injectable for tests: same call shape as run_konpy_check.
 CheckRunner = Callable[[list[str], Path, float], RunOutcome]
 
 
-def resolve_konsistent_argv(*, konsistent_bin: str | None) -> list[str]:
-    """Return the base argv prefix used to invoke konsistent (before subcommand args).
+def resolve_konpy_argv(*, konpy_bin: str | None) -> list[str]:
+    """Return the base argv prefix used to invoke konpy (before subcommand args).
 
     Order:
-    1. konsistent_bin is not None -> [konsistent_bin]  (used verbatim, no splitting)
-    2. shutil.which("konsistent") returns a path -> [that path]
-    3. fallback -> [sys.executable, "-m", "konsistent"]
+    1. konpy_bin is not None -> [konpy_bin]  (used verbatim, no splitting)
+    2. shutil.which("konpy") returns a path -> [that path]
+    3. fallback -> [sys.executable, "-m", "konpy"]
     """
-    if konsistent_bin is not None:
-        return [konsistent_bin]
+    if konpy_bin is not None:
+        return [konpy_bin]
 
-    found = shutil.which("konsistent")
+    found = shutil.which("konpy")
     if found is not None:
         return [found]
 
-    return [sys.executable, "-m", "konsistent"]
+    return [sys.executable, "-m", "konpy"]
 
 
 def build_check_argv(
@@ -116,7 +116,7 @@ def build_check_argv(
     max_diagnostics: int,
     extra_args: Sequence[str],
 ) -> list[str]:
-    """Assemble the full argv for `konsistent check --format json ...`."""
+    """Assemble the full argv for `konpy check --format json ...`."""
     argv = [*base_argv, "check", "--format", "json", "--max-diagnostics", str(max_diagnostics)]
 
     if config_path:
@@ -130,8 +130,8 @@ def build_check_argv(
     return argv
 
 
-def run_konsistent_check(argv: list[str], cwd: Path, timeout_seconds: float) -> RunOutcome:
-    """Run konsistent as a subprocess and capture its output."""
+def run_konpy_check(argv: list[str], cwd: Path, timeout_seconds: float) -> RunOutcome:
+    """Run konpy as a subprocess and capture its output."""
     started = time.monotonic()
     try:
         completed = subprocess.run(
@@ -153,7 +153,7 @@ def run_konsistent_check(argv: list[str], cwd: Path, timeout_seconds: float) -> 
             wall_clock_ms=elapsed,
         )
     except OSError as exc:
-        raise EvalError(f"failed to launch konsistent ({argv[0]!r}): {exc}") from exc
+        raise EvalError(f"failed to launch konpy ({argv[0]!r}): {exc}") from exc
 
     elapsed = (time.monotonic() - started) * 1000
     return RunOutcome(
@@ -166,32 +166,32 @@ def run_konsistent_check(argv: list[str], cwd: Path, timeout_seconds: float) -> 
 
 
 def parse_check_json(*, stdout: str) -> dict[str, Any]:
-    """Parse konsistent's --format json stdout into a dict, defensively."""
+    """Parse konpy's --format json stdout into a dict, defensively."""
     try:
         parsed = json.loads(stdout)
     except json.JSONDecodeError as exc:
         snippet = stdout[:STDOUT_SNIPPET_LIMIT]
         raise EvalError(
-            f"could not parse konsistent output as JSON: {exc} (stdout={snippet!r})"
+            f"could not parse konpy output as JSON: {exc} (stdout={snippet!r})"
         ) from exc
 
     if not isinstance(parsed, dict):
         raise EvalError(
-            f"expected konsistent output to be a JSON object, got {type(parsed).__name__}"
+            f"expected konpy output to be a JSON object, got {type(parsed).__name__}"
         )
 
     missing = [key for key in ("diagnostics", "summary") if key not in parsed]
     if missing:
         present = sorted(parsed.keys())
         raise EvalError(
-            f"konsistent output missing required key(s) {missing}; keys present: {present}"
+            f"konpy output missing required key(s) {missing}; keys present: {present}"
         )
 
     return parsed
 
 
 def summarize(*, raw: dict[str, Any], top_files: int = DEFAULT_TOP_FILES) -> dict[str, Any]:
-    """Reduce konsistent's parsed --format json payload into the metrics shape."""
+    """Reduce konpy's parsed --format json payload into the metrics shape."""
     diagnostics = raw.get("diagnostics") or []
     raw_summary = raw.get("summary") or {}
 
@@ -233,7 +233,7 @@ def summarize(*, raw: dict[str, Any], top_files: int = DEFAULT_TOP_FILES) -> dic
             "errors": raw_summary.get("errors", 0),
             "warnings": raw_summary.get("warnings", 0),
             "suppressed": raw_summary.get("suppressed", 0),
-            "konsistentDurationMs": raw_summary.get("durationMs"),
+            "konpyDurationMs": raw_summary.get("durationMs"),
         },
         "bySeverity": dict(sorted(severity_counter.items())),
         "byConvention": dict(sorted(convention_counter.items())),
@@ -251,7 +251,7 @@ def build_metrics(
     *,
     target_repo: Path,
     config_path: str | None,
-    konsistent_bin: str | None,
+    konpy_bin: str | None,
     diagnostic_level: str | None,
     placeholders: Sequence[str],
     max_diagnostics: int,
@@ -266,7 +266,7 @@ def build_metrics(
     if not target_repo.is_dir():
         raise EvalError(f"target repo not found or not a directory: {target_repo}")
 
-    base_argv = resolve_konsistent_argv(konsistent_bin=konsistent_bin)
+    base_argv = resolve_konpy_argv(konpy_bin=konpy_bin)
     argv = build_check_argv(
         base_argv=base_argv,
         config_path=config_path,
@@ -276,11 +276,11 @@ def build_metrics(
         extra_args=extra_args,
     )
 
-    active_runner = runner or run_konsistent_check
+    active_runner = runner or run_konpy_check
     outcome = active_runner(argv, target_repo, timeout_seconds)
 
     if outcome.timed_out:
-        raise EvalError(f"konsistent check timed out after {timeout_seconds}s (argv={argv!r})")
+        raise EvalError(f"konpy check timed out after {timeout_seconds}s (argv={argv!r})")
 
     try:
         raw = parse_check_json(stdout=outcome.stdout)
@@ -352,9 +352,9 @@ def compare_summaries(*, before: dict[str, Any], after: dict[str, Any]) -> dict[
             "delta": after_value - before_value,
         }
 
-    duration_before = before_summary.get("konsistentDurationMs")
-    duration_after = after_summary.get("konsistentDurationMs")
-    summary_diff["konsistentDurationMs"] = {
+    duration_before = before_summary.get("konpyDurationMs")
+    duration_after = after_summary.get("konpyDurationMs")
+    summary_diff["konpyDurationMs"] = {
         "before": duration_before,
         "after": duration_after,
         "delta": _delta_scalar(duration_before, duration_after),
@@ -424,7 +424,7 @@ def format_compare_table(*, comparison: dict[str, Any]) -> str:
     before_label = comparison["beforeLabel"] or "before"
     after_label = comparison["afterLabel"] or "after"
 
-    lines = [f"konsistent eval comparison: {before_label} vs {after_label}", ""]
+    lines = [f"konpy eval comparison: {before_label} vs {after_label}", ""]
 
     for key, human_label in _SUMMARY_ROW_ORDER:
         entry = comparison["summary"][key]
@@ -469,16 +469,16 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="eval_conventions.py",
         description=(
-            "Run `konsistent check --format json` against a target repository and "
+            "Run `konpy check --format json` against a target repository and "
             "reduce the output into a stable, diffable metrics summary."
         ),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    run_parser = subparsers.add_parser("run", help="Run konsistent check against a target repo.")
+    run_parser = subparsers.add_parser("run", help="Run konpy check against a target repo.")
     run_parser.add_argument("target_repo", type=Path, help="Path to the repo to check.")
     run_parser.add_argument("--config-path", type=str, default=None)
-    run_parser.add_argument("--konsistent-bin", type=str, default=None)
+    run_parser.add_argument("--konpy-bin", type=str, default=None)
     run_parser.add_argument(
         "--diagnostic-level", type=str, default=None, choices=["warning", "error"]
     )
@@ -486,14 +486,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--placeholder",
         action="append",
         default=[],
-        help="Repeatable NAME:VALUE placeholder to forward to konsistent.",
+        help="Repeatable NAME:VALUE placeholder to forward to konpy.",
     )
     run_parser.add_argument("--max-diagnostics", type=int, default=DEFAULT_MAX_DIAGNOSTICS)
     run_parser.add_argument(
         "--extra-arg",
         action="append",
         default=[],
-        help="Repeatable extra argv token forwarded verbatim to konsistent check.",
+        help="Repeatable extra argv token forwarded verbatim to konpy check.",
     )
     run_parser.add_argument("--label", type=str, default=None)
     run_parser.add_argument("--output", type=Path, default=None)
@@ -519,7 +519,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         metrics = build_metrics(
             target_repo=Path(args.target_repo),
             config_path=args.config_path,
-            konsistent_bin=args.konsistent_bin,
+            konpy_bin=args.konpy_bin,
             diagnostic_level=args.diagnostic_level,
             placeholders=args.placeholder,
             max_diagnostics=args.max_diagnostics,

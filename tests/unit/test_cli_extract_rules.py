@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from konsistent.cli.extract_rules import (
+from konpy.cli.extract_rules import (
     AgentInvocation,
     AgentRunResult,
     ExtractAgent,
@@ -15,7 +15,7 @@ from konsistent.cli.extract_rules import (
     run_extract_rules_command,
     select_agent_invocation,
 )
-from konsistent.config.errors import Err, Ok
+from konpy.config.errors import Err, Ok
 
 
 def reusable_pack() -> dict[str, Any]:
@@ -78,7 +78,7 @@ class TestPromptAssembly:
         assert "unmapped" in prompt
         assert "Never silently drop a source rule" in prompt
         assert "Do not invent predicate keys" in prompt
-        assert "konsistent.json" in prompt
+        assert "konpy.json" in prompt
 
 
 class TestJsonExtraction:
@@ -354,7 +354,7 @@ class TestAgentSelection:
                 return f"/fake/bin/{binary}"
             return None
 
-        monkeypatch.setattr("konsistent.cli.agent_runner.shutil.which", fake_which)
+        monkeypatch.setattr("konpy.cli.agent_runner.shutil.which", fake_which)
 
         result = select_agent_invocation(ExtractAgent.AUTO)
 
@@ -372,7 +372,7 @@ class TestAgentSelection:
                 return "/fake/bin/codex"
             return None
 
-        monkeypatch.setattr("konsistent.cli.agent_runner.shutil.which", fake_which)
+        monkeypatch.setattr("konpy.cli.agent_runner.shutil.which", fake_which)
 
         result = select_agent_invocation(ExtractAgent.AUTO)
 
@@ -384,7 +384,7 @@ class TestAgentSelection:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        monkeypatch.setattr("konsistent.cli.agent_runner.shutil.which", lambda _binary: None)
+        monkeypatch.setattr("konpy.cli.agent_runner.shutil.which", lambda _binary: None)
 
         result = select_agent_invocation(ExtractAgent.AUTO)
 
@@ -396,7 +396,7 @@ class TestAgentSelection:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        monkeypatch.setattr("konsistent.cli.agent_runner.shutil.which", lambda _binary: None)
+        monkeypatch.setattr("konpy.cli.agent_runner.shutil.which", lambda _binary: None)
 
         result = select_agent_invocation(ExtractAgent.CODEX)
 
@@ -408,7 +408,7 @@ class TestAgentSelection:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.setattr(
-            "konsistent.cli.agent_runner.shutil.which",
+            "konpy.cli.agent_runner.shutil.which",
             lambda binary: f"/fake/bin/{binary}",
         )
 
@@ -430,7 +430,7 @@ class TestModelThreading:
         write_source(source)
 
         monkeypatch.setattr(
-            "konsistent.cli.agent_runner.shutil.which",
+            "konpy.cli.agent_runner.shutil.which",
             lambda binary: f"/fake/bin/{binary}",
         )
         captured: dict[str, object] = {}
@@ -440,7 +440,7 @@ class TestModelThreading:
             return AgentRunResult(returncode=0, stdout=agent_response(), stderr="")
 
         monkeypatch.setattr(
-            "konsistent.cli.extract_rules.run_agent_subprocess",
+            "konpy.cli.extract_rules.run_agent_subprocess",
             fake_run_agent_subprocess,
         )
 

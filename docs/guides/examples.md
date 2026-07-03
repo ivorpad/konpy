@@ -1,6 +1,6 @@
 # Examples
 
-A library of common patterns you can copy into your `konsistent.json`. Each example is a complete, valid convention — drop it in and adjust the path and names.
+A library of common patterns you can copy into your `konpy.json`. Each example is a complete, valid convention — drop it in and adjust the path and names.
 
 For deeper coverage of any concept, follow the cross-links to the reference docs.
 

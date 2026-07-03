@@ -1,7 +1,7 @@
-from konsistent.core.context import build_context
-from konsistent.core.filesystem import FakeFileSystem
-from konsistent.core.path_matcher import MatchedPath
-from konsistent.core.placeholders import PlaceholderValue
+from konpy.core.context import build_context
+from konpy.core.filesystem import FakeFileSystem
+from konpy.core.path_matcher import MatchedPath
+from konpy.core.placeholders import PlaceholderValue
 
 
 class TestBuildContext:

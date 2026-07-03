@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from konsistent.core.diagnostics import Diagnostic, create_diagnostic
+from konpy.core.diagnostics import Diagnostic, create_diagnostic
 
 
 class TestCreateDiagnostic:

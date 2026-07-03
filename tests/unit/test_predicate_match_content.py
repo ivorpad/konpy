@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from konsistent.core.context import PredicateContext
-from konsistent.core.filesystem import FakeFileSystem
-from konsistent.predicates.match_content import check_match_content
+from konpy.core.context import PredicateContext
+from konpy.core.filesystem import FakeFileSystem
+from konpy.predicates.match_content import check_match_content
 
 
 def context(*, path: str = "src/service.py") -> PredicateContext:

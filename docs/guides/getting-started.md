@@ -1,24 +1,24 @@
 # Getting started
 
-This guide takes you from zero to a working `konsistent.json` in a few minutes.
+This guide takes you from zero to a working `konpy.json` in a few minutes.
 
 ## 1. Install
 
 ```bash
-uv add --dev konsistent      # add to a uv project
+uv add --dev konpy      # add to a uv project
 # or
-pip install konsistent       # install with pip
+pip install konpy       # install with pip
 ```
 
-You can then run it with `uv run konsistent`, or `uvx konsistent` to run without installing it into the project.
+You can then run it with `uv run konpy`, or `uvx konpy` to run without installing it into the project.
 
-## 2. Create `konsistent.json`
+## 2. Create `konpy.json`
 
-Create `konsistent.json` at the project root with at least the `version` field and one convention. The simplest possible config has a single rule:
+Create `konpy.json` at the project root with at least the `version` field and one convention. The simplest possible config has a single rule:
 
 ```json
 {
-  "$schema": "./konsistent.schema.json",
+  "$schema": "./konpy.schema.json",
   "version": "v1",
   "conventions": [
     {
@@ -34,12 +34,12 @@ Create `konsistent.json` at the project root with at least the `version` field a
 
 This says: every `packages/<name>` is a directory and must contain `src/__init__.py`.
 
-The `$schema` line gives you autocomplete in editors that respect the JSON schema reference (VS Code, JetBrains, …). The schema ships in the repo as `konsistent.schema.json`.
+The `$schema` line gives you autocomplete in editors that respect the JSON schema reference (VS Code, JetBrains, …). The schema ships in the repo as `konpy.schema.json`.
 
 ## 3. Run the CLI
 
 ```bash
-uv run konsistent
+uv run konpy
 ```
 
 When everything passes:
@@ -83,10 +83,10 @@ For `packages/anthropic/src/__init__.py`, the rule requires the module to expose
 After every edit, validate the config:
 
 ```bash
-uv run konsistent validate
+uv run konpy validate
 ```
 
-The validator catches schema errors (typos, wrong types, unknown fields). If validation passes, run `uv run konsistent` to apply the rules to the codebase.
+The validator catches schema errors (typos, wrong types, unknown fields). If validation passes, run `uv run konpy` to apply the rules to the codebase.
 
 ## What to put in your config
 
@@ -96,10 +96,10 @@ For inspiration, browse [examples.md](./examples.md) for a library of common pat
 
 ## What to do about violations
 
-If `konsistent` reports many violations across the same rule, the rule itself may be wrong — the codebase may not have actually adopted that convention. See [fixing-violations.md](./fixing-violations.md) for the workflow that distinguishes "the rule is wrong" from "the code is wrong" and walks through fixing each.
+If `konpy` reports many violations across the same rule, the rule itself may be wrong — the codebase may not have actually adopted that convention. See [fixing-violations.md](./fixing-violations.md) for the workflow that distinguishes "the rule is wrong" from "the code is wrong" and walks through fixing each.
 
 ## Next steps
 
-- [konsistent.json reference](../reference/configuration.md) — full top-level shape and convention fields.
+- [konpy.json reference](../reference/configuration.md) — full top-level shape and convention fields.
 - [Predicates](../reference/predicates.md) — every `must` predicate with examples.
-- [CI integration](./ci-integration.md) — wire `konsistent` into GitHub Actions.
+- [CI integration](./ci-integration.md) — wire `konpy` into GitHub Actions.

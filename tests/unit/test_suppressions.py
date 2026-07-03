@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from konsistent.core.diagnostics import Diagnostic
-from konsistent.core.suppressions import (
+from konpy.core.diagnostics import Diagnostic
+from konpy.core.suppressions import (
     SuppressionComment,
     filter_suppressed_diagnostics,
     parse_suppressions_for_source,
@@ -30,7 +30,7 @@ class TestParseSuppressions:
     def test_parses_line_suppression_with_multiple_rules_and_reason(self) -> None:
         result = parse_suppressions_for_source(
             file_path="src/service.py",
-            source="# konsistent: ignore[rule-a, rule-b] -- legacy API\n",
+            source="# konpy: ignore[rule-a, rule-b] -- legacy API\n",
         )
 
         assert result.diagnostics == []
@@ -41,14 +41,14 @@ class TestParseSuppressions:
                 kind="ignore",
                 rules=("rule-a", "rule-b"),
                 reason="legacy API",
-                raw="# konsistent: ignore[rule-a, rule-b] -- legacy API",
+                raw="# konpy: ignore[rule-a, rule-b] -- legacy API",
             )
         ]
 
     def test_parses_inline_trailing_comment(self) -> None:
         result = parse_suppressions_for_source(
             file_path="src/service.py",
-            source="value = call()  # konsistent: ignore[rule-a] -- accepted\n",
+            source="value = call()  # konpy: ignore[rule-a] -- accepted\n",
         )
 
         assert result.diagnostics == []
@@ -63,7 +63,7 @@ class TestParseSuppressions:
             source=(
                 "# generated file\n"
                 "\n"
-                "# konsistent: ignore-file[rule-a] -- generated\n"
+                "# konpy: ignore-file[rule-a] -- generated\n"
                 "VALUE = 1\n"
             ),
         )
@@ -76,14 +76,14 @@ class TestParseSuppressions:
                 kind="ignore-file",
                 rules=("rule-a",),
                 reason="generated",
-                raw="# konsistent: ignore-file[rule-a] -- generated",
+                raw="# konpy: ignore-file[rule-a] -- generated",
             )
         ]
 
     def test_rejects_missing_bracketed_rule_list(self) -> None:
         result = parse_suppressions_for_source(
             file_path="src/service.py",
-            source="# konsistent: ignore\n",
+            source="# konpy: ignore\n",
         )
 
         assert result.suppressions == []
@@ -96,7 +96,7 @@ class TestParseSuppressions:
     def test_rejects_empty_rule_list(self) -> None:
         result = parse_suppressions_for_source(
             file_path="src/service.py",
-            source="# konsistent: ignore[]\n",
+            source="# konpy: ignore[]\n",
         )
 
         assert result.suppressions == []
@@ -107,7 +107,7 @@ class TestParseSuppressions:
     def test_rejects_invalid_rule_names(self) -> None:
         result = parse_suppressions_for_source(
             file_path="src/service.py",
-            source="# konsistent: ignore[RuleName, valid-rule]\n",
+            source="# konpy: ignore[RuleName, valid-rule]\n",
         )
 
         assert result.suppressions == []
@@ -118,7 +118,7 @@ class TestParseSuppressions:
     def test_rejects_file_level_suppression_after_first_code_line(self) -> None:
         result = parse_suppressions_for_source(
             file_path="src/service.py",
-            source="VALUE = 1\n# konsistent: ignore-file[rule-a]\n",
+            source="VALUE = 1\n# konpy: ignore-file[rule-a]\n",
         )
 
         assert result.suppressions == []
@@ -131,7 +131,7 @@ class TestFilterSuppressions:
     def test_line_suppression_matches_same_line_diagnostic(self) -> None:
         parse_result = parse_suppressions_for_source(
             file_path="src/service.py",
-            source="bad_call()  # konsistent: ignore[rule-a] -- local exception\n",
+            source="bad_call()  # konpy: ignore[rule-a] -- local exception\n",
         )
         result = filter_suppressed_diagnostics(
             diagnostics=[diagnostic(line=1, rule="rule-a")],
@@ -150,7 +150,7 @@ class TestFilterSuppressions:
     def test_line_suppression_matches_immediately_above_diagnostic(self) -> None:
         parse_result = parse_suppressions_for_source(
             file_path="src/service.py",
-            source="# konsistent: ignore[rule-a]\ndef bad():\n    pass\n",
+            source="# konpy: ignore[rule-a]\ndef bad():\n    pass\n",
         )
         result = filter_suppressed_diagnostics(
             diagnostics=[diagnostic(line=2, rule="rule-a")],
@@ -167,7 +167,7 @@ class TestFilterSuppressions:
     def test_line_suppression_does_not_skip_blank_lines(self) -> None:
         parse_result = parse_suppressions_for_source(
             file_path="src/service.py",
-            source="# konsistent: ignore[rule-a]\n\ndef bad():\n    pass\n",
+            source="# konpy: ignore[rule-a]\n\ndef bad():\n    pass\n",
         )
         original = diagnostic(line=3, rule="rule-a")
 
@@ -185,7 +185,7 @@ class TestFilterSuppressions:
     def test_line_suppression_does_not_suppress_file_level_diagnostic(self) -> None:
         parse_result = parse_suppressions_for_source(
             file_path="src/service.py",
-            source="# konsistent: ignore[rule-a]\n",
+            source="# konpy: ignore[rule-a]\n",
         )
         original = diagnostic(line=None, rule="rule-a")
 
@@ -205,7 +205,7 @@ class TestFilterSuppressions:
     ) -> None:
         parse_result = parse_suppressions_for_source(
             file_path="src/service.py",
-            source="# konsistent: ignore-file[rule-a] -- generated\nVALUE = 1\n",
+            source="# konpy: ignore-file[rule-a] -- generated\nVALUE = 1\n",
         )
         file_level = diagnostic(line=None, rule="rule-a", message="file-level")
         line_level = diagnostic(line=2, rule="rule-a", message="line-level")
@@ -229,7 +229,7 @@ class TestFilterSuppressions:
     def test_suppression_matches_convention_name_not_predicate_name(self) -> None:
         parse_result = parse_suppressions_for_source(
             file_path="src/service.py",
-            source="# konsistent: ignore[have-type]\n",
+            source="# konpy: ignore[have-type]\n",
         )
         original = Diagnostic(
             file_path="src/service.py",
@@ -254,7 +254,7 @@ class TestFilterSuppressions:
     def test_warning_diagnostics_are_suppressible(self) -> None:
         parse_result = parse_suppressions_for_source(
             file_path="src/service.py",
-            source="# konsistent: ignore[unused-code]\ndef legacy():\n    return 1\n",
+            source="# konpy: ignore[unused-code]\ndef legacy():\n    return 1\n",
         )
 
         result = filter_suppressed_diagnostics(
@@ -272,7 +272,7 @@ class TestFilterSuppressions:
     def test_tracks_usage_per_rule_for_multi_rule_comments(self) -> None:
         parse_result = parse_suppressions_for_source(
             file_path="src/service.py",
-            source="# konsistent: ignore[rule-a, rule-b]\ndef bad():\n    pass\n",
+            source="# konpy: ignore[rule-a, rule-b]\ndef bad():\n    pass\n",
         )
 
         result = filter_suppressed_diagnostics(
@@ -292,7 +292,7 @@ class TestFilterSuppressions:
     def test_reports_unknown_and_unused_suppressions(self) -> None:
         parse_result = parse_suppressions_for_source(
             file_path="src/service.py",
-            source="# konsistent: ignore[unknown-rule, known-rule]\n",
+            source="# konpy: ignore[unknown-rule, known-rule]\n",
         )
 
         result = filter_suppressed_diagnostics(
@@ -311,7 +311,7 @@ class TestFilterSuppressions:
     def test_report_hygiene_false_omits_parse_unknown_and_unused_warnings(self) -> None:
         parse_result = parse_suppressions_for_source(
             file_path="src/service.py",
-            source="# konsistent: ignore[known-rule]\n# konsistent: ignore\n",
+            source="# konpy: ignore[known-rule]\n# konpy: ignore\n",
         )
 
         result = filter_suppressed_diagnostics(
@@ -329,7 +329,7 @@ class TestFilterSuppressions:
     def test_parse_diagnostics_are_returned_as_hygiene_warnings(self) -> None:
         parse_result = parse_suppressions_for_source(
             file_path="src/service.py",
-            source="# konsistent: ignore\n",
+            source="# konpy: ignore\n",
         )
 
         result = filter_suppressed_diagnostics(

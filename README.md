@@ -1,27 +1,29 @@
-# konsistent-py
+# konpy
 
 _Enforce consistent code, for agents and humans._
 
-Python port of [vercel-labs/konsistent](https://github.com/vercel-labs/konsistent) (distributed as **`konsistent-py`**; the import package and CLI are still `konsistent`): a CLI linter that checks whether files and directories in your **Python** codebase match declared structural conventions — project layout, required files, required module-level definitions/exports/imports, `__init__.py` re-export purity, docstring and annotation coverage, naming patterns, dead code — via a declarative `konsistent.json`.
+**konpy** is a CLI linter that checks whether files and directories in your **Python** codebase match declared structural conventions — project layout, required files, required module-level definitions/exports/imports, `__init__.py` re-export purity, docstring and annotation coverage, naming patterns, dead code — all declared in a single `konpy.json`. (Distributed on PyPI as **`konpy`**; the import package and CLI are `konpy`.)
 
-konsistent is deliberately **not** a style linter or type checker. Formatting belongs to ruff, types to mypy. konsistent owns the layer above: *"every `src/{name}_service.py` exports a `${name.toPascalCase()}Service` class, has a paired `tests/test_{name}.py`, documents its public API, and never imports from the infrastructure layer."*
+_Inspired by [Vercel's konsistent](https://github.com/vercel-labs/konsistent) — reimplemented from scratch for Python._
+
+konpy is deliberately **not** a style linter or type checker. Formatting belongs to ruff, types to mypy. konpy owns the layer above: *"every `src/{name}_service.py` exports a `${name.toPascalCase()}Service` class, has a paired `tests/test_{name}.py`, documents its public API, and never imports from the infrastructure layer."*
 
 ## Install & run
 
 ```bash
-uv tool install --from /path/to/konsistent-python konsistent-py   # or: uv add --dev konsistent-py
-konsistent            # = konsistent check, reads ./konsistent.json
-konsistent validate   # schema-check the config without scanning
-konsistent check --config-path other.json --max-diagnostics 300
+uv tool install --from /path/to/konpy konpy   # or: uv add --dev konpy
+konpy            # = konpy check, reads ./konpy.json
+konpy validate   # schema-check the config without scanning
+konpy check --config-path other.json --max-diagnostics 300
 ```
 
 ## Quickstart
 
-Create `konsistent.json` at the repo root:
+Create `konpy.json` at the repo root:
 
 ```json
 {
-  "$schema": "./konsistent.schema.json",
+  "$schema": "./konpy.schema.json",
   "version": "v1",
   "conventions": [
     {
@@ -64,7 +66,7 @@ Notable predicates: `haveFiles`, `haveType`, `export*`/`declare*` families, `imp
 
 References are resolved repo-wide, including identifier tokens inside string literals — `"src.lambda_function.handler"` in a Dockerfile keeps `handler` alive. Matching is by bare name and deliberately under-reports before it ever false-positives (see [limitations](docs/reference/unused-code.md#limitations)).
 
-Findings arrive as `warning`-severity diagnostics under the `[unused-code]` label (predicate `unusedCode.dead` / `unusedCode.testOnly` in `--format json`) — gate them in CI with `--error-on-warnings`, and suppress an approved exception with `# konsistent: ignore[unused-code]` (the [consent policy](docs/reference/suppressions.md#ai-agents) applies). The config keys (`include`, `testGlobs`, `entrypointFiles`, `registryDecorators`, `hookNames`, `modelBases`) extend the presets; `allow` silences specific names by decision. Because classification needs the whole reference graph, `unusedCode` always scans the entire project — [`--files`/`--changed` scoping](#diff-scoped-checking---files----changed) never narrows or partially runs it. Full taxonomy, presets, and config keys: [docs/reference/unused-code.md](docs/reference/unused-code.md).
+Findings arrive as `warning`-severity diagnostics under the `[unused-code]` label (predicate `unusedCode.dead` / `unusedCode.testOnly` in `--format json`) — gate them in CI with `--error-on-warnings`, and suppress an approved exception with `# konpy: ignore[unused-code]` (the [consent policy](docs/reference/suppressions.md#ai-agents) applies). The config keys (`include`, `testGlobs`, `entrypointFiles`, `registryDecorators`, `hookNames`, `modelBases`) extend the presets; `allow` silences specific names by decision. Because classification needs the whole reference graph, `unusedCode` always scans the entire project — [`--files`/`--changed` scoping](#diff-scoped-checking---files----changed) never narrows or partially runs it. Full taxonomy, presets, and config keys: [docs/reference/unused-code.md](docs/reference/unused-code.md).
 
 ## Reusable conventions & the best-practices pack
 
@@ -120,13 +122,13 @@ Full per-convention reference, including the layout assumptions each pack makes:
 
 ### Distributing packs on PyPI
 
-A convention source can be a **bare Python distribution name**. Ship a `konsistent.json` (reusable-package format) as package data, publish, and consumers write:
+A convention source can be a **bare Python distribution name**. Ship a `konpy.json` (reusable-package format) as package data, publish, and consumers write:
 
 ```json
 { "conventionSources": { "acme": "acme-conventions" } }
 ```
 
-after `uv add --dev acme-conventions`. konsistent resolves the installed distribution via `importlib.metadata` — no network at lint time.
+after `uv add --dev acme-conventions`. konpy resolves the installed distribution via `importlib.metadata` — no network at lint time.
 
 ## Config inheritance (org base → team → project)
 
@@ -154,17 +156,17 @@ Three tiers, cheapest first:
      "mustNot": { "matchContent": ["\\butcnow\\(\\)"] } }
    ```
 
-2. **A reusable pack** — bundle rules built from existing predicates into a `konsistent.json` package (local file or PyPI) so every repo consumes the same definitions.
+2. **A reusable pack** — bundle rules built from existing predicates into a `konpy.json` package (local file or PyPI) so every repo consumes the same definitions.
 
 3. **Plugin predicates** — real custom logic as Python code, loaded from entry points. In your plugin package:
 
    ```toml
-   [project.entry-points."konsistent.predicates"]
-   requireMarker = "acme_konsistent.rules:require_marker"
+   [project.entry-points."konpy.predicates"]
+   requireMarker = "acme_konpy.rules:require_marker"
    ```
 
    ```python
-   from konsistent.plugin import PredicatePlugin, create_diagnostic
+   from konpy.plugin import PredicatePlugin, create_diagnostic
 
    def check(*, expected, context, structure, convention_name, severity):
        if expected not in context.file_system.read_file(context.path):
@@ -179,30 +181,30 @@ Three tiers, cheapest first:
        forbidden_message_template='Forbidden marker "{value}"')
    ```
 
-   Consumers must **opt in explicitly** — konsistent never executes code the config didn't name:
+   Consumers must **opt in explicitly** — konpy never executes code the config didn't name:
 
    ```json
-   { "version": "v1", "plugins": ["acme-konsistent"],
+   { "version": "v1", "plugins": ["acme-konpy"],
      "conventions": [{ "name": "markers", "paths": "src/*.py", "must": { "requireMarker": "PLUGIN_OK" } }] }
    ```
 
    Plugin keys work under `mustNot` too, get strict value validation from the plugin's own pydantic model, and collide loudly with builtins. Full contract (AST access via `uses_ast`, item-level mustNot, placeholder validation): [docs/reference/plugins.md](docs/reference/plugins.md).
 
-## Using konsistent with Claude Code (the agent loop)
+## Using konpy with Claude Code (the agent loop)
 
-konsistent was built for exactly one workflow: encode your conventions once in `konsistent.json`, then wire them into every stage of a coding agent's loop — before it writes, after each edit, and in CI — so the agent hears one consistent voice everywhere. The pieces below each have their own section; this is the order they compose in:
+konpy was built for exactly one workflow: encode your conventions once in `konpy.json`, then wire them into every stage of a coding agent's loop — before it writes, after each edit, and in CI — so the agent hears one consistent voice everywhere. The pieces below each have their own section; this is the order they compose in:
 
-1. **Bootstrap the rules — don't hand-author them.** Mine an existing codebase with [`konsistent infer`](#mining-a-codebase-for-conventions), translate a prose style guide or skill with [`extract-rules`](#extracting-rules-from-skills--style-guides), or start greenfield from the [shipped packs](#reusable-conventions--the-best-practices-pack). All three emit reviewable proposals, never live config.
-2. **Prevention: put the rules in the agent's context.** `konsistent explain >> CLAUDE.md` renders the resolved config as [agent guidance](#explaining-rules-to-an-agent) — the agent writes conformant code on the first pass instead of getting caught afterwards. Re-run it when the config changes.
-3. **Per-edit feedback: a `PostToolUse` hook.** Run [`konsistent check --files <edited-file>`](#diff-scoped-checking---files----changed) after every `Edit`/`Write`; on violation the hook exits `2` and the JSON diagnostics land in front of the agent, which fixes them in the same session — with [`expected`/`found`/`fixHint`](#diagnostic-intent-and-fix-direction) so the fix needn't be re-derived from a message string. Recipe: [docs/guides/claude-code-hook.md](docs/guides/claude-code-hook.md). For judgment calls no structural predicate can express, layer the [agentic `konsistent hook`](#agentic-verification-hooks) on top (this repo does, via its own `.claude/settings.json`).
+1. **Bootstrap the rules — don't hand-author them.** Mine an existing codebase with [`konpy infer`](#mining-a-codebase-for-conventions), translate a prose style guide or skill with [`extract-rules`](#extracting-rules-from-skills--style-guides), or start greenfield from the [shipped packs](#reusable-conventions--the-best-practices-pack). All three emit reviewable proposals, never live config.
+2. **Prevention: put the rules in the agent's context.** `konpy explain >> CLAUDE.md` renders the resolved config as [agent guidance](#explaining-rules-to-an-agent) — the agent writes conformant code on the first pass instead of getting caught afterwards. Re-run it when the config changes.
+3. **Per-edit feedback: a `PostToolUse` hook.** Run [`konpy check --files <edited-file>`](#diff-scoped-checking---files----changed) after every `Edit`/`Write`; on violation the hook exits `2` and the JSON diagnostics land in front of the agent, which fixes them in the same session — with [`expected`/`found`/`fixHint`](#diagnostic-intent-and-fix-direction) so the fix needn't be re-derived from a message string. Recipe: [docs/guides/claude-code-hook.md](docs/guides/claude-code-hook.md). For judgment calls no structural predicate can express, layer the [agentic `konpy hook`](#agentic-verification-hooks) on top (this repo does, via its own `.claude/settings.json`).
 4. **Keep exceptions honest.** [Suppressions](#suppressions) require a named rule and a human decision — the consent policy is restated in every `explain` render, so the agent knows it.
-5. **Gate and measure.** `konsistent check --error-on-warnings` in CI, and the [eval harness](#agent-evaluation) to snapshot violation metrics before/after an agent session and fail on regression.
+5. **Gate and measure.** `konpy check --error-on-warnings` in CI, and the [eval harness](#agent-evaluation) to snapshot violation metrics before/after an agent session and fail on regression.
 
-Division of labor: **ruff owns universal style and correctness; konsistent owns *your* architecture** — layout, naming-to-export contracts, import boundaries, paired tests, dead code. They complement, not compete.
+Division of labor: **ruff owns universal style and correctness; konpy owns *your* architecture** — layout, naming-to-export contracts, import boundaries, paired tests, dead code. They complement, not compete.
 
 ### What an agent sees
 
-When the `PostToolUse` hook runs `konsistent check --files <edited-file> --format json`, this is the payload that lands in front of the agent. Given a freshly written `src/service.py` that skips docstrings and annotations and leaves a `FIXME` behind — checked against a strict pack of `docstrings-on-public-api`, `annotated-public-functions`, and a `no-fixme` `matchContent` rule — the agent receives:
+When the `PostToolUse` hook runs `konpy check --files <edited-file> --format json`, this is the payload that lands in front of the agent. Given a freshly written `src/service.py` that skips docstrings and annotations and leaves a `FIXME` behind — checked against a strict pack of `docstrings-on-public-api`, `annotated-public-functions`, and a `no-fixme` `matchContent` rule — the agent receives:
 
 ```json
 {
@@ -266,70 +268,70 @@ Checked 1 file in 1ms. Found 6 errors.
 Turn prose best practices — a Claude Code skill's `SKILL.md`, a team style guide, any markdown — into a reviewable pack:
 
 ```bash
-konsistent extract-rules .agents/skills/python-project-structure/SKILL.md
-konsistent extract-rules style-guide.md -o packs/team-style.json --agent codex --report unmapped.md
+konpy extract-rules .agents/skills/python-project-structure/SKILL.md
+konpy extract-rules style-guide.md -o packs/team-style.json --agent codex --report unmapped.md
 ```
 
-It shells out to a local agent CLI (`claude -p` or `codex exec`; `--agent auto` is the default and prefers `claude`), pins the agent's model via `--model` (default: `sonnet`, forwarded as the agent CLI's own `--model` flag — pass an explicit value for codex), embeds the predicate vocabulary and pack format in the prompt, and **validates the result against the pack schema before writing anything**. Rules that aren't structurally expressible are never silently dropped — they land in an unmapped-rules report with reasons (that's your ruff/mypy/plugin backlog). The output is a proposal for human review; `extract-rules` never edits `konsistent.json`. Guide: [docs/guides/extracting-rules.md](docs/guides/extracting-rules.md).
+It shells out to a local agent CLI (`claude -p` or `codex exec`; `--agent auto` is the default and prefers `claude`), pins the agent's model via `--model` (default: `sonnet`, forwarded as the agent CLI's own `--model` flag — pass an explicit value for codex), embeds the predicate vocabulary and pack format in the prompt, and **validates the result against the pack schema before writing anything**. Rules that aren't structurally expressible are never silently dropped — they land in an unmapped-rules report with reasons (that's your ruff/mypy/plugin backlog). The output is a proposal for human review; `extract-rules` never edits `konpy.json`. Guide: [docs/guides/extracting-rules.md](docs/guides/extracting-rules.md).
 
 ## Explaining rules to an agent
 
-`konsistent explain` renders your fully resolved `konsistent.json` (after `extends`/`disable`/`conventionSources`/`plugins`) as concise Markdown or plain-text guidance — one bullet per convention with its name, paths, description, `hint`, and severity — so you can paste it into `CLAUDE.md` and have a code-writing agent follow the rules *before* writing code, not just get caught by `check` afterwards:
+`konpy explain` renders your fully resolved `konpy.json` (after `extends`/`disable`/`conventionSources`/`plugins`) as concise Markdown or plain-text guidance — one bullet per convention with its name, paths, description, `hint`, and severity — so you can paste it into `CLAUDE.md` and have a code-writing agent follow the rules *before* writing code, not just get caught by `check` afterwards:
 
 ```bash
-konsistent explain > CLAUDE.md
-konsistent explain --format text
+konpy explain > CLAUDE.md
+konpy explain --format text
 ```
 
-It is read-only: no filesystem scan, no diagnostics, no `--fix`. Every render ends with a standing reminder of the [suppression consent policy](docs/reference/suppressions.md#ai-agents) — agents must never add a `# konsistent: ignore[...]` comment without explicit human approval.
+It is read-only: no filesystem scan, no diagnostics, no `--fix`. Every render ends with a standing reminder of the [suppression consent policy](docs/reference/suppressions.md#ai-agents) — agents must never add a `# konpy: ignore[...]` comment without explicit human approval.
 
 ## Mining a codebase for conventions
 
-`konsistent infer` scans an existing codebase for statistical regularities — "94% of modules under `adapters/` export `*Adapter`; here are the 3 violators" — and proposes a reviewable `ReusableConventionsPackageV1`-shaped pack (the same output contract as `extract-rules`: `{"conventionSpecVersion": "v1", "conventions": [...]}`, never a `konsistent.json`-shaped document) plus a confidence/violators report, using six deterministic heuristics (no agent call):
+`konpy infer` scans an existing codebase for statistical regularities — "94% of modules under `adapters/` export `*Adapter`; here are the 3 violators" — and proposes a reviewable `ReusableConventionsPackageV1`-shaped pack (the same output contract as `extract-rules`: `{"conventionSpecVersion": "v1", "conventions": [...]}`, never a `konpy.json`-shaped document) plus a confidence/violators report, using six deterministic heuristics (no agent call):
 
 ```bash
-konsistent infer > konsistent.infer.pack.json
-konsistent infer --heuristic export-suffix --heuristic paired-test-file -o proposal.json -r report.md
+konpy infer > konpy.infer.pack.json
+konpy infer --heuristic export-suffix --heuristic paired-test-file -o proposal.json -r report.md
 ```
 
-The proposed pack goes to stdout (or `--output`); the confidence/violators report goes to stderr (or `--report`). Every proposal is `severity: "warning"` and carries `support`/`total` counts plus a violator list — `infer` never edits `konsistent.json` and never reads an existing one. Guide: [docs/guides/inferring-conventions.md](docs/guides/inferring-conventions.md).
+The proposed pack goes to stdout (or `--output`); the confidence/violators report goes to stderr (or `--report`). Every proposal is `severity: "warning"` and carries `support`/`total` counts plus a violator list — `infer` never edits `konpy.json` and never reads an existing one. Guide: [docs/guides/inferring-conventions.md](docs/guides/inferring-conventions.md).
 
 ## Agentic verification hooks
 
-`konsistent hook` wires an agentic verifier into Claude Code's or Codex's `PostToolUse` hooks: after a matched write/edit, it spawns a read-only verifier agent (`claude -p` or `codex exec`) with a natural-language `--prompt` and turns its pass/fail verdict into the hook exit-code contract (0 pass/skip, 2 fail, 1 infra fail-open), with sentinel-based recursion guards so the verifier can't re-trigger the hook that spawned it.
+`konpy hook` wires an agentic verifier into Claude Code's or Codex's `PostToolUse` hooks: after a matched write/edit, it spawns a read-only verifier agent (`claude -p` or `codex exec`) with a natural-language `--prompt` and turns its pass/fail verdict into the hook exit-code contract (0 pass/skip, 2 fail, 1 infra fail-open), with sentinel-based recursion guards so the verifier can't re-trigger the hook that spawned it.
 
 ```bash
-konsistent hook --agent claude --model sonnet --match 'src/**/*.py' --prompt 'Docstrings are not aspirational: verify each function body actually does what its docstring claims.'
+konpy hook --agent claude --model sonnet --match 'src/**/*.py' --prompt 'Docstrings are not aspirational: verify each function body actually does what its docstring claims.'
 ```
 
-The verifier's model is pinned via `--model` (default: `sonnet`, forwarded to the agent CLI as its own `--model` flag; set it explicitly for codex). Exit 2 is reserved exclusively for a real fail verdict: every misconfiguration — missing `--prompt`/`--agent`, an invalid `--agent` value, even an option the installed konsistent doesn't recognize — fails open with exit 1 rather than surfacing a CLI usage error to the host agent as if it were review feedback.
+The verifier's model is pinned via `--model` (default: `sonnet`, forwarded to the agent CLI as its own `--model` flag; set it explicitly for codex). Exit 2 is reserved exclusively for a real fail verdict: every misconfiguration — missing `--prompt`/`--agent`, an invalid `--agent` value, even an option the installed konpy doesn't recognize — fails open with exit 1 rather than surfacing a CLI usage error to the host agent as if it were review feedback.
 
-This is **not** the same mechanism as the [`--files` diff-scoped hook recipe](#diff-scoped-checking---files----changed) below — that one runs `konsistent check` directly (deterministic, no LLM call, verifies `konsistent.json` structural conventions). `konsistent hook` is for checks a structural predicate can't express; use it for the subset of your review that needs judgment, and the deterministic recipe for everything else. This repo dogfoods the agentic hook via its own `.claude/settings.json`. Guide: [docs/guides/hooks.md](docs/guides/hooks.md).
+This is **not** the same mechanism as the [`--files` diff-scoped hook recipe](#diff-scoped-checking---files----changed) below — that one runs `konpy check` directly (deterministic, no LLM call, verifies `konpy.json` structural conventions). `konpy hook` is for checks a structural predicate can't express; use it for the subset of your review that needs judgment, and the deterministic recipe for everything else. This repo dogfoods the agentic hook via its own `.claude/settings.json`. Guide: [docs/guides/hooks.md](docs/guides/hooks.md).
 
 ## CLI
 
 | Command | Purpose |
 | --- | --- |
-| `konsistent` / `konsistent check` | scan and report violations (exit 1 on errors) |
-| `konsistent validate` | validate the config only |
-| `konsistent explain` | render resolved conventions as agent guidance (see above) |
-| `konsistent extract-rules <src>` | agent-assisted rule extraction (see above) |
-| `konsistent infer` | mine the codebase for candidate conventions (see above) |
-| `konsistent hook` | agentic PostToolUse verification hook (see above) |
-| `konsistent version` | print version |
+| `konpy` / `konpy check` | scan and report violations (exit 1 on errors) |
+| `konpy validate` | validate the config only |
+| `konpy explain` | render resolved conventions as agent guidance (see above) |
+| `konpy extract-rules <src>` | agent-assisted rule extraction (see above) |
+| `konpy infer` | mine the codebase for candidate conventions (see above) |
+| `konpy hook` | agentic PostToolUse verification hook (see above) |
+| `konpy version` | print version |
 
 Useful flags: `--config-path`, `--placeholder name:value`, `--max-diagnostics`, `--format json`, `--show-suppressed`. Full reference: [docs/reference/cli.md](docs/reference/cli.md).
 
 ## Diff-scoped checking (`--files` / `--changed`)
 
-Scope a run to files an agent just touched — `konsistent check --files src/service.py` or `konsistent check --changed` (tracked changes since `HEAD` plus untracked files, per `git diff`/`git ls-files`). `--changed` **requires a git repository**: outside one it prints a single clear message to stderr (not a raw git error dump) and exits `1` — it never silently falls back to a full scan. Scoping is **convention-level**, not file-level: a convention is selected as soon as any file in scope falls in its matched set, and then it's evaluated over its *entire* matched set — so a violation on a sibling file the agent didn't touch can still surface. `havePairedFile` and `unusedCode` are whole-graph predicates; see [Full semantics and edge cases](docs/reference/cli.md#diff-scoped-checking---files----changed) below for exactly how each is handled under scoping.
+Scope a run to files an agent just touched — `konpy check --files src/service.py` or `konpy check --changed` (tracked changes since `HEAD` plus untracked files, per `git diff`/`git ls-files`). `--changed` **requires a git repository**: outside one it prints a single clear message to stderr (not a raw git error dump) and exits `1` — it never silently falls back to a full scan. Scoping is **convention-level**, not file-level: a convention is selected as soon as any file in scope falls in its matched set, and then it's evaluated over its *entire* matched set — so a violation on a sibling file the agent didn't touch can still surface. `havePairedFile` and `unusedCode` are whole-graph predicates; see [Full semantics and edge cases](docs/reference/cli.md#diff-scoped-checking---files----changed) below for exactly how each is handled under scoping.
 
 ```bash
-konsistent check --files src/service.py
-konsistent check --changed
+konpy check --files src/service.py
+konpy check --changed
 ```
 
-This is what powers the [Claude Code `PostToolUse` hook recipe](docs/guides/claude-code-hook.md): run `konsistent check --files <edited-file> --format json` after every `Edit`/`Write` so an agent gets scoped, structured feedback on the file it just changed without waiting for a full check. Full semantics and edge cases: [docs/reference/cli.md#diff-scoped-checking---files----changed](docs/reference/cli.md#diff-scoped-checking---files----changed).
+This is what powers the [Claude Code `PostToolUse` hook recipe](docs/guides/claude-code-hook.md): run `konpy check --files <edited-file> --format json` after every `Edit`/`Write` so an agent gets scoped, structured feedback on the file it just changed without waiting for a full check. Full semantics and edge cases: [docs/reference/cli.md#diff-scoped-checking---files----changed](docs/reference/cli.md#diff-scoped-checking---files----changed).
 
 ## Diagnostic intent and fix direction
 
@@ -355,28 +357,28 @@ Diagnostics can carry more than a message: an optional convention-level `descrip
 }
 ```
 
-All five fields are optional and additive: omitted from `--format json` when absent (never `null`), and shown as an extra suffix line/cell in `default`/`markdown` output only when populated. `expected`/`found`/`fix_hint` are currently populated by `exportClasses`, `exportConstants`, `havePairedFile`, `haveDocstrings`, `annotateFunctions`, `importFrom`, the `importFrom*`/`importTypes*` group predicates, and `matchContent` — other predicates leave them unset rather than guessing. `fix_hint` is data only; konsistent never applies it automatically. Full reference: [docs/reference/cli.md#diagnostic-intent-and-fix-direction](docs/reference/cli.md#diagnostic-intent-and-fix-direction).
+All five fields are optional and additive: omitted from `--format json` when absent (never `null`), and shown as an extra suffix line/cell in `default`/`markdown` output only when populated. `expected`/`found`/`fix_hint` are currently populated by `exportClasses`, `exportConstants`, `havePairedFile`, `haveDocstrings`, `annotateFunctions`, `importFrom`, the `importFrom*`/`importTypes*` group predicates, and `matchContent` — other predicates leave them unset rather than guessing. `fix_hint` is data only; konpy never applies it automatically. Full reference: [docs/reference/cli.md#diagnostic-intent-and-fix-direction](docs/reference/cli.md#diagnostic-intent-and-fix-direction).
 
 ## Suppressions
 
-Approved exceptions can be silenced in place, without touching `konsistent.json`:
+Approved exceptions can be silenced in place, without touching `konpy.json`:
 
 ```python
-# konsistent: ignore-file[max-module-length] -- splitting tracked in TICKET-123
+# konpy: ignore-file[max-module-length] -- splitting tracked in TICKET-123
 """Module docstring."""
 
-def orphaned():  # konsistent: ignore[docstrings-on-public-api, unused-code] -- approved legacy hook
+def orphaned():  # konpy: ignore[docstrings-on-public-api, unused-code] -- approved legacy hook
     ...
 ```
 
-- **Line-level** `# konsistent: ignore[rule-a, rule-b]` on the flagged line (or the line directly above) suppresses those rules' findings anchored to that line.
-- **File-level** `# konsistent: ignore-file[rule-name]` must appear before the first code line and also covers findings with no line anchor (`matchContent`, `havePairedFile`, `haveType`, `importFrom`).
+- **Line-level** `# konpy: ignore[rule-a, rule-b]` on the flagged line (or the line directly above) suppresses those rules' findings anchored to that line.
+- **File-level** `# konpy: ignore-file[rule-name]` must appear before the first code line and also covers findings with no line anchor (`matchContent`, `havePairedFile`, `haveType`, `importFrom`).
 - The bracketed rule list is **mandatory** — there is no blanket ignore. Names match the `[bracket]` label shown in check output. An optional reason follows ` -- `.
 
 Suppressions are designed to never be invisible:
 
 - Every summary shows the count: `Found 1 error. Suppressed 3 findings.`
-- `konsistent check --show-suppressed` lists each suppressed finding with its reason; `--format json` always includes the full `suppressed` array.
+- `konpy check --show-suppressed` lists each suppressed finding with its reason; `--format json` always includes the full `suppressed` array.
 - Stale or unknown suppressions are themselves reported as warnings (`Unused suppression for "rule-name"`), so dead ignores get cleaned up — and they fail CI under `--error-on-warnings`.
 - Suppressed errors don't fail the build; the exit code counts only unsuppressed findings.
 
@@ -384,7 +386,7 @@ Suppressions are designed to never be invisible:
 
 ## Agent evaluation
 
-`scripts/eval_conventions.py` A/B-compares how much structural drift a coding agent introduces or removes under different guidance strategies, using konsistent's own diagnostics as the metric. It runs `konsistent check --format json` against a target repo and reduces the result into a stable, diffable metrics summary, so you can snapshot a repo before and after an agent run and diff the two:
+`scripts/eval_conventions.py` A/B-compares how much structural drift a coding agent introduces or removes under different guidance strategies, using konpy's own diagnostics as the metric. It runs `konpy check --format json` against a target repo and reduces the result into a stable, diffable metrics summary, so you can snapshot a repo before and after an agent run and diff the two:
 
 ```bash
 uv run python scripts/eval_conventions.py run /path/to/target-repo --label before --output before.json
@@ -393,15 +395,15 @@ uv run python scripts/eval_conventions.py run /path/to/target-repo --label after
 uv run python scripts/eval_conventions.py compare before.json after.json
 ```
 
-The comparison reports files checked, total diagnostics, errors/warnings/suppressed, and per-convention/per-predicate/`unusedCode` breakdowns as `before -> after (delta)`, plus a `PASS`/`FAIL - errors increased` regression check (`compare --fail-on-regression` turns that into a nonzero CI exit code). It is a repo-dev script — stdlib-only, shells out to the `konsistent` CLI as a subprocess rather than importing the package — meant for pairing with [`konsistent explain`](#explaining-rules-to-an-agent) guidance and the [`--files` hook](#diff-scoped-checking---files----changed) to measure their effect on an agent's output. Guide: [docs/guides/agent-eval.md](docs/guides/agent-eval.md).
+The comparison reports files checked, total diagnostics, errors/warnings/suppressed, and per-convention/per-predicate/`unusedCode` breakdowns as `before -> after (delta)`, plus a `PASS`/`FAIL - errors increased` regression check (`compare --fail-on-regression` turns that into a nonzero CI exit code). It is a repo-dev script — stdlib-only, shells out to the `konpy` CLI as a subprocess rather than importing the package — meant for pairing with [`konpy explain`](#explaining-rules-to-an-agent) guidance and the [`--files` hook](#diff-scoped-checking---files----changed) to measure their effect on an agent's output. Guide: [docs/guides/agent-eval.md](docs/guides/agent-eval.md).
 
 ## Development
 
 ```bash
 uv run pytest          # full suite
 uv run ruff check .
-uv run konsistent      # the repo lints itself
-uv run python scripts/generate_schema.py   # regenerate konsistent.schema.json after schema changes
+uv run konpy            # the repo lints itself
+uv run python scripts/generate_schema.py   # regenerate konpy.schema.json after schema changes
 ```
 
 Docs index: [docs/README.md](docs/README.md). The TypeScript original lives in `tmp/konsistent` as a read-only reference; the v1 config grammar is kept compatible (all Python-port additions — `extends`, `disable`, `plugins`, the coverage predicates — are optional keys).

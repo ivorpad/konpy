@@ -19,8 +19,8 @@ from eval_conventions import (  # noqa: E402
     format_compare_table,
     main,
     parse_check_json,
-    resolve_konsistent_argv,
-    run_konsistent_check,
+    resolve_konpy_argv,
+    run_konpy_check,
     summarize,
 )
 
@@ -49,49 +49,49 @@ def _outcome(**overrides: object) -> RunOutcome:
     return RunOutcome(**defaults)  # type: ignore[arg-type]
 
 
-class TestResolveKonsistentArgv:
-    def test_resolve_konsistent_argv_prefers_explicit_bin(self) -> None:
-        assert resolve_konsistent_argv(konsistent_bin="/x/konsistent") == ["/x/konsistent"]
+class TestResolveKonpyArgv:
+    def test_resolve_konpy_argv_prefers_explicit_bin(self) -> None:
+        assert resolve_konpy_argv(konpy_bin="/x/konpy") == ["/x/konpy"]
 
-    def test_resolve_konsistent_argv_uses_path_lookup(self, monkeypatch) -> None:
-        monkeypatch.setattr(eval_conventions.shutil, "which", lambda _name: "/usr/bin/konsistent")
-        assert resolve_konsistent_argv(konsistent_bin=None) == ["/usr/bin/konsistent"]
+    def test_resolve_konpy_argv_uses_path_lookup(self, monkeypatch) -> None:
+        monkeypatch.setattr(eval_conventions.shutil, "which", lambda _name: "/usr/bin/konpy")
+        assert resolve_konpy_argv(konpy_bin=None) == ["/usr/bin/konpy"]
 
-    def test_resolve_konsistent_argv_falls_back_to_module_invocation(self, monkeypatch) -> None:
+    def test_resolve_konpy_argv_falls_back_to_module_invocation(self, monkeypatch) -> None:
         monkeypatch.setattr(eval_conventions.shutil, "which", lambda _name: None)
-        assert resolve_konsistent_argv(konsistent_bin=None) == [sys.executable, "-m", "konsistent"]
+        assert resolve_konpy_argv(konpy_bin=None) == [sys.executable, "-m", "konpy"]
 
 
 class TestBuildCheckArgv:
     def test_build_check_argv_minimal(self) -> None:
         argv = build_check_argv(
-            base_argv=["konsistent"],
+            base_argv=["konpy"],
             config_path=None,
             diagnostic_level=None,
             placeholders=[],
             max_diagnostics=1_000_000,
             extra_args=[],
         )
-        assert argv == ["konsistent", "check", "--format", "json", "--max-diagnostics", "1000000"]
+        assert argv == ["konpy", "check", "--format", "json", "--max-diagnostics", "1000000"]
 
     def test_build_check_argv_with_all_options(self) -> None:
         argv = build_check_argv(
-            base_argv=["konsistent"],
-            config_path="/x/konsistent.json",
+            base_argv=["konpy"],
+            config_path="/x/konpy.json",
             diagnostic_level="error",
             placeholders=["team:foo", "x:y"],
             max_diagnostics=500,
             extra_args=["--show-suppressed"],
         )
         assert argv == [
-            "konsistent",
+            "konpy",
             "check",
             "--format",
             "json",
             "--max-diagnostics",
             "500",
             "--config-path",
-            "/x/konsistent.json",
+            "/x/konpy.json",
             "--diagnostic-level",
             "error",
             "--placeholder",
@@ -277,7 +277,7 @@ class TestBuildMetrics:
         metrics = build_metrics(
             target_repo=tmp_path,
             config_path=None,
-            konsistent_bin="konsistent",
+            konpy_bin="konpy",
             diagnostic_level=None,
             placeholders=[],
             max_diagnostics=1_000_000,
@@ -310,7 +310,7 @@ class TestBuildMetrics:
         metrics = build_metrics(
             target_repo=tmp_path,
             config_path=None,
-            konsistent_bin="konsistent",
+            konpy_bin="konpy",
             diagnostic_level=None,
             placeholders=[],
             max_diagnostics=1_000_000,
@@ -328,7 +328,7 @@ class TestBuildMetrics:
             build_metrics(
                 target_repo=tmp_path,
                 config_path=None,
-                konsistent_bin="konsistent",
+                konpy_bin="konpy",
                 diagnostic_level=None,
                 placeholders=[],
                 max_diagnostics=1_000_000,
@@ -353,7 +353,7 @@ class TestBuildMetrics:
             build_metrics(
                 target_repo=tmp_path,
                 config_path=None,
-                konsistent_bin="konsistent",
+                konpy_bin="konpy",
                 diagnostic_level=None,
                 placeholders=[],
                 max_diagnostics=1_000_000,
@@ -377,7 +377,7 @@ class TestBuildMetrics:
             build_metrics(
                 target_repo=missing,
                 config_path=None,
-                konsistent_bin="konsistent",
+                konpy_bin="konpy",
                 diagnostic_level=None,
                 placeholders=[],
                 max_diagnostics=1_000_000,
@@ -420,7 +420,7 @@ def _summary_dict(
             "errors": errors,
             "warnings": warnings,
             "suppressed": suppressed,
-            "konsistentDurationMs": duration_ms,
+            "konpyDurationMs": duration_ms,
         },
         "bySeverity": {},
         "byConvention": {},
@@ -462,7 +462,7 @@ class TestCompareSummaries:
         before = _summary_dict(errors=0, warnings=0, duration_ms=None)
         after = _summary_dict(errors=0, warnings=0, duration_ms=50.0)
         comparison = compare_summaries(before=before, after=after)
-        entry = comparison["summary"]["konsistentDurationMs"]
+        entry = comparison["summary"]["konpyDurationMs"]
         assert entry["before"] is None
         assert entry["after"] == 50.0
         assert entry["delta"] == 50.0
@@ -519,7 +519,7 @@ class TestCli:
         )
         monkeypatch.setattr(
             eval_conventions,
-            "run_konsistent_check",
+            "run_konpy_check",
             lambda argv, cwd, timeout_seconds: _outcome(stdout=stdout),
         )
         code = main(["run", str(tmp_path), "--output", str(out_file)])
@@ -545,7 +545,7 @@ class TestCli:
         )
         monkeypatch.setattr(
             eval_conventions,
-            "run_konsistent_check",
+            "run_konpy_check",
             lambda argv, cwd, timeout_seconds: _outcome(stdout=stdout),
         )
         code = main(["run", str(tmp_path)])
@@ -556,7 +556,7 @@ class TestCli:
     def test_cli_run_returns_2_on_eval_error(self, tmp_path: Path, monkeypatch, capsys) -> None:
         monkeypatch.setattr(
             eval_conventions,
-            "run_konsistent_check",
+            "run_konpy_check",
             lambda argv, cwd, timeout_seconds: _outcome(stdout="garbage", exit_code=1),
         )
         code = main(["run", str(tmp_path)])
@@ -567,7 +567,7 @@ class TestCli:
         calls = []
         monkeypatch.setattr(
             eval_conventions,
-            "run_konsistent_check",
+            "run_konpy_check",
             lambda argv, cwd, timeout_seconds: calls.append(1) or _outcome(),
         )
         code = main(["run", str(tmp_path / "does-not-exist")])
@@ -633,19 +633,19 @@ class TestArgParser:
 
 
 class TestRealSubprocessSmoke:
-    def test_run_konsistent_check_real_subprocess_smoke(self, tmp_path: Path) -> None:
-        (tmp_path / "konsistent.json").write_text(
+    def test_run_konpy_check_real_subprocess_smoke(self, tmp_path: Path) -> None:
+        (tmp_path / "konpy.json").write_text(
             json.dumps({"version": "v1", "conventions": []}), encoding="utf-8"
         )
         argv = [
-            *resolve_konsistent_argv(konsistent_bin=None),
+            *resolve_konpy_argv(konpy_bin=None),
             "check",
             "--format",
             "json",
             "--max-diagnostics",
             "1000000",
         ]
-        outcome = run_konsistent_check(argv, tmp_path, 30.0)
+        outcome = run_konpy_check(argv, tmp_path, 30.0)
         assert outcome.timed_out is False
         assert outcome.exit_code == 0
         parsed = json.loads(outcome.stdout)

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from konsistent.cli._hook_findings import HookFinding
+from konpy.cli._hook_findings import HookFinding
 
 
 def _write_claude_stub(
@@ -115,7 +115,7 @@ class TestHookProposeEndToEnd:
         assert "packs/hook-proposals.json" in stdout
         assert "Unmapped rules:" in stdout
         assert "Semantic service behavior review" in stdout
-        assert not (project_dir / "konsistent.json").exists()
+        assert not (project_dir / "konpy.json").exists()
 
     def test_hook_propose_invalid_pack_exits_one_and_writes_no_output(
         self,

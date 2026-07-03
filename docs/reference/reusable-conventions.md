@@ -1,6 +1,6 @@
 # Reusable conventions
 
-Reusable conventions let a `konsistent.json` consume conventions shared from another JSON file, instead of restating every rule in full. A reusable convention is a JSON record produced by an author, bound to a local **vendor prefix** in the consumer's config, and referenced from `conventions[]` either as a string or as an object with overrides.
+Reusable conventions let a `konpy.json` consume conventions shared from another JSON file, instead of restating every rule in full. A reusable convention is a JSON record produced by an author, bound to a local **vendor prefix** in the consumer's config, and referenced from `conventions[]` either as a string or as an object with overrides.
 
 This page is the consumer-facing reference. To publish your own reusable conventions, see [the authoring guide](../guides/authoring-reusable-conventions.md).
 
@@ -16,12 +16,12 @@ If reusable conventions contain plugin predicate keys, the consuming config must
 
 ## `conventionSources`
 
-`conventionSources` is a top-level field in `konsistent.json`. Each key is a local **vendor prefix** (matches `[a-z0-9-]+`); each value is either a **local path** to a JSON convention package or the name of an installed Python distribution that contains one:
+`conventionSources` is a top-level field in `konpy.json`. Each key is a local **vendor prefix** (matches `[a-z0-9-]+`); each value is either a **local path** to a JSON convention package or the name of an installed Python distribution that contains one:
 
 | Value shape | Interpretation |
 | --- | --- |
 | Starts with `.` or is absolute | Relative or absolute path to a JSON file. Relative paths resolve against the config file's directory (not the current working directory). |
-| Bare Python distribution name | Installed distribution lookup. `konsistent` looks for `<top-level import package>/konsistent.json`, then for a `konsistent.json` file listed among the distribution's `.dist-info` files. |
+| Bare Python distribution name | Installed distribution lookup. `konpy` looks for `<top-level import package>/konpy.json`, then for a `konpy.json` file listed among the distribution's `.dist-info` files. |
 | Contains `/` or npm-style `@scope/pkg` syntax | Invalid Python distribution name. Use a local path or a valid installed Python distribution name. |
 
 Installed distribution names must match `[A-Za-z0-9][A-Za-z0-9._-]*[A-Za-z0-9]`.
@@ -35,18 +35,18 @@ A convention source loaded from a package must be a reusable-conventions package
 }
 ```
 
-This is intentionally different from package-backed `extends`, whose `konsistent.json` is a full config with `"version": "v1"` — see [configuration.md](./configuration.md#config-inheritance).
+This is intentionally different from package-backed `extends`, whose `konpy.json` is a full config with `"version": "v1"` — see [configuration.md](./configuration.md#config-inheritance).
 
 The vendor prefix is local to your config — you can bind any prefix to any source. Two configs in the same monorepo can pick different prefixes for the same upstream file or distribution without conflict.
 
 ```json
 {
-  "$schema": "./konsistent.schema.json",
+  "$schema": "./konpy.schema.json",
   "version": "v1",
-  "plugins": ["acme-konsistent-rules"],
+  "plugins": ["acme-konpy-rules"],
   "conventionSources": {
     "common": "./conventions/common.json",
-    "shared": "acme-konsistent-conventions"
+    "shared": "acme-konpy-conventions"
   },
   "conventions": []
 }
@@ -60,7 +60,7 @@ Each entry of `conventions[]` is one of three shapes. The first two are for reus
 
 ### String reference
 
-A bare string `"<vendor>/<name>"` inlines the named reusable convention as-is. The reusable convention must declare its own `paths` — string references cannot supply them. If the convention has no `paths`, `konsistent` fails at config load and tells you to switch to the `use` form.
+A bare string `"<vendor>/<name>"` inlines the named reusable convention as-is. The reusable convention must declare its own `paths` — string references cannot supply them. If the convention has no `paths`, `konpy` fails at config load and tells you to switch to the `use` form.
 
 ```json
 {
@@ -167,21 +167,21 @@ The consumer must opt into the plugin distribution:
 ```json
 {
   "version": "v1",
-  "plugins": ["acme-konsistent-rules"],
+  "plugins": ["acme-konpy-rules"],
   "conventionSources": {
-    "acme": "acme-konsistent-conventions"
+    "acme": "acme-konpy-conventions"
   },
   "conventions": ["acme/acme-marker"]
 }
 ```
 
-`conventionSources` only loads reusable convention data. It does not load predicate plugins from the convention package automatically, even if the same distribution also exposes `konsistent.predicates` entry points. This keeps plugin code execution explicit through `plugins`.
+`conventionSources` only loads reusable convention data. It does not load predicate plugins from the convention package automatically, even if the same distribution also exposes `konpy.predicates` entry points. This keeps plugin code execution explicit through `plugins`.
 
 See [plugins.md](./plugins.md).
 
 ## Merge semantics
 
-When you write `{ use: "<vendor>/<name>", ...overrides }`, `konsistent` deep-merges your overrides on top of the reusable convention with these rules:
+When you write `{ use: "<vendor>/<name>", ...overrides }`, `konpy` deep-merges your overrides on top of the reusable convention with these rules:
 
 | Field kind | Rule |
 | --- | --- |
@@ -219,7 +219,7 @@ And this consumer entry:
 }
 ```
 
-The expanded convention `konsistent` runs is:
+The expanded convention `konpy` runs is:
 
 ```json
 {
@@ -239,16 +239,16 @@ Note that `excludeFiles` was fully replaced (array-replace), while `must` was de
 ## Restrictions
 
 - **Reusable conventions only support object-form `must` and `mustNot`.** They cannot ship the `MustBlock[]` form. This keeps override semantics predictable — you always know the merge target is a flat predicate object. Your own hand-written conventions can still use `MustBlock[]` in `must`; `mustNot` is object-form only everywhere. See [predicates.md](./predicates.md).
-- **Plugin predicates require explicit consumer opt-in.** If a reusable convention contains plugin keys, the consuming `konsistent.json` must list the plugin distribution in top-level `plugins`. Convention sources do not auto-load plugin entry points.
+- **Plugin predicates require explicit consumer opt-in.** If a reusable convention contains plugin keys, the consuming `konpy.json` must list the plugin distribution in top-level `plugins`. Convention sources do not auto-load plugin entry points.
 - **The `conventionSources` value is a single string.** No object form (`{ path: ... }`) — auto-detection by leading `.` / absolute path is unambiguous.
 - **Package convention sources are installed Python distributions.** Bare values are resolved with Python packaging metadata. npm-style specifiers such as `@scope/pkg` and subpaths such as `pkg/subpath` are invalid.
-- **Package convention sources must ship reusable packages.** Their `konsistent.json` must use `conventionSpecVersion: "v1"`, not `version: "v1"`.
+- **Package convention sources must ship reusable packages.** Their `konpy.json` must use `conventionSpecVersion: "v1"`, not `version: "v1"`.
 - **No cross-source merging.** Two `conventionSources` entries cannot be merged into a single prefix. If two files happen to ship a convention with the same name, your vendor prefix scopes them.
 - **`MustBlock[]` cannot be introduced via override.** Because the source convention's `must` is always object-form, deep-merge keeps the result object-form.
 
 ## Placeholder validation
 
-After expansion, `konsistent` walks every string inside each merged convention's `must` and `mustNot` and checks that each `${placeholder}` referenced is declared as `{placeholder}` in at least one `paths` entry (or in `placeholders`). This catches mismatches between a reusable convention's templates and the `paths` you supplied at the use-site, before any file is scanned.
+After expansion, `konpy` walks every string inside each merged convention's `must` and `mustNot` and checks that each `${placeholder}` referenced is declared as `{placeholder}` in at least one `paths` entry (or in `placeholders`). This catches mismatches between a reusable convention's templates and the `paths` you supplied at the use-site, before any file is scanned.
 
 Plugin predicate values are also scanned recursively by default when the plugin descriptor has `validate_placeholders=True`.
 
@@ -264,8 +264,8 @@ All errors below are surfaced by the CLI before any scanning starts.
 | String-form reference to a paths-less convention | `Convention "<prefix>/<name>" cannot be referenced by string; it has no "paths". Use { use: "<prefix>/<name>", paths: [...] } form.` | Switch to the `use` form and supply `paths` for your project. |
 | `use` reference with no `paths` on either side | `Convention "<prefix>/<name>" referenced in conventions[<i>] has no "paths". Either the reusable convention must declare paths, or the override must supply paths.` | Add `paths` to your override. |
 | Invalid package source name | `Convention source "<prefix>" → "<value>": invalid Python distribution name. Bare package sources must match [A-Za-z0-9][A-Za-z0-9._-]*[A-Za-z0-9].` | Use a valid Python distribution name, or a local path beginning with `.` / an absolute path. |
-| Package source not installed | `Convention source "<prefix>" → "<value>": installed Python distribution not found. Install it or use a local path in conventionSources.` | Install the distribution into the environment running `konsistent`, or use a local file. |
-| Package source has no `konsistent.json` | `Convention source "<prefix>" → "<value>": installed Python distribution does not contain konsistent.json. Looked for <top-level import package>/konsistent.json and a distribution file named konsistent.json.` | Add package data at the import package root, or include `konsistent.json` in the distribution's `.dist-info` files. |
+| Package source not installed | `Convention source "<prefix>" → "<value>": installed Python distribution not found. Install it or use a local path in conventionSources.` | Install the distribution into the environment running `konpy`, or use a local file. |
+| Package source has no `konpy.json` | `Convention source "<prefix>" → "<value>": installed Python distribution does not contain konpy.json. Looked for <top-level import package>/konpy.json and a distribution file named konpy.json.` | Add package data at the import package root, or include `konpy.json` in the distribution's `.dist-info` files. |
 | Path source unreadable | `Convention source "<prefix>" → "<value>": could not read file at <path>.` | Check the path exists and is readable. |
 | Source malformed JSON | `Convention source "<prefix>" → "<value>": malformed JSON at <location>.` | Fix the JSON. |
 | Reusable-convention package fails schema validation | `Convention source "<prefix>" → "<value>": invalid reusable-convention package at <location>: <issues>` | Fix the convention package to match the reusable-conventions schema. |
@@ -279,7 +279,7 @@ All errors below are surfaced by the CLI before any scanning starts.
 ## See also
 
 - [Authoring reusable conventions](../guides/authoring-reusable-conventions.md) — publish your own.
-- [konsistent.json reference](./configuration.md) — the surrounding config shape.
+- [konpy.json reference](./configuration.md) — the surrounding config shape.
 - [Predicates](./predicates.md) — built-in and plugin predicate behavior.
 - [Plugins](./plugins.md) — custom predicate entry points and descriptor API.
 - [Path patterns](./path-patterns.md) — placeholder syntax used in `paths`, `must`, and `mustNot`.

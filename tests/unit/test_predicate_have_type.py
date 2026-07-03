@@ -1,6 +1,6 @@
-from konsistent.core.context import PredicateContext
-from konsistent.core.filesystem import FakeFileSystem
-from konsistent.predicates.have_type import check_have_type
+from konpy.core.context import PredicateContext
+from konpy.core.filesystem import FakeFileSystem
+from konpy.predicates.have_type import check_have_type
 
 
 def context(path: str) -> PredicateContext:

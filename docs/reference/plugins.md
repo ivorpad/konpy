@@ -2,14 +2,14 @@
 
 Plugin predicates let installed Python packages add custom predicate keys to `must` and `mustNot`.
 
-Plugins are **explicit opt-in only**. `konsistent` never auto-discovers or executes installed entry points unless the config names the distribution in top-level `plugins`.
+Plugins are **explicit opt-in only**. `konpy` never auto-discovers or executes installed entry points unless the config names the distribution in top-level `plugins`.
 
 ## Enable plugins in config
 
 ```json
 {
   "version": "v1",
-  "plugins": ["acme-konsistent-rules"],
+  "plugins": ["acme-konpy-rules"],
   "conventions": [
     {
       "name": "must-have-acme-marker",
@@ -32,11 +32,11 @@ Only entry points from those named distributions are loaded.
 
 ## Entry points
 
-A plugin distribution exposes predicate descriptors through the `konsistent.predicates` entry-point group:
+A plugin distribution exposes predicate descriptors through the `konpy.predicates` entry-point group:
 
 ```toml
-[project.entry-points."konsistent.predicates"]
-acmeMarker = "acme_konsistent.rules:acme_marker"
+[project.entry-points."konpy.predicates"]
+acmeMarker = "acme_konpy.rules:acme_marker"
 ```
 
 Each entry point must load either:
@@ -48,10 +48,10 @@ One entry point declares one predicate key.
 
 ## Public plugin API
 
-Plugin authors should import from `konsistent.plugin`:
+Plugin authors should import from `konpy.plugin`:
 
 ```py
-from konsistent.plugin import PredicatePlugin, create_diagnostic
+from konpy.plugin import PredicatePlugin, create_diagnostic
 ```
 
 Available public imports:
@@ -72,7 +72,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from konsistent.plugin import PredicatePlugin, create_diagnostic
+from konpy.plugin import PredicatePlugin, create_diagnostic
 
 
 def require_marker(
@@ -204,7 +204,7 @@ Plugin predicates automatically participate in `mustNot`.
 }
 ```
 
-`mustNot` runs the plugin handler as a normal positive predicate. If the handler returns no diagnostics, the path violated the negated rule and `konsistent` emits a `mustNot.<key>` diagnostic.
+`mustNot` runs the plugin handler as a normal positive predicate. If the handler returns no diagnostics, the path violated the negated rule and `konpy` emits a `mustNot.<key>` diagnostic.
 
 ### Forbidden messages
 
@@ -240,7 +240,7 @@ plugin = PredicatePlugin(
 
 ## Placeholder validation
 
-By default, `konsistent` recursively scans string values inside plugin predicate values and reports undeclared `${placeholder}` references.
+By default, `konpy` recursively scans string values inside plugin predicate values and reports undeclared `${placeholder}` references.
 
 ```json
 {
@@ -274,19 +274,19 @@ Parent configs may also declare `plugins`. Plugin lists merge parent-first, then
 }
 ```
 
-If `acme-base-config` declares `plugins: ["acme-konsistent-rules"]`, the final runtime plugin order is:
+If `acme-base-config` declares `plugins: ["acme-konpy-rules"]`, the final runtime plugin order is:
 
 ```json
-["acme-konsistent-rules", "team-extra-rules"]
+["acme-konpy-rules", "team-extra-rules"]
 ```
 
 ## Loading rules
 
 For each configured distribution name:
 
-1. `konsistent` resolves it with `importlib.metadata.distribution(name)`.
+1. `konpy` resolves it with `importlib.metadata.distribution(name)`.
 2. It reads only that distribution's entry points.
-3. It filters to group `konsistent.predicates`.
+3. It filters to group `konpy.predicates`.
 4. It loads each matching entry point.
 5. Each entry point must produce a valid `PredicatePlugin`.
 6. Predicate keys are merged into a per-run registry.
@@ -299,12 +299,12 @@ No global registry is mutated, and no entry point from an unlisted distribution 
 | --- | --- |
 | Invalid distribution name | `Plugin "<name>": invalid Python distribution name. Plugin names must match [A-Za-z0-9][A-Za-z0-9._-]*[A-Za-z0-9].` |
 | Distribution not installed | `Plugin "<name>": installed Python distribution not found. Install it or remove it from plugins.` |
-| No predicate entry points | `Plugin "<name>": no entry points found in group "konsistent.predicates".` |
+| No predicate entry points | `Plugin "<name>": no entry points found in group "konpy.predicates".` |
 | Built-in key collision | `Plugin "<dist>" entry point "<entry_point>" declares predicate key "<key>", which conflicts with a built-in predicate. Choose a unique plugin predicate key.` |
 | Plugin key collision | `Plugin "<dist>" entry point "<entry_point>" declares predicate key "<key>", which conflicts with plugin "<other_dist>" entry point "<other_entry_point>". Plugin predicate keys must be unique.` |
 
 ## JSON Schema note
 
-The checked-in `konsistent.schema.json` includes the top-level `plugins` key, but it cannot statically enumerate predicate keys provided by arbitrary installed packages.
+The checked-in `konpy.schema.json` includes the top-level `plugins` key, but it cannot statically enumerate predicate keys provided by arbitrary installed packages.
 
-Plugin predicate keys are validated at runtime by `konsistent validate` and `konsistent check`.
+Plugin predicate keys are validated at runtime by `konpy validate` and `konpy check`.

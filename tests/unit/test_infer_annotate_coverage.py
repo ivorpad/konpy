@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from konsistent.infer.heuristics.annotate_coverage import mine
-from konsistent.infer.models import InferFileRecord
-from konsistent.python_ast.structure import (
+from konpy.infer.heuristics.annotate_coverage import mine
+from konpy.infer.models import InferFileRecord
+from konpy.python_ast.structure import (
     FunctionAnnotationInfo,
     ParamInfo,
     PyFileStructure,

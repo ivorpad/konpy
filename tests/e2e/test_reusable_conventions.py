@@ -30,19 +30,19 @@ def _make_package_source_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     install_fake_distribution(
         tmp_path=tmp_path,
         monkeypatch=monkeypatch,
-        distribution_name="konsistent-e2e-common-conventions",
-        import_package="konsistent_e2e_common_conventions",
+        distribution_name="konpy-e2e-common-conventions",
+        import_package="konpy_e2e_common_conventions",
         package_json=reusable_convention_package("package-must-have-readme"),
     )
 
     project_dir = tmp_path / "project"
     _write_file(project_dir / "packages" / "sample" / "README.md", "# sample\n")
     _write_json(
-        project_dir / "konsistent.json",
+        project_dir / "konpy.json",
         {
             "version": "v1",
             "conventionSources": {
-                "common": "konsistent-e2e-common-conventions",
+                "common": "konpy-e2e-common-conventions",
             },
             "conventions": ["common/package-must-have-readme"],
         },
@@ -218,7 +218,7 @@ def test_reusable_convention_npm_style_source_is_invalid_python_distribution_nam
 
     assert exit_code == 1
     assert (
-        'Convention source "common" → "@konsistent/common-conventions": invalid Python '
+        'Convention source "common" → "@konpy/common-conventions": invalid Python '
         "distribution name. Bare package sources must match "
         "[A-Za-z0-9][A-Za-z0-9._-]*[A-Za-z0-9]."
     ) in output

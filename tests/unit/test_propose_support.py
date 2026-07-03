@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from konsistent.cli._hook_findings import HookFinding
-from konsistent.cli._propose_support import aggregate_findings
+from konpy.cli._hook_findings import HookFinding
+from konpy.cli._propose_support import aggregate_findings
 
 
 def _finding(

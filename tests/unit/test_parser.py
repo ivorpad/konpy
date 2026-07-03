@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import textwrap
 
-from konsistent.python_ast.parser import parse_file_structure
-from konsistent.python_ast.structure import SourcePosition
+from konpy.python_ast.parser import parse_file_structure
+from konpy.python_ast.structure import SourcePosition
 
 
 def parse_source(source: str):

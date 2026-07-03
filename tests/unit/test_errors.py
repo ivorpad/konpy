@@ -1,8 +1,8 @@
 import pytest
 from pydantic import ValidationError
 
-from konsistent.config.errors import Err, Ok, format_validation_error
-from konsistent.config.schema import RawConfigV1
+from konpy.config.errors import Err, Ok, format_validation_error
+from konpy.config.schema import RawConfigV1
 
 
 def validation_error_for(payload: dict) -> ValidationError:

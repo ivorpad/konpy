@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from konsistent.core import filesystem as filesystem_module
-from konsistent.core.filesystem import FakeFileSystem, RealFileSystem
+from konpy.core import filesystem as filesystem_module
+from konpy.core.filesystem import FakeFileSystem, RealFileSystem
 
 
 def write(path: Path, value: str = "") -> None:

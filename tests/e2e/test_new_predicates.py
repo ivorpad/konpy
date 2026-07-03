@@ -172,7 +172,7 @@ class TestTypeCheckingImportsFixture:
             fixture,
             "check",
             "--config-path",
-            str(fixture / "konsistent-reverse.json"),
+            str(fixture / "konpy-reverse.json"),
         )
 
         assert exit_code == 1
