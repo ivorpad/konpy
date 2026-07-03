@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Protocol
 
 from konsistent.core.context import PredicateContext
 from konsistent.core.diagnostics import Diagnostic, DiagnosticSeverity, create_diagnostic
@@ -9,10 +9,12 @@ from konsistent.python_ast.structure import PyFileStructure
 
 
 class PluginPredicateHandler(Protocol):
+    """Callable signature a plugin implements to evaluate its predicate."""
+
     def __call__(
         self,
         *,
-        expected: Any,
+        expected: object,
         context: PredicateContext,
         structure: PyFileStructure | None,
         convention_name: str | None = None,
@@ -21,18 +23,22 @@ class PluginPredicateHandler(Protocol):
 
 
 class PluginForbiddenMessageBuilder(Protocol):
+    """Callable signature a plugin implements to build a must-not violation message."""
+
     def __call__(
         self,
         *,
-        expected: Any,
+        expected: object,
         context: PredicateContext,
     ) -> str: ...
 
 
 @dataclass(frozen=True, kw_only=True)
 class PredicatePlugin:
+    """Registration record for a third-party predicate: its config model, handler, and message."""
+
     key: str
-    value_model: Any
+    value_model: object
     handler: PluginPredicateHandler
     forbidden_message_template: str | PluginForbiddenMessageBuilder
     uses_ast: bool = False

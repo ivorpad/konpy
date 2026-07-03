@@ -37,6 +37,8 @@ REPORTED_VERDICTS: frozenset[Verdict] = frozenset({"dead", "test-only"})
 
 @dataclass(frozen=True, kw_only=True)
 class ResolvedUnusedConfig:
+    """`UnusedCodeV1` merged with engine defaults and framework presets."""
+
     include: tuple[str, ...]
     test_globs: tuple[str, ...]
     entrypoint_files: tuple[str, ...]
@@ -50,6 +52,8 @@ class ResolvedUnusedConfig:
 
 @dataclass(frozen=True, kw_only=True)
 class Classification:
+    """A definition's verdict and the reason it was assigned."""
+
     definition: Definition
     verdict: Verdict
     reason: str
@@ -61,6 +65,7 @@ def classify(
     index: ReferenceIndex,
     config: ResolvedUnusedConfig,
 ) -> Classification:
+    """Classify `definition` into a verdict using reference counts and config rules."""
     if definition.name in config.allow or definition.qualname in config.allow:
         return _classification(definition, "allowed", "allow-listed")
 

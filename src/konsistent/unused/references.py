@@ -26,6 +26,8 @@ _TOKEN_SPLIT = re.compile(r"[^0-9A-Za-z_]+")
 
 @dataclass(frozen=True, kw_only=True)
 class RefStats:
+    """Reference counts for one name, split by production/test/entrypoint origin."""
+
     prod: int = 0
     test: int = 0
     entrypoint: int = 0
@@ -34,6 +36,8 @@ class RefStats:
 
 @dataclass(frozen=True, kw_only=True)
 class PythonRefSource:
+    """A parsed Python module to scan for references."""
+
     module_path: str
     tree: ast.Module
     is_test: bool
@@ -49,6 +53,7 @@ def build_reference_index(
     python_sources: Sequence[PythonRefSource],
     entrypoint_texts: Sequence[str],
 ) -> ReferenceIndex:
+    """Build a repo-wide index of reference counts per name, by origin."""
     prod: Counter[str] = Counter()
     test: Counter[str] = Counter()
     entrypoint: Counter[str] = Counter()

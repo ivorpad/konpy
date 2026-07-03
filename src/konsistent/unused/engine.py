@@ -51,11 +51,14 @@ CONVENTION_NAME = "unused-code"
 
 @dataclass(frozen=True, kw_only=True)
 class UnusedRunResult:
+    """Diagnostics from an unused-code run plus the production files scanned."""
+
     diagnostics: list[Diagnostic]
     files_scanned: set[str]
 
 
 def resolve_config(config: UnusedCodeV1) -> ResolvedUnusedConfig:
+    """Merge `config` with engine defaults and framework presets."""
     return ResolvedUnusedConfig(
         include=tuple(config.include) if config.include else DEFAULT_INCLUDE,
         test_globs=tuple(config.testGlobs) if config.testGlobs else DEFAULT_TEST_GLOBS,
@@ -74,6 +77,7 @@ def resolve_config(config: UnusedCodeV1) -> ResolvedUnusedConfig:
 
 
 def run_unused_code(*, config: UnusedCodeV1, file_system: FileSystem) -> list[Diagnostic]:
+    """Run unused-code detection and return just its diagnostics."""
     return run_unused_code_with_metadata(
         config=config,
         file_system=file_system,
@@ -86,17 +90,21 @@ def run_unused_code_with_metadata(
     file_system: FileSystem,
     source_cache: dict[str, str] | None = None,
 ) -> UnusedRunResult:
+    """Run unused-code detection, returning diagnostics plus scanned production files."""
     resolved = resolve_config(config)
 
     test_files = set(_python_files(file_system, resolved.test_globs))
     include_files = _python_files(file_system, resolved.include)
     prod_files = [path for path in include_files if path not in test_files]
-    files_scanned = set(prod_files) | test_files
+    # Test-glob files feed the reference index only -- they can never carry
+    # an unused-code diagnostic, so they are excluded from `files_scanned`
+    # (which drives suppression-hygiene candidacy in the runner).
+    reference_sources = set(prod_files) | test_files
 
     python_sources: list[PythonRefSource] = []
     prod_trees: dict[str, ast.Module] = {}
 
-    for path in sorted(files_scanned):
+    for path in sorted(reference_sources):
         tree = _parse(file_system, path, source_cache=source_cache)
         if tree is None:
             continue
@@ -128,7 +136,7 @@ def run_unused_code_with_metadata(
     diagnostics.sort(key=lambda d: (d.file_path, d.line or 0, d.column or 0))
     return UnusedRunResult(
         diagnostics=diagnostics,
-        files_scanned=files_scanned,
+        files_scanned=set(prod_files),
     )
 
 

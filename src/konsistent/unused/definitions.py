@@ -20,6 +20,8 @@ DefinitionKind = Literal["function", "method", "class", "attribute", "constant"]
 
 @dataclass(frozen=True, kw_only=True)
 class Definition:
+    """A single collected function/method/class/attribute/constant definition."""
+
     module_path: str
     name: str
     qualname: str
@@ -32,6 +34,7 @@ class Definition:
 
 
 def collect_definitions(*, module: ast.Module, module_path: str) -> list[Definition]:
+    """Collect module-level and one-level-of-class-body definitions from `module`."""
     definitions: list[Definition] = []
 
     for node in module.body:
