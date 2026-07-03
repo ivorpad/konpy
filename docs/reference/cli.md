@@ -355,6 +355,7 @@ It is meant to be wired into a coding agent's own hook config (Claude Code `.cla
 | `--prompt <text>` | string | — | Natural-language verification instruction for the agent. Required; a missing value fails open with exit code 1 rather than a CLI usage error, so exit code 2 stays reserved for a verified fail verdict |
 | `--agent <claude\|codex>` | string | — | Verifier agent CLI to use. Required; a missing or invalid value (including a stale `auto` copied from `extract-rules`, which isn't accepted here) fails open with exit code 1 |
 | `--timeout <seconds>` | float | `300.0` | Timeout for the verifier agent subprocess |
+| `--log <path>` | string | — | Append verified fail verdicts as JSONL for later `hook-propose`. Logging is fail-open and never changes the hook exit-code contract |
 
 ### Exit-code contract
 
@@ -378,6 +379,60 @@ A `claude -p` or `codex exec` spawned from inside the hook would, by default, in
 A fail verdict's reasons are self-correction feedback, same as any other linter/test failure surfaced through a hook. Nothing about `hook`'s prompt or exit-code contract instructs an agent to add a `# konsistent: ignore[...]` comment — see the [suppression consent policy](./suppressions.md#ai-agents), which still applies in full if the feedback ever seems to call for a suppression rather than a fix.
 
 `konsistent hook` never invokes `konsistent check` or `konsistent validate`, and vice versa; the two are independent mechanisms. See [Which hook mechanism should I use?](../guides/hooks.md#which-hook-mechanism-should-i-use) for the comparison with the deterministic `check --files` `PostToolUse` recipe.
+
+## `hook-propose`
+
+Promotes logged `konsistent hook` fail findings into a reviewable [`ReusableConventionsPackageV1`](./reusable-conventions.md) proposal plus an unmapped report. It never edits `konsistent.json`.
+
+```bash
+konsistent hook-propose
+konsistent hook-propose .konsistent/hook-findings.jsonl
+konsistent hook-propose findings.jsonl -o packs/ratchet.json --report reports/ratchet-unmapped.md
+konsistent hook-propose --agent codex --model gpt-5-codex --timeout 600
+```
+
+### Argument
+
+| Argument | Default | Description |
+| --- | --- | --- |
+| `[findings-path]` | `.konsistent/hook-findings.jsonl` | JSONL log written by `konsistent hook --log` |
+
+### Flags
+
+| Flag | Type | Default | Description |
+| --- | --- | --- | --- |
+| `-o, --output <path>` | string | `packs/hook-proposals.json` | Path for the generated reusable convention pack proposal |
+| `--agent <agent>` | `auto` \| `claude` \| `codex` | `auto` | Agent CLI to invoke |
+| `--report <path>` | string | — | Write the unmapped-rules report to a file instead of printing it to stdout |
+| `--model <model>` | string | `sonnet` | Model passed through to the agent CLI as `--model` |
+| `--timeout <seconds>` | float | — | Timeout for the proposal agent subprocess |
+
+### Behavior
+
+`hook-propose` reads valid `fail` findings from the JSONL log, skips invalid/corrupt/non-fail lines with warnings, groups valid findings by exact hook prompt, and sends the aggregated evidence to the selected agent. The agent must return one JSON object:
+
+```json
+{
+  "pack": {
+    "conventionSpecVersion": "v1",
+    "conventions": []
+  },
+  "unmapped": []
+}
+```
+
+The returned `pack` is validated with the reusable-conventions schema before anything is written. The generated pack is a proposal for human review; wire accepted conventions into `konsistent.json` manually with `conventionSources`.
+
+If the findings file is missing or contains no valid fail findings, the command exits `0`, prints a calm “No fail findings to promote” message, invokes no agent, and writes nothing.
+
+### Exit codes
+
+| Exit | Meaning |
+| --- | --- |
+| `0` | Successful proposal, or no valid fail findings to promote |
+| `1` | Agent selection/invocation failure, unreadable predicate reference, invalid agent JSON, invalid response contract, invalid proposed pack, or output/report write failure |
+
+On failure, `hook-propose` writes no proposal pack. If report writing fails after a pack write, the command exits `1` and leaves the already-written proposal in place, matching `extract-rules` behavior.
 
 ## Output formats
 

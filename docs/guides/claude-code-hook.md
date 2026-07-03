@@ -4,6 +4,8 @@ Run `konsistent check --files <edited-file>` automatically every time Claude Cod
 
 This is the **deterministic** hook: it runs the linter directly, no LLM call. If you need to verify something a `konsistent.json` structural predicate can't express — a semantic/judgment check like "docstrings aren't aspirational" — see the separate, **agentic** [`konsistent hook`](hooks.md) subcommand instead, which spawns a read-only verifier agent per matched write. The two are independent and can be used together.
 
+See also: [The ratchet](ratchet.md) shows how logged agentic hook failures can be promoted into deterministic conventions that this hook then enforces model-free.
+
 For flags and scoping semantics, see [Diff-scoped checking](../reference/cli.md#diff-scoped-checking---files----changed) in the CLI reference.
 
 ## Why `PostToolUse`, not `PreToolUse`

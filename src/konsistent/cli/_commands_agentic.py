@@ -1,4 +1,4 @@
-"""`extract-rules` and `hook` command registrations for the `konsistent` CLI."""
+"""`extract-rules`, `hook`, and `hook-propose` command registrations for the CLI."""
 
 from __future__ import annotations
 
@@ -8,9 +8,11 @@ from typing import Annotated
 import typer
 
 from konsistent.cli._app_instance import app
+from konsistent.cli._hook_findings import DEFAULT_FINDINGS_LOG_PATH
 from konsistent.cli.agent_runner import DEFAULT_MODEL
 from konsistent.cli.extract_rules import ExtractAgent, run_extract_rules_command
 from konsistent.cli.hook import DEFAULT_TIMEOUT, run_hook_command
+from konsistent.cli.propose import run_propose_command
 
 
 @app.command(name="extract-rules")
@@ -111,6 +113,16 @@ def hook(
             help="Timeout in seconds for the verifier agent subprocess.",
         ),
     ] = DEFAULT_TIMEOUT,
+    log_path: Annotated[
+        str | None,
+        typer.Option(
+            "--log",
+            help=(
+                "Append verified fail verdicts as JSONL to this path for later "
+                "hook-propose."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Run an agentic PostToolUse verification hook for Claude Code or Codex."""
     # Unknown options land in ctx.args (ignore_unknown_options) instead of
@@ -126,6 +138,65 @@ def hook(
         match=match or [],
         prompt=prompt,
         agent=agent,
+        model=model,
+        timeout=timeout,
+        log_path=log_path,
+    )
+    if exit_code != 0:
+        raise typer.Exit(exit_code)
+
+
+@app.command(name="hook-propose")
+def hook_propose(
+    findings_path: Annotated[
+        str,
+        typer.Argument(
+            help="JSONL hook findings log to promote into a reusable convention pack.",
+        ),
+    ] = DEFAULT_FINDINGS_LOG_PATH,
+    output_path: Annotated[
+        str | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Path for the generated reusable convention pack proposal.",
+        ),
+    ] = None,
+    agent: Annotated[
+        ExtractAgent,
+        typer.Option(
+            "--agent",
+            help="Agent CLI to use: auto, claude, or codex.",
+        ),
+    ] = ExtractAgent.AUTO,
+    report_path: Annotated[
+        str | None,
+        typer.Option(
+            "--report",
+            help="Write unmapped-rules report to this path instead of stdout.",
+        ),
+    ] = None,
+    model: Annotated[
+        str,
+        typer.Option(
+            "--model",
+            help="Model passed through to the agent CLI as --model. Default: sonnet.",
+        ),
+    ] = DEFAULT_MODEL,
+    timeout: Annotated[
+        float | None,
+        typer.Option(
+            "--timeout",
+            help="Timeout in seconds for the proposal agent subprocess.",
+        ),
+    ] = None,
+) -> None:
+    """Promote aggregated `konsistent hook` findings into a reviewable reusable convention pack."""
+    exit_code = run_propose_command(
+        findings_path=findings_path,
+        output_path=output_path,
+        agent=agent,
+        report_path=report_path,
         model=model,
         timeout=timeout,
     )

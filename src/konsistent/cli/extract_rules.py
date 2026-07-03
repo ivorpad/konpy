@@ -128,14 +128,14 @@ def run_extract_rules_command(
     if report_destination is not None:
         try:
             report_destination.parent.mkdir(parents=True, exist_ok=True)
-            report_destination.write_text(_format_unmapped_report(unmapped), encoding="utf-8")
+            report_destination.write_text(format_unmapped_report(unmapped), encoding="utf-8")
         except OSError as error:
             _write_error(f"Could not write unmapped-rules report: {report_destination}. {error}")
             return 1
 
     sys.stdout.write(f"Wrote reusable convention proposal to {destination}\n")
     if report_destination is None:
-        sys.stdout.write(_format_unmapped_stdout(unmapped))
+        sys.stdout.write(format_unmapped_stdout(unmapped))
     else:
         sys.stdout.write(f"Wrote unmapped-rules report to {report_destination}\n")
 
@@ -191,6 +191,26 @@ def validate_agent_response_contract(
     return Ok((value["pack"], normalized))
 
 
+def format_unmapped_stdout(unmapped: list[dict[str, str]]) -> str:
+    """Format unmapped rules for stdout after writing an extracted pack."""
+    if not unmapped:
+        return "Unmapped rules: none\n"
+
+    lines = ["Unmapped rules:"]
+    lines.extend(f"- {item['rule']}: {item['reason']}" for item in unmapped)
+    return "\n".join(lines) + "\n"
+
+
+def format_unmapped_report(unmapped: list[dict[str, str]]) -> str:
+    """Format unmapped rules as a Markdown report."""
+    if not unmapped:
+        return "# Unmapped rules\n\nNone.\n"
+
+    lines = ["# Unmapped rules", ""]
+    lines.extend(f"- **{item['rule']}**: {item['reason']}" for item in unmapped)
+    return "\n".join(lines) + "\n"
+
+
 def _run_agent(
     *,
     invocation: AgentInvocation,
@@ -211,24 +231,6 @@ def _default_output_path(source_file: str) -> Path:
     return Path.cwd() / "packs" / f"{Path(source_file).stem}.json"
 
 
-def _format_unmapped_stdout(unmapped: list[dict[str, str]]) -> str:
-    if not unmapped:
-        return "Unmapped rules: none\n"
-
-    lines = ["Unmapped rules:"]
-    lines.extend(f"- {item['rule']}: {item['reason']}" for item in unmapped)
-    return "\n".join(lines) + "\n"
-
-
-def _format_unmapped_report(unmapped: list[dict[str, str]]) -> str:
-    if not unmapped:
-        return "# Unmapped rules\n\nNone.\n"
-
-    lines = ["# Unmapped rules", ""]
-    lines.extend(f"- **{item['rule']}**: {item['reason']}" for item in unmapped)
-    return "\n".join(lines) + "\n"
-
-
 def _write_error(message: str) -> None:
     sys.stderr.write(f"{message}\n")
 
@@ -243,6 +245,8 @@ __all__ = [
     "build_prompt",
     "extract_agent_json_object",
     "first_json_object",
+    "format_unmapped_report",
+    "format_unmapped_stdout",
     "iter_json_objects",
     "read_predicates_reference",
     "run_agent_subprocess",

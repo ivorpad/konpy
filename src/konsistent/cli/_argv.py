@@ -13,6 +13,7 @@ _KNOWN_SUBCOMMANDS = {
     "infer",
     "explain",
     "hook",
+    "hook-propose",
     "version",
     "help",
 }

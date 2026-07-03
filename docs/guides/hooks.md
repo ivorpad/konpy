@@ -24,6 +24,7 @@ They can be run side by side — the deterministic recipe as a fast first pass, 
 2. Skips silently (exit 0) unless the payload is a write-shaped tool call (`Write`/`Edit`/`MultiEdit` for Claude, `apply_patch` for Codex) on a path matching `--match`.
 3. Builds a verification prompt from `--prompt` plus the matched file path and spawns the chosen `--agent` read-only, asking it to return one JSON verdict object. The verifier's model is pinned via `--model` (default: `sonnet`), forwarded to the agent CLI as its own `--model` flag — set it explicitly when using `--agent codex`, whose model names differ.
 4. Turns that verdict into a hook-protocol exit code.
+5. If `--log <path>` is set and the verdict is `fail`, appends one JSONL finding for later promotion with `konsistent hook-propose`.
 
 ## Exit-code contract
 
@@ -94,6 +95,12 @@ Add a `PostToolUse` hook in `.codex/hooks.json`:
 Codex reports its write tool as `apply_patch` regardless of whether the change looks like an add, update, or delete; `konsistent hook` recovers the touched path from the `apply_patch` envelope or a unified diff. If the payload shape can't be recognized, the hook skips (exit 0) rather than guessing.
 
 Note the explicit `--model`: the default (`sonnet`) is a Claude model name, so a `--agent codex` hook should always set `--model` to a model its own CLI accepts.
+
+## Persisting findings for later promotion
+
+Add `--log .konsistent/hook-findings.jsonl` when you want verified agentic failures to become ratchet input. The hook only logs real `fail` verdicts, never pass/skip/infra outcomes, and logging is fail-open: it never changes the `0`/`1`/`2` exit-code contract. If the log write fails, the hook still exits `2` and prints a `konsistent hook: --log warning:` line after the normal fail reasons.
+
+Once the log has accumulated recurring failures, run `konsistent hook-propose` to draft a reviewable reusable-convention pack plus an unmapped report. See [The ratchet: from agentic findings to deterministic conventions](ratchet.md) for the full workflow.
 
 ## Rolling this out
 

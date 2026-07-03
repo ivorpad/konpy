@@ -879,3 +879,11 @@ def test_preprocess_leaves_explain_subcommand_unchanged() -> None:
         "--format",
         "text",
     ]
+
+
+def test_preprocess_leaves_hook_propose_subcommand_unchanged() -> None:
+    assert _preprocess_argv(["hook-propose"]) == ["hook-propose"]
+    assert _preprocess_argv(["hook-propose", "findings.jsonl"]) == [
+        "hook-propose",
+        "findings.jsonl",
+    ]

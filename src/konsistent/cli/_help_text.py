@@ -22,6 +22,7 @@ Commands:
   infer          Mine the codebase for candidate structural conventions
   explain        Render resolved conventions as agent guidance (markdown/text)
   hook           Run an agentic PostToolUse verification hook
+  hook-propose   Promote logged hook findings into reusable convention proposals
   version        Print the version number
   help           Show this help message
 
@@ -74,6 +75,15 @@ Hook options:
   --agent <agent>            Verifier agent CLI to use: claude or codex (required)
   --model <model>            Model passed through to the agent CLI (default: sonnet)
   --timeout <seconds>        Timeout for the verifier agent subprocess (default: 300.0)
+  --log <path>               Append verified fail verdicts as JSONL for hook-propose
+
+Hook-propose options:
+  [findings-path]            JSONL hook findings log (default: .konsistent/hook-findings.jsonl)
+  -o, --output <path>        Path for generated reusable convention pack proposal
+  --agent <agent>            Agent CLI to use: auto, claude, or codex
+  --report <path>            Write unmapped-rules report to this path
+  --model <model>            Model passed through to the agent CLI (default: sonnet)
+  --timeout <seconds>        Timeout for the proposal agent subprocess
 
 Exit codes (hook):
   0  pass, or skipped (no match, non-write tool, sentinel active, unparseable payload)

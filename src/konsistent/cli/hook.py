@@ -4,9 +4,11 @@ import json
 import os
 import sys
 from collections.abc import Mapping
+from datetime import UTC, datetime
 
 from pydantic import ValidationError
 
+from konsistent.cli._hook_findings import HookFinding, append_hook_finding
 from konsistent.cli._hook_support import (
     CLAUDE_WRITE_TOOLS,
     CODEX_WRITE_TOOLS,
@@ -41,6 +43,7 @@ def run_hook_command(
     agent: HookAgent | str | None,
     model: str = DEFAULT_MODEL,
     timeout: float = DEFAULT_TIMEOUT,
+    log_path: str | None = None,
     stdin_text: str | None = None,
     runner: AgentRunner | None = None,
     env: Mapping[str, str] | None = None,
@@ -135,6 +138,25 @@ def run_hook_command(
             reasons = verdict["reasons"] or [f"Verification failed for {path}."]
             for reason in reasons:
                 _write_error(reason)
+            if log_path is not None:
+                append_result = append_hook_finding(
+                    log_path,
+                    HookFinding(
+                        loggedAt=datetime.now(UTC).isoformat(),
+                        sessionId=payload.session_id,
+                        cwd=payload.cwd,
+                        toolName=payload.tool_name,
+                        filePath=path,
+                        prompt=prompt,
+                        agent=agent_value,
+                        model=model,
+                        reasons=reasons,
+                    ),
+                )
+                if isinstance(append_result, Err):
+                    _write_error(
+                        f"konsistent hook: --log warning: {append_result.error}"
+                    )
             return 2
 
     return 0
@@ -206,6 +228,7 @@ __all__ = [
     "DEFAULT_TIMEOUT",
     "SENTINEL_ENV",
     "HookAgent",
+    "HookFinding",
     "HookPayload",
     "Verdict",
     "build_hook_prompt",

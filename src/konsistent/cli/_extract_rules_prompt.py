@@ -13,35 +13,27 @@ from pathlib import Path
 from konsistent.config.errors import Err, Ok, Result
 
 
-def build_prompt(
-    *,
-    source_text: str,
-    source_label: str,
-    predicates_reference: str,
-) -> str:
-    """Build the agent prompt that converts prose rules into a reusable pack."""
-    return f"""\
-You convert prose best-practices into a reviewable konsistent reusable convention pack.
+def pack_contract_and_rubric() -> str:
+    """Return the reusable-pack JSON contract and mappability rubric for agent prompts."""
+    return """Return exactly one JSON object with this contract and no required commentary:
 
-Return exactly one JSON object with this contract and no required commentary:
-
-{{
-  "pack": {{
+{
+  "pack": {
     "conventionSpecVersion": "v1",
     "conventions": []
-  }},
+  },
   "unmapped": [
-    {{
+    {
       "rule": "original or summarized source rule",
       "reason": "why it cannot be represented with konsistent predicates"
-    }}
+    }
   ]
-}}
+}
 
 The "pack" value must validate as ReusableConventionsPackageV1.
 
 ReusableConventionsPackageV1 format summary:
-- Top-level object: {{"conventionSpecVersion": "v1", "conventions": [...]}}.
+- Top-level object: {"conventionSpecVersion": "v1", "conventions": [...]}.
 - Each convention requires "name" and "description".
 - Each convention may include "severity", "paths", "excludeFiles", "if", "for",
   "must", and "mustNot".
@@ -61,7 +53,20 @@ Mappability rubric:
 - Ambiguous or project-specific rules whose paths/placeholders cannot be
   inferred should be reported in "unmapped" with a reason.
 - Never silently drop a source rule. If a rule cannot be mapped, list it in
-  "unmapped".
+  "unmapped"."""
+
+
+def build_prompt(
+    *,
+    source_text: str,
+    source_label: str,
+    predicates_reference: str,
+) -> str:
+    """Build the agent prompt that converts prose rules into a reusable pack."""
+    return f"""\
+You convert prose best-practices into a reviewable konsistent reusable convention pack.
+
+{pack_contract_and_rubric()}
 
 Source file: {source_label}
 
@@ -96,4 +101,4 @@ def read_predicates_reference() -> Result[str]:
     return Ok(text)
 
 
-__all__ = ["build_prompt", "read_predicates_reference"]
+__all__ = ["build_prompt", "pack_contract_and_rubric", "read_predicates_reference"]

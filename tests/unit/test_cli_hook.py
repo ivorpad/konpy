@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -21,6 +22,7 @@ from konsistent.cli.hook import (
     path_matches_any,
     run_hook_command,
 )
+from konsistent.config.errors import Err
 
 runner = CliRunner()
 
@@ -914,3 +916,129 @@ class TestRunAgentSubprocessModel:
         agent_runner.run_agent_subprocess(invocation=invocation, prompt="verify it")
 
         assert captured["command"] == ["claude", "-p", "verify it"]
+
+
+class TestHookFindingLog:
+    def test_fail_verdict_appends_one_jsonl_finding(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        log_path = tmp_path / "logs" / "findings.jsonl"
+        reason = "method body does not match docstring"
+        runner_spy = FakeRunner(verdict_response(verdict="fail", reasons=[reason]))
+
+        exit_code = run_hook_command(
+            match=["src/**/*.py"],
+            prompt="check it",
+            agent=HookAgent.CLAUDE,
+            model="opus",
+            log_path=str(log_path),
+            stdin_text=payload_json(tool_input={"file_path": "src/x.py"}),
+            runner=runner_spy,
+            env={},
+        )
+
+        captured = capsys.readouterr()
+        assert exit_code == 2
+        assert reason in captured.err
+
+        lines = log_path.read_text(encoding="utf-8").splitlines()
+        assert len(lines) == 1
+        record = json.loads(lines[0])
+        assert record["schemaVersion"] == "v1"
+        assert record["verdict"] == "fail"
+        assert record["filePath"] == "src/x.py"
+        assert record["prompt"] == "check it"
+        assert record["agent"] == "claude"
+        assert record["model"] == "opus"
+        assert record["reasons"] == [reason]
+
+    def test_log_append_error_still_exits_two_and_warns_after_reasons(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        reason = "method body does not match docstring"
+        runner_spy = FakeRunner(verdict_response(verdict="fail", reasons=[reason]))
+
+        def fake_append_hook_finding(path, finding):
+            return Err("boom")
+
+        monkeypatch.setattr(
+            "konsistent.cli.hook.append_hook_finding",
+            fake_append_hook_finding,
+        )
+
+        exit_code = run_hook_command(
+            match=["src/**/*.py"],
+            prompt="check it",
+            agent=HookAgent.CLAUDE,
+            log_path="findings.jsonl",
+            stdin_text=payload_json(tool_input={"file_path": "src/x.py"}),
+            runner=runner_spy,
+            env={},
+        )
+
+        captured = capsys.readouterr()
+        warning = "konsistent hook: --log warning: boom"
+        assert exit_code == 2
+        assert reason in captured.err
+        assert warning in captured.err
+        assert captured.err.index(reason) < captured.err.index(warning)
+
+    def test_pass_verdict_with_log_path_does_not_create_log_file(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        log_path = tmp_path / "findings.jsonl"
+        runner_spy = FakeRunner(verdict_response(verdict="pass"))
+
+        exit_code = run_hook_command(
+            match=["src/**/*.py"],
+            prompt="check it",
+            agent=HookAgent.CLAUDE,
+            log_path=str(log_path),
+            stdin_text=payload_json(tool_input={"file_path": "src/x.py"}),
+            runner=runner_spy,
+            env={},
+        )
+
+        assert exit_code == 0
+        assert not log_path.exists()
+
+    def test_first_fail_among_multiple_matched_paths_logs_only_first_path(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        log_path = tmp_path / "findings.jsonl"
+        runner_spy = FakeRunner(
+            verdict_response(verdict="fail", reasons=["first file is bad"])
+        )
+        patch_text = (
+            "*** Begin Patch\n"
+            "*** Update File: src/a.py\n@@\n-old\n+new\n"
+            "*** Update File: src/b.py\n@@\n-old\n+new\n"
+            "*** End Patch\n"
+        )
+
+        exit_code = run_hook_command(
+            match=["src/**/*.py"],
+            prompt="check it",
+            agent=HookAgent.CODEX,
+            log_path=str(log_path),
+            stdin_text=payload_json(
+                tool_name="apply_patch",
+                tool_input={"input": patch_text},
+            ),
+            runner=runner_spy,
+            env={},
+        )
+
+        assert exit_code == 2
+        assert len(runner_spy.calls) == 1
+        lines = log_path.read_text(encoding="utf-8").splitlines()
+        assert len(lines) == 1
+        record = json.loads(lines[0])
+        assert record["filePath"] == "src/a.py"
+        assert record["reasons"] == ["first file is bad"]

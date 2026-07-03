@@ -2,7 +2,9 @@
 
 `konsistent` is a CLI linter that checks whether files and directories in your Python codebase match declared structural patterns. It fills a gap that Ruff, Flake8, and Pylint don't cover: they enforce code style and best practices within files, but none of them verify project-level structural conventions — like "every provider package must export the same shape" or "every adapter must extend the base class."
 
-This is the Python port of [vercel-labs/konsistent](https://github.com/vercel-labs/konsistent); it keeps the `konsistent.json` v1 grammar but analyzes Python source via the standard-library `ast` module instead of TypeScript.
+konsistent reads a declarative `konsistent.json` and analyzes your Python source via the standard-library `ast` module — it never imports or executes your code.
+
+_Inspired by [Vercel's konsistent](https://github.com/vercel-labs/konsistent), reimplemented from scratch for Python._
 
 ## Where to start
 
@@ -23,6 +25,7 @@ This is the Python port of [vercel-labs/konsistent](https://github.com/vercel-la
 - [Inferring conventions](./guides/inferring-conventions.md) — mine an existing codebase for candidate conventions with `konsistent infer`.
 - [Claude Code hook integration](./guides/claude-code-hook.md) — deterministic hook: run `konsistent check --files` automatically after Claude edits a file, no LLM call.
 - [Agentic verification hooks](./guides/hooks.md) — `konsistent hook`: spawn a read-only verifier agent from a Claude Code/Codex `PostToolUse` hook for checks a structural predicate can't express. See that guide's "Which hook mechanism should I use?" for how it differs from the deterministic recipe above.
+- [The ratchet](./guides/ratchet.md) — persist verified agentic hook failures and promote recurring patterns into reviewable deterministic convention packs.
 - [Agent evaluation](./guides/agent-eval.md) — A/B-compare agent runs using konsistent's own diagnostics as the metric.
 
 ## Reference

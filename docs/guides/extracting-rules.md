@@ -79,6 +79,8 @@ Example:
 
 `extract-rules` never edits `konsistent.json` for you.
 
+Sibling workflow: [`konsistent hook-propose`](ratchet.md) uses the same reviewable-pack idea, but its input is logged `konsistent hook` fail findings instead of a prose source file.
+
 ## Agent selection
 
 The command shells out to a local agent CLI.
