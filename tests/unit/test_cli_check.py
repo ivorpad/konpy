@@ -547,6 +547,56 @@ class TestCheckCommand:
         assert "Suppressed 1 finding." in result.output
         assert "... and 1 more diagnostics" in result.output
 
+    def test_json_format_max_diagnostics_truncates_array_but_not_summary_counts(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ) -> None:
+        (tmp_path / "src" / "a.py").mkdir(parents=True)
+        (tmp_path / "src" / "b.py").mkdir(parents=True)
+        write_config(
+            tmp_path,
+            [
+                {
+                    "name": "a-file",
+                    "paths": "src/a.py",
+                    "must": {"haveType": "file"},
+                },
+                {
+                    "name": "b-file",
+                    "paths": "src/b.py",
+                    "must": {"haveType": "file"},
+                },
+            ],
+        )
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(
+            app,
+            ["check", "--format", "json", "--max-diagnostics", "1"],
+        )
+
+        assert result.exit_code == 1
+        parsed = json.loads(result.output)
+        assert len(parsed["diagnostics"]) == 1
+        assert parsed["summary"]["errors"] == 2
+        assert parsed["truncation"] == {"shown": 1, "omitted": 1}
+        assert "... and" not in result.output
+
+    def test_json_format_truncation_key_present_and_zero_when_not_truncated(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ) -> None:
+        make_error_project(tmp_path)
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["check", "--format", "json"])
+
+        assert result.exit_code == 1
+        parsed = json.loads(result.output)
+        assert parsed["truncation"] == {"shown": 1, "omitted": 0}
+
     def test_diagnostic_level_error_skips_warning_conventions(
         self,
         tmp_path: Path,

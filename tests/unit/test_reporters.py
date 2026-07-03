@@ -4,6 +4,7 @@ import json
 
 from konsistent.core.diagnostics import Diagnostic
 from konsistent.core.reporters import (
+    count_severities,
     format_default,
     format_github,
     format_json,
@@ -446,6 +447,10 @@ class TestFormatJson:
                 "suppressed": 0,
                 "durationMs": 5,
             },
+            "truncation": {
+                "shown": 0,
+                "omitted": 0,
+            },
         }
 
     def test_outputs_camel_case_fields_for_line_diagnostic(self) -> None:
@@ -545,6 +550,54 @@ class TestFormatJson:
         )
 
         assert len(parsed["suppressed"]) == 1
+
+
+class TestFormatJsonTruncation:
+    def test_truncation_key_present_and_zero_when_nothing_truncated(self) -> None:
+        parsed = json.loads(
+            format_json(make_result([diagnostic(message="only one")]))
+        )
+
+        assert parsed["truncation"] == {"shown": 1, "omitted": 0}
+
+    def test_truncation_reports_shown_and_omitted(self) -> None:
+        truncated_result = make_result([diagnostic(message="shown")])
+
+        parsed = json.loads(format_json(truncated_result, omitted=3))
+
+        assert parsed["truncation"] == {"shown": 1, "omitted": 3}
+        assert len(parsed["diagnostics"]) == 1
+
+    def test_total_errors_and_warnings_override_summary_when_truncated(self) -> None:
+        truncated_result = make_result([diagnostic(message="shown", severity="error")])
+
+        parsed = json.loads(
+            format_json(
+                truncated_result,
+                total_errors=5,
+                total_warnings=2,
+                omitted=4,
+            )
+        )
+
+        assert parsed["summary"]["errors"] == 5
+        assert parsed["summary"]["warnings"] == 2
+        assert parsed["truncation"] == {"shown": 1, "omitted": 4}
+
+    def test_summary_falls_back_to_counting_diagnostics_without_totals(self) -> None:
+        parsed = json.loads(
+            format_json(
+                make_result(
+                    [
+                        diagnostic(message="e1", severity="error"),
+                        diagnostic(message="w1", severity="warning"),
+                    ]
+                )
+            )
+        )
+
+        assert parsed["summary"]["errors"] == 1
+        assert parsed["summary"]["warnings"] == 1
 
 
 class TestFormatJsonFixHints:
@@ -902,6 +955,22 @@ class TestFormatMarkdownFixHints:
 
         assert "<br>" not in output
         assert "| Missing X |" in output
+
+
+class TestCountSeverities:
+    def test_counts_errors_and_warnings_separately(self) -> None:
+        errors, warnings = count_severities(
+            [
+                diagnostic(severity="error"),
+                diagnostic(severity="warning"),
+                diagnostic(severity="warning"),
+            ]
+        )
+
+        assert (errors, warnings) == (1, 2)
+
+    def test_returns_zeros_for_no_diagnostics(self) -> None:
+        assert count_severities([]) == (0, 0)
 
 
 class TestResolveFormat:

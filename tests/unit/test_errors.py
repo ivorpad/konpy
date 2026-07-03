@@ -14,12 +14,12 @@ def validation_error_for(payload: dict) -> ValidationError:
 class TestResult:
     def test_ok(self) -> None:
         result = Ok(42)
-        assert result.success is True
+        assert isinstance(result, Ok)
         assert result.value == 42
 
     def test_err(self) -> None:
         result = Err("boom")
-        assert result.success is False
+        assert isinstance(result, Err)
         assert result.error == "boom"
 
 

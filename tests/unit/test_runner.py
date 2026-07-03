@@ -1202,6 +1202,28 @@ class TestDiffScope:
         assert any("dead_a" in message for message in messages)
         assert not any("dead_b" in message for message in messages)
 
+    def test_suppression_hygiene_ignores_reference_only_test_files(self) -> None:
+        # Test-glob files are scanned by unusedCode only to build the
+        # reference index; a suppression comment there can never suppress
+        # anything, so it must not trigger unknown/stale hygiene warnings.
+        result = run(
+            config=config([], unusedCode={"include": ["src/**/*.py"]}),
+            file_system=FakeFileSystem(
+                contents={
+                    "src/a.py": "def used():\n    return 1\n",
+                    "tests/test_a.py": (
+                        "# konsistent: ignore-file[no-such-rule] -- fixture\n"
+                        "from src.a import used\n"
+                        "used()\n"
+                    ),
+                },
+            ),
+        )
+
+        assert not any(
+            diagnostic.convention_name == "suppressions" for diagnostic in result.diagnostics
+        )
+
     def test_target_files_known_rule_names_unaffected_by_scoping(self) -> None:
         result = run(
             config=config(

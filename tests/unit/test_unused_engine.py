@@ -226,5 +226,9 @@ class TestMetadataApi:
             file_system=file_system,
         )
 
-        assert result.files_scanned == {"src/a.py", "tests/test_a.py"}
+        # Test-glob files feed the reference index but can never carry an
+        # unused-code diagnostic, so they are not reported as scanned (this
+        # keeps them out of suppression-hygiene candidacy in the runner).
+        assert result.files_scanned == {"src/a.py"}
+        assert "tests/test_a.py" not in result.files_scanned
         assert "README.md" not in result.files_scanned
