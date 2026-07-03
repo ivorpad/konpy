@@ -188,6 +188,18 @@ Three tiers, cheapest first:
 
    Plugin keys work under `mustNot` too, get strict value validation from the plugin's own pydantic model, and collide loudly with builtins. Full contract (AST access via `uses_ast`, item-level mustNot, placeholder validation): [docs/reference/plugins.md](docs/reference/plugins.md).
 
+## Using konsistent with Claude Code (the agent loop)
+
+konsistent was built for exactly one workflow: encode your conventions once in `konsistent.json`, then wire them into every stage of a coding agent's loop — before it writes, after each edit, and in CI — so the agent hears one consistent voice everywhere. The pieces below each have their own section; this is the order they compose in:
+
+1. **Bootstrap the rules — don't hand-author them.** Mine an existing codebase with [`konsistent infer`](#mining-a-codebase-for-conventions), translate a prose style guide or skill with [`extract-rules`](#extracting-rules-from-skills--style-guides), or start greenfield from the [shipped packs](#reusable-conventions--the-best-practices-pack). All three emit reviewable proposals, never live config.
+2. **Prevention: put the rules in the agent's context.** `konsistent explain >> CLAUDE.md` renders the resolved config as [agent guidance](#explaining-rules-to-an-agent) — the agent writes conformant code on the first pass instead of getting caught afterwards. Re-run it when the config changes.
+3. **Per-edit feedback: a `PostToolUse` hook.** Run [`konsistent check --files <edited-file>`](#diff-scoped-checking---files----changed) after every `Edit`/`Write`; on violation the hook exits `2` and the JSON diagnostics land in front of the agent, which fixes them in the same session — with [`expected`/`found`/`fixHint`](#diagnostic-intent-and-fix-direction) so the fix needn't be re-derived from a message string. Recipe: [docs/guides/claude-code-hook.md](docs/guides/claude-code-hook.md). For judgment calls no structural predicate can express, layer the [agentic `konsistent hook`](#agentic-verification-hooks) on top (this repo does, via its own `.claude/settings.json`).
+4. **Keep exceptions honest.** [Suppressions](#suppressions) require a named rule and a human decision — the consent policy is restated in every `explain` render, so the agent knows it.
+5. **Gate and measure.** `konsistent check --error-on-warnings` in CI, and the [eval harness](#agent-evaluation) to snapshot violation metrics before/after an agent session and fail on regression.
+
+Division of labor: **ruff owns universal style and correctness; konsistent owns *your* architecture** — layout, naming-to-export contracts, import boundaries, paired tests, dead code. They complement, not compete.
+
 ## Extracting rules from skills & style guides
 
 Turn prose best practices — a Claude Code skill's `SKILL.md`, a team style guide, any markdown — into a reviewable pack:
