@@ -68,6 +68,22 @@ References are resolved repo-wide, including identifier tokens inside string lit
 
 Findings arrive as `warning`-severity diagnostics under the `[unused-code]` label (predicate `unusedCode.dead` / `unusedCode.testOnly` in `--format json`) — gate them in CI with `--error-on-warnings`, and suppress an approved exception with `# konpy: ignore[unused-code]` (the [consent policy](docs/reference/suppressions.md#ai-agents) applies). The config keys (`include`, `testGlobs`, `entrypointFiles`, `registryDecorators`, `hookNames`, `modelBases`) extend the presets; `allow` silences specific names by decision. Because classification needs the whole reference graph, `unusedCode` always scans the entire project — [`--files`/`--changed` scoping](#diff-scoped-checking---files----changed) never narrows or partially runs it. Full taxonomy, presets, and config keys: [docs/reference/unused-code.md](docs/reference/unused-code.md).
 
+## Duplication detection
+
+Two cross-file predicates catch copy-paste before it calcifies. `restrictRepeatedLiterals` flags a string literal repeated across a convention's matched files (default: the 3rd occurrence violates, `minLength: 8`; docstrings, annotation positions, `__all__`/dunder assignments, f-string fragments, and `__name__` comparisons are exempt at collection time). `restrictDuplicateFunctions` flags structurally identical function bodies — hashed after alpha-renaming parameters and locals and stripping docstrings, annotations, and decorators — so renaming variables doesn't hide a clone, while calling different helpers or using different constants keeps functions distinct (default: bodies of 4+ statements).
+
+```json
+{
+  "version": "v1",
+  "conventions": [
+    { "name": "no-repeated-literals", "paths": "src/**/*.py", "must": { "restrictRepeatedLiterals": true } },
+    { "name": "no-duplicate-functions", "paths": "src/**/*.py", "must": { "restrictDuplicateFunctions": true } }
+  ]
+}
+```
+
+Repeated literals report every occurrence; duplicate functions report each non-canonical member pointing at the first definition — all with `expected`/`found`/`fix_hint` intent metadata. Both predicates always evaluate the convention's full matched set, even under `--files`. Off the shelf: [`packs/no-duplication.json`](packs/no-duplication.json). Reference: [docs/reference/predicates.md](docs/reference/predicates.md).
+
 ## Reusable conventions & the best-practices pack
 
 Rules can be packaged once and consumed everywhere. This repo ships a starter pack at [`packs/python-best-practices.json`](packs/python-best-practices.json):
@@ -89,11 +105,12 @@ Rules can be packaged once and consumed everywhere. This repo ships a starter pa
 
 String form uses the pack rule's own paths; `use` form supplies (or overrides) paths, placeholders, and severity. Authoring guide: [docs/guides/authoring-reusable-conventions.md](docs/guides/authoring-reusable-conventions.md). Copy-paste templates for project-specific rules (layered import bans, DDD layouts, test-suite layout): [docs/guides/templates.md](docs/guides/templates.md).
 
-### More packs: typed records, hexagonal architecture, and src layout
+### More packs: typed records, duplication, hexagonal architecture, and src layout
 
 Additional off-the-shelf packs live alongside the best-practices one:
 
 - [`packs/typed-records.json`](packs/typed-records.json) — annotation hygiene for identity-less anonymous record mappings such as `dict[str, Any]`; encourages pydantic models, `TypedDict`, or dataclasses.
+- [`packs/no-duplication.json`](packs/no-duplication.json) — cross-file duplication limits at warning severity: no string literal repeated 3+ times across the scope, no structurally identical function bodies (see [Duplication detection](#duplication-detection)).
 - [`packs/hexagonal-architecture.json`](packs/hexagonal-architecture.json) — ports-and-adapters layering: domain modules stay free of adapter/infrastructure imports, ports are `Protocol`/`ABC` boundaries, adapters export an `*Adapter`-suffixed class, and each use case has a paired test. Assumes `src/domain/`, `src/ports/`, `src/adapters/`, `src/use_cases/`.
 - [`packs/src-layout.json`](packs/src-layout.json) — `src/` layout hygiene: the project root has `src/` + `pyproject.toml`, every top-level `src/` package has an `__init__.py`, and both flat and one-level-nested modules mirror into `tests/`.
 
@@ -105,7 +122,8 @@ Consume either one the same way, via `conventionSources`:
   "conventionSources": {
     "hex": "./packs/hexagonal-architecture.json",
     "layout": "./packs/src-layout.json",
-    "typed": "./packs/typed-records.json"
+    "typed": "./packs/typed-records.json",
+    "dup": "./packs/no-duplication.json"
   },
   "conventions": [
     "hex/domain-does-not-import-adapters-or-infrastructure",
@@ -116,7 +134,9 @@ Consume either one the same way, via `conventionSources`:
     "layout/top-level-src-packages-have-init",
     "layout/top-level-modules-mirror-into-tests",
     "layout/nested-modules-mirror-into-tests",
-    "typed/no-anonymous-record-annotations"
+    "typed/no-anonymous-record-annotations",
+    "dup/no-repeated-string-literals",
+    "dup/no-duplicate-functions"
   ]
 }
 ```
@@ -290,7 +310,7 @@ It is read-only: no filesystem scan, no diagnostics, no `--fix`. Every render en
 
 ## Mining a codebase for conventions
 
-`konpy infer` scans an existing codebase for statistical regularities — "94% of modules under `adapters/` export `*Adapter`; here are the 3 violators" — and proposes a reviewable `ReusableConventionsPackageV1`-shaped pack (the same output contract as `extract-rules`: `{"conventionSpecVersion": "v1", "conventions": [...]}`, never a `konpy.json`-shaped document) plus a confidence/violators report, using six deterministic heuristics (no agent call):
+`konpy infer` scans an existing codebase for statistical regularities — "94% of modules under `adapters/` export `*Adapter`; here are the 3 violators" — and proposes a reviewable `ReusableConventionsPackageV1`-shaped pack (the same output contract as `extract-rules`: `{"conventionSpecVersion": "v1", "conventions": [...]}`, never a `konpy.json`-shaped document) plus a confidence/violators report, using eight deterministic heuristics (no agent call). The two duplication heuristics are clean-only ratchets: they propose `restrictRepeatedLiterals`/`restrictDuplicateFunctions` only for scopes that already pass at the defaults, and otherwise skip with an `existing-violations` reason instead of proposing a rule that would immediately fail:
 
 ```bash
 konpy infer > konpy.infer.pack.json
