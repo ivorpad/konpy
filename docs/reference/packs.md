@@ -1,6 +1,6 @@
 # Reusable packs
 
-The repo ships three off-the-shelf convention packs under [`packs/`](../../packs/). Each is a `ReusableConventionsPackageV1` (`conventionSpecVersion: "v1"`) that you bind via `conventionSources` and reference by `<alias>/<name>` — see [Reusable conventions](./reusable-conventions.md) for the general mechanism. This page documents what each pack's conventions check, the layout each one assumes, and every convention's `hint`.
+The repo ships five off-the-shelf convention packs under [`packs/`](../../packs/). Each is a `ReusableConventionsPackageV1` (`conventionSpecVersion: "v1"`) that you bind via `conventionSources` and reference by `<alias>/<name>` — see [Reusable conventions](./reusable-conventions.md) for the general mechanism. This page documents what each pack's conventions check, the layout each one assumes, and every convention's `hint`.
 
 Packs are **off-the-shelf**: if your layout doesn't match a pack's assumptions, use the matching section in [Templates](../guides/templates.md) to hand-write an equivalent convention with your own paths instead of fighting the pack's placeholders.
 
@@ -22,6 +22,23 @@ General Python structural hygiene, layout-independent (paths use `**` globs, not
 | `public-api-modules-declare-all` | Non-`__init__.py` modules under `src/**` declare `__all__` explicitly. | Add an explicit `__all__` list naming the module's public names. |
 | `package-inits-have-docstrings` | Every `__init__.py` has a module docstring. | Add a module docstring summarizing what the package exposes and why. |
 | `component-packages-have-readme` | Each top-level directory under `packages/` has a `README.md`. | Add a `README.md` describing the package's purpose, ownership, and usage. |
+
+## `typed-records.json`
+
+Typed-record hygiene for Python annotations. This pack is layout-independent and applies to `**/*.py`.
+
+| Convention | Checks | Hint |
+| --- | --- | --- |
+| `no-anonymous-record-annotations` | Public annotations should not use identity-less string-keyed anonymous mappings with broad or union value types, such as `dict[str, Any]`, `dict[str, object]`, or `dict[str, str \| list[str]]`. | Define a named type for the record shape, such as a pydantic model, `TypedDict`, or dataclass, and use that name in the annotation. |
+
+## `no-duplication.json`
+
+Duplication ratchets for Python source. This pack is layout-independent, applies to `**/*.py`, and ships its rules as warnings so teams can adopt it incrementally.
+
+| Convention | Checks | Hint |
+| --- | --- | --- |
+| `no-repeated-string-literals` | The same eligible string literal value should not appear more than twice in the matched scope. | Extract repeated string values into a named constant or shared fixture and reference that name instead. |
+| `no-duplicate-functions` | Top-level functions and direct methods should not duplicate another normalized implementation of at least four statements. | Extract shared implementation into one helper, or make the duplicate implementations meaningfully different. |
 
 ## `hexagonal-architecture.json`
 

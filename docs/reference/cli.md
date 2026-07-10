@@ -21,13 +21,14 @@ pip install konpy       # or install with pip
 | `konpy extract-rules` | Explicitly ask a local agent CLI to draft a reusable convention pack from prose rules |
 | `konpy infer` | Mine the codebase for candidate structural conventions and emit a reviewable proposal |
 | `konpy explain` | Render the resolved config as prevention-side guidance markdown/text for a code-writing agent |
+| `konpy gate` | Run a deterministic Claude Code `PreToolUse` gate against proposed content |
 | `konpy hook` | Run an agentic `PostToolUse` verification hook for Claude Code or Codex |
 | `konpy help` | Show a quick reference of all commands and options |
 | `konpy version` | Print the version number |
 
 `konpy` invoked without a subcommand runs `check`. `konpy --help` runs `help`. `konpy --version` prints the version. There is no `update` command.
 
-Rule extraction is never implicit: `konpy` only shells out to an agent when you run `konpy extract-rules` directly, or when a `konpy hook` invocation actually matches a write event.
+Rule extraction is never implicit: `konpy` only shells out to an agent when you run `konpy extract-rules` directly, or when a `konpy hook` invocation actually matches a write event. `konpy gate` runs deterministic checks in-process and never shells out to an agent.
 
 ## `check`
 
@@ -69,13 +70,14 @@ Source-comment suppressions are documented in [Suppressions](./suppressions.md).
 
 `--files` and `--changed` restrict *which conventions get selected*, not which files a selected convention evaluates. Selection is convention-level: a convention is selected when **any** file in its `paths` matched set is in scope, and once selected it is evaluated over its **entire** matched set — never just the in-scope subset. A convention whose matched set has zero intersection with the requested scope is skipped entirely and produces no diagnostics for that run.
 
-This matters because several predicates are cross-file: e.g. a `paths: "src/*.py"` convention where `src/a.py` and `src/b.py` both match is a single unit of evaluation. Scoping to `src/a.py` alone still selects that convention, and the run still reports a pre-existing violation on `src/b.py` — scoping never naively narrows a selected convention down to only the literally-passed files. Everything else (config validation, suppression hygiene checks, exit-code semantics) behaves the same as an unscoped run.
+This matters because several predicates are cross-file: e.g. a `paths: "src/*.py"` convention where `src/a.py` and `src/b.py` both match is a single unit of evaluation. Scoping to `src/a.py` alone still selects that convention, and the run can still report a pre-existing violation on `src/b.py` — scoping never naively narrows a selected convention down to only the literally-passed files. Everything else (config validation, suppression hygiene checks, exit-code semantics) behaves the same as an unscoped run.
 
 Path matching uses prefix intersection, not just exact equality: a directory-scoped convention (`paths` matching a directory) is selected when a file *inside* that directory is in scope, and vice versa.
 
-Two predicates need whole-project context and are handled specially:
+Cross-file checks need extra selection context and are handled deliberately:
 
 - **`havePairedFile`** always checks the *entire* filesystem for the companion file, so it stays fully correct for every file it evaluates under scoping. Selection also accounts for this predicate being cross-file: if *only* the companion side of a declared pair is in scope (e.g. only `tests/test_service.py` changed, not the `src/service.py` the convention's `paths` targets), the convention is still selected and evaluated over its full matched set — so a broken pairing produced by editing or deleting just the companion is still reported, not silently missed.
+- **`restrictRepeatedLiterals`** and **`restrictDuplicateFunctions`** build their groups over the full effective file set of the convention or nested `for` block, after `excludeFiles` is applied. Under `--files`/`--changed`, selection accounts for that block scope: if any file in the block's effective scope is in scope, the convention is selected, and the predicate still evaluates the full block scope rather than only the requested file(s).
 - **`unusedCode`** always scans the *entire* project to build its reference index (required for correct dead/test-only classification), and, unlike ordinary conventions, is never filtered by `--files`/`--changed` at all: every run reports its full, whole-project diagnostics regardless of scope. Filtering `unusedCode` output down to the requested scope would silently hide dead code living outside it, so scoping simply does not apply to it — `--files`/`--changed` do **not** speed up or narrow `unusedCode` checks.
 
 Examples:
@@ -241,7 +243,7 @@ konpy infer --heuristic export-suffix --heuristic paired-test-file
 konpy infer --min-confidence 0.8 --min-support 5
 ```
 
-Six independent heuristics each look for a statistical regularity — a suffix/export pattern, a test-pairing convention, docstring coverage, type-annotation coverage, `__init__.py` barrel purity, and absolute-vs-relative import dominance — and, for every signal whose sample size and pass-rate clear the configured thresholds, propose one `severity: "warning"` convention. The emitted proposal is validated against `ReusableConventionsPackageV1` — the same reviewable-pack contract `extract-rules` emits (`{"conventionSpecVersion": "v1", "conventions": [...]}`) — never a `RawConfigV1`/`konpy.json`-shaped document. See [Inferring conventions](../guides/inferring-conventions.md) for the full heuristic reference and tuning guidance.
+Eight independent heuristics each look for a deterministic signal — a suffix/export pattern, a test-pairing convention, docstring coverage, type-annotation coverage, `__init__.py` barrel purity, absolute-vs-relative import dominance, repeated-literal cleanliness, and duplicate-function cleanliness — and, for every signal whose sample size and pass-rate clear the configured thresholds, propose one `severity: "warning"` convention. The duplication heuristics are clean-only ratchets: they propose only when the current scope already has zero violations under the default predicate thresholds. The emitted proposal is validated against `ReusableConventionsPackageV1` — the same reviewable-pack contract `extract-rules` emits (`{"conventionSpecVersion": "v1", "conventions": [...]}`) — never a `RawConfigV1`/`konpy.json`-shaped document. See [Inferring conventions](../guides/inferring-conventions.md) for the full heuristic reference and tuning guidance.
 
 ### Output-channel contract
 
@@ -263,7 +265,7 @@ konpy infer -o out.json -r report.md          # confirmations on stdout, both bo
 | `--min-confidence <n>` | float in `[0.0, 1.0]` | `0.9` | Minimum support/total ratio required to emit a proposal (`>=`, inclusive) |
 | `--min-support <n>` | integer `>= 1` | `3` | Minimum sample size (denominator) required before a signal is considered at all |
 | `--max-violators <n>` | integer `>= 0` | `10` | Maximum violator paths listed per proposal in the report (full-precision internally; only display is truncated) |
-| `--heuristic <name>` | string (repeatable) | all six | Restrict to specific heuristics: `export-suffix`, `paired-test-file`, `docstring-coverage`, `annotate-functions-coverage`, `barrel-usage`, `import-dominance` |
+| `--heuristic <name>` | string (repeatable) | all eight | Restrict to specific heuristics: `export-suffix`, `paired-test-file`, `docstring-coverage`, `annotate-functions-coverage`, `barrel-usage`, `import-dominance`, `repeated-literals`, `duplicate-functions` |
 | `--format <format>` | `text` \| `markdown` \| `json` | `text` | Report format |
 | `-o, --output <path>` | string | — (stdout) | Write the proposed pack here instead of stdout |
 | `-r, --report <path>` | string | — (stderr) | Write the report here instead of stderr |
@@ -378,7 +380,93 @@ A `claude -p` or `codex exec` spawned from inside the hook would, by default, in
 
 A fail verdict's reasons are self-correction feedback, same as any other linter/test failure surfaced through a hook. Nothing about `hook`'s prompt or exit-code contract instructs an agent to add a `# konpy: ignore[...]` comment — see the [suppression consent policy](./suppressions.md#ai-agents), which still applies in full if the feedback ever seems to call for a suppression rather than a fix.
 
-`konpy hook` never invokes `konpy check` or `konpy validate`, and vice versa; the two are independent mechanisms. See [Which hook mechanism should I use?](../guides/hooks.md#which-hook-mechanism-should-i-use) for the comparison with the deterministic `check --files` `PostToolUse` recipe.
+`konpy hook` never invokes `konpy check`, `konpy gate`, or `konpy validate`, and vice versa; the mechanisms are independent. See [Which hook mechanism should I use?](../guides/hooks.md#which-hook-mechanism-should-i-use) for the comparison with deterministic `PostToolUse` checking and deterministic `PreToolUse` gating.
+
+## `gate`
+
+Runs a deterministic Claude Code `PreToolUse` gate against proposed write content. Unlike `check`, `gate` reads a hook payload from stdin. Unlike `hook`, it never invokes an agent. It reconstructs the proposed post-write content for Claude Code `Write`, `Edit`, and `MultiEdit`, overlays that content in memory at the real project path, and runs the normal convention engine in-process before the write lands.
+
+```bash
+konpy gate --match 'src/**/*.py'
+konpy gate --match 'src/**/*.py' --match 'tests/**/*.py' --error-on-warnings
+konpy gate --diagnostic-level error --max-diagnostics 20
+```
+
+It is meant to be wired into Claude Code `.claude/settings.json` as a `PreToolUse` hook — see [Claude Code hook integration](../guides/claude-code-hook.md#a-pretooluse-gate-with-konpy-gate).
+
+### What it does
+
+1. Reads a Claude Code hook payload as JSON from stdin.
+2. Skips silently unless the payload is a Claude Code write-shaped tool call: `Write`, `Edit`, or `MultiEdit`.
+3. Extracts the target path and filters it through `--match`. If `--match` is omitted, every target path is gated.
+4. Reconstructs the proposed post-write content:
+   - `Write` uses `tool_input.content` as the full file body.
+   - `Edit` reads the current file content, then applies one `old_string` → `new_string` replacement, honoring `replace_all`.
+   - `MultiEdit` folds each edit in order.
+5. Runs the normal deterministic convention check through an overlay filesystem, scoped to the reconstructed target path.
+6. Allows clean proposed content with exit `0`, or blocks verified convention violations with exit `2` and check-compatible JSON diagnostics on stderr.
+
+Codex `apply_patch` reconstruction is out of scope in v1. Unsupported tools, malformed payloads, and unreconstructable edits fail open with exit `0`.
+
+### Flags
+
+| Flag | Type | Default | Description |
+| --- | --- | --- | --- |
+| `--match <glob>` | string (repeatable) | — (gates every target path) | Glob pattern(s) to filter proposed write paths against. Unlike `konpy hook`, omitting this means all target paths are gated |
+| `--config-path <path>` | string | `konpy.json` (project root) | Path to the config file |
+| `--config-package <pkg>` | string | — | Accepted for upstream compatibility, but **always fails open as unsupported** in the Python port. Use `--config-path` instead |
+| `--diagnostic-level <level>` | `warning` \| `error` | `warning` | Minimum severity to evaluate. `error` skips warning-severity conventions and suppression hygiene warnings, matching `check` |
+| `--error-on-warnings` | boolean | `false` | Block proposed writes on warnings as well as errors |
+| `--placeholder <name:value>` | string (repeatable) | — | Inject a placeholder into every convention's `placeholders` map, matching `check` semantics |
+| `--max-diagnostics <n>` | integer | `100` | Maximum unsuppressed diagnostics to include in the blocking JSON payload |
+
+`gate` has no `--format` flag. Blocking output is always the same JSON object shape as `konpy check --format json`, written to stderr with a trailing newline.
+
+### Exit-code contract
+
+| Exit | Meaning | Output |
+| --- | --- | --- |
+| `0` | allow, skipped, clean proposed content, warnings-only without `--error-on-warnings`, unreconstructable payload, or fail-open config/runtime problem | usually silent; config/runtime failures write one `konpy gate: warning: <detail>` line to stderr |
+| `1` | unrecognized `konpy gate` CLI arguments only | one stderr line; non-blocking misconfiguration |
+| `2` | verified convention violation in proposed content, or warnings when `--error-on-warnings` is set | check-compatible JSON diagnostics on stderr |
+
+Exit `2` is reserved exclusively for verified convention diagnostics. Config-load errors, invalid placeholders, unsupported `--config-package`, malformed payloads, runner exceptions, and unreconstructable edits never exit `2`; they fail open with exit `0`. The only exit `1` path is the CLI unknown-arguments guard, so a misconfigured gate is never mistaken for a convention block.
+
+### JSON blocking output
+
+On exit `2`, stderr is the same parseable JSON object produced by `konpy check --format json`:
+
+```json
+{
+  "diagnostics": [
+    {
+      "severity": "error",
+      "conventionName": "service-must-export-process",
+      "filePath": "src/service.py",
+      "predicateName": "export",
+      "message": "Missing export \"process\""
+    }
+  ],
+  "suppressed": [],
+  "summary": {
+    "filesChecked": 1,
+    "errors": 1,
+    "warnings": 0,
+    "suppressed": 0,
+    "durationMs": 0.75
+  },
+  "truncation": {
+    "shown": 1,
+    "omitted": 0
+  }
+}
+```
+
+`diagnostics` is truncated by `--max-diagnostics`, while `summary.errors` and `summary.warnings` remain the full pre-truncation totals, exactly like `check`.
+
+### Recursion
+
+`gate` does not spawn a subprocess, so it does not use the `KONPY_HOOK_ACTIVE` recursion sentinel from `konpy hook`. Setting that environment variable does not disable `gate`.
 
 ## `hook-propose`
 
@@ -604,7 +692,7 @@ Beyond `message`, a diagnostic may carry up to five additional, always-optional 
 
 A block's own `description`/`hint` override the parent convention's when both are set (same precedence as `name`).
 
-`expected`/`found`/`fix_hint` are populated by the predicates where they can be expressed unambiguously: `exportClasses`, `exportConstants`, `havePairedFile`, `haveDocstrings`, `annotateFunctions`, `importFrom`, `importFrom*`/`importTypes*` (current-dir/parents/externals groups), and `matchContent`. Other predicates leave these fields `None` rather than guessing — a vague hint is worse than no hint.
+`expected`/`found`/`fix_hint` are populated by the predicates where they can be expressed unambiguously: `exportClasses`, `exportConstants`, `havePairedFile`, `haveDocstrings`, `annotateFunctions`, `restrictAnnotations`, `restrictRepeatedLiterals`, `restrictDuplicateFunctions`, `importFrom`, `importFrom*`/`importTypes*` (current-dir/parents/externals groups), and `matchContent`. Other predicates leave these fields `None` rather than guessing — a vague hint is worse than no hint.
 
 All five fields are additive and optional everywhere they appear: omitted from JSON when absent (never emitted as `null`), and producing no extra line/cell in `default`/`markdown` output when absent. `fix_hint` is data only — konpy never applies it automatically and never emits suppression comments; see [Suppressions](./suppressions.md) for the consent policy on machine-authored changes.
 

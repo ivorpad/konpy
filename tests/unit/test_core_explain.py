@@ -449,3 +449,64 @@ class TestBuildExplainedConfig:
 
         with pytest.raises(ValueError, match="Unknown explain format"):
             render_explain(config, format="bogus")  # type: ignore[arg-type]
+
+
+class TestRestrictAnnotationsExplain:
+    def test_restrict_annotations_options_object_renders_generically(self) -> None:
+        config = _config(
+            conventions=[
+                {
+                    "paths": "src/*.py",
+                    "must": {
+                        "restrictAnnotations": {
+                            "forbid": ["dict[str, *]"],
+                            "allow": ["dict[str, JsonValue]"],
+                            "defaults": False,
+                            "publicOnly": False,
+                        }
+                    },
+                }
+            ]
+        )
+
+        md = render_explain(config, format="md")
+
+        assert "restrictAnnotations" in md
+        assert "forbid=dict[str, *]" in md
+        assert "allow=dict[str, JsonValue]" in md
+        assert "defaults=false" in md
+        assert "publicOnly=false" in md
+
+
+class TestDuplicationPredicatesExplain:
+    def test_duplication_options_render_generically(self) -> None:
+        config = _config(
+            conventions=[
+                {
+                    "paths": "src/*.py",
+                    "must": {
+                        "restrictRepeatedLiterals": {
+                            "minLength": 12,
+                            "maxOccurrences": 3,
+                            "allow": ["test-*"],
+                        },
+                        "restrictDuplicateFunctions": {
+                            "minStatements": 6,
+                            "publicOnly": True,
+                            "allowNames": ["*_fixture"],
+                        },
+                    },
+                }
+            ]
+        )
+
+        md = render_explain(config, format="md")
+
+        assert "restrictRepeatedLiterals" in md
+        assert "minLength=12" in md
+        assert "maxOccurrences=3" in md
+        assert "allow=test-*" in md
+        assert "restrictDuplicateFunctions" in md
+        assert "minStatements=6" in md
+        assert "publicOnly=true" in md
+        assert "allowNames=*_fixture" in md

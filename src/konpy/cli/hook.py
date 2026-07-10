@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-import json
 import os
 import sys
 from collections.abc import Mapping
 from datetime import UTC, datetime
-
-from pydantic import ValidationError
 
 from konpy.cli._hook_findings import HookFinding, append_hook_finding
 from konpy.cli._hook_support import (
@@ -18,6 +15,7 @@ from konpy.cli._hook_support import (
     build_hook_prompt,
     extract_target_paths,
     hook_child_args,
+    parse_hook_payload,
     parse_verdict,
     path_matches_any,
 )
@@ -189,22 +187,7 @@ def _run_hook_agent(
 
 
 def _parse_payload(raw: str) -> HookPayload | None:
-    text = raw.strip()
-    if not text:
-        return None
-
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError:
-        return None
-
-    if not isinstance(data, dict):
-        return None
-
-    try:
-        return HookPayload.model_validate(data)
-    except ValidationError:
-        return None
+    return parse_hook_payload(raw)
 
 
 def _normalize_hook_agent(agent: HookAgent | str | None) -> Result[str]:

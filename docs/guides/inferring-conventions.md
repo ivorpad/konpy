@@ -1,6 +1,6 @@
 # Inferring conventions from an existing codebase
 
-`konpy infer` mines a repository for candidate structural conventions — statistical regularities strong enough to be worth enforcing — and emits a reviewable, `ReusableConventionsPackageV1`-shaped proposed pack plus a confidence/violators report. This is the same output contract `konpy extract-rules` uses: `{"conventionSpecVersion": "v1", "conventions": [...]}`, validated against the reusable-pack schema before it is printed or written — never a `konpy.json`/`RawConfigV1`-shaped document, so a proposal can never be mistaken for (or accidentally consumed as) a real config. It never edits `konpy.json`, never reads one, and requires no agent call: all six heuristics are deterministic, running over the same `ast`/filesystem walkers `check` uses.
+`konpy infer` mines a repository for candidate structural conventions — statistical regularities strong enough to be worth enforcing — and emits a reviewable, `ReusableConventionsPackageV1`-shaped proposed pack plus a confidence/violators report. This is the same output contract `konpy extract-rules` uses: `{"conventionSpecVersion": "v1", "conventions": [...]}`, validated against the reusable-pack schema before it is printed or written — never a `konpy.json`/`RawConfigV1`-shaped document, so a proposal can never be mistaken for (or accidentally consumed as) a real config. It never edits `konpy.json`, never reads one, and requires no agent call: all eight heuristics are deterministic, running over the same `ast`/filesystem walkers `check` uses.
 
 Think of it as the reverse of `check`: instead of telling you where your codebase violates known rules, it tells you which rules your codebase already mostly follows.
 
@@ -38,7 +38,7 @@ A proposal looks like this (one entry per convention in the `conventions` array)
 
 Every proposal is `severity: "warning"`, so pointing `check` at a freshly inferred config never hard-fails CI before you have reviewed it.
 
-## The six heuristics
+## The eight heuristics
 
 | Heuristic | Grouping | What it measures | Predicate produced |
 | --- | --- | --- | --- |
@@ -48,8 +48,12 @@ Every proposal is `severity: "warning"`, so pointing `check` at a freshly inferr
 | `annotate-functions-coverage` | top-level path segment | public functions annotate params/return types | `must.annotateFunctions` |
 | `barrel-usage` | top-level path segment | `__init__.py` files contain only barrel statements | `must.areBarrelFiles` |
 | `import-dominance` | top-level path segment | non-barrel modules prefer absolute over relative imports | `mustNot.importFromCurrentDir`/`importFromParents` |
+| `repeated-literals` | top-level path segment | production modules are already clean under the default repeated-literal thresholds | `must.restrictRepeatedLiterals` |
+| `duplicate-functions` | top-level path segment | production modules are already clean under the default duplicate-function thresholds | `must.restrictDuplicateFunctions` |
 
 `import-dominance` only ever proposes the "prefers absolute imports" direction — it has no code path that proposes "prefers relative imports," regardless of thresholds. A low absolute-import rate simply lands the signal in the report's skipped section, never as a "you should use relative imports" proposal.
+
+`repeated-literals` and `duplicate-functions` are clean-only ratchets, not pass-rate miners. They group non-test files by top-level path segment, require the segment to meet `--min-support`, then propose only if the segment has zero violations under the same default thresholds the predicates use (`DEFAULT_MIN_LENGTH`/`DEFAULT_MAX_OCCURRENCES` for repeated literals, and `DEFAULT_MIN_STATEMENTS` for duplicate functions). If any default-threshold violation already exists, the signal is skipped with `reason: "existing-violations"` rather than proposing a rule that would immediately fail.
 
 `docstring-coverage` and `annotate-functions-coverage` each measure two-or-three independent sub-signals (module/class/function docstrings; params/returns annotations) and merge whichever ones clear the threshold into a single convention, explicitly setting every option key (`true` for included kinds, `false` for excluded ones) so a later config change can't silently re-enable a kind that wasn't actually measured as passing.
 

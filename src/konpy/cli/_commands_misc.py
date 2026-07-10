@@ -114,7 +114,8 @@ def infer(
             help=(
                 "Restrict to specific heuristics (repeatable): export-suffix, "
                 "paired-test-file, docstring-coverage, annotate-functions-coverage, "
-                "barrel-usage, import-dominance. Default: all."
+                "barrel-usage, import-dominance, repeated-literals, "
+                "duplicate-functions. Default: all."
             ),
         ),
     ] = None,

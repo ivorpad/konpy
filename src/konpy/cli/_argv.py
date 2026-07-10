@@ -12,6 +12,7 @@ _KNOWN_SUBCOMMANDS = {
     "extract-rules",
     "infer",
     "explain",
+    "gate",
     "hook",
     "hook-propose",
     "version",

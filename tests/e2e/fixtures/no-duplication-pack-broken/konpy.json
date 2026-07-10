@@ -1,0 +1,10 @@
+{
+  "version": "v1",
+  "conventionSources": {
+    "dup": "../../../../packs/no-duplication.json"
+  },
+  "conventions": [
+    "dup/no-repeated-string-literals",
+    "dup/no-duplicate-functions"
+  ]
+}

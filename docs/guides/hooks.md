@@ -2,21 +2,30 @@
 
 `konpy hook` wires an agentic verifier into a coding agent's lifecycle hooks (Claude Code `PostToolUse`, Codex `PostToolUse`). After the host agent writes or edits a file, `konpy hook` filters the event deterministically (tool name + `--match` glob), then spawns a verifier agent (`claude -p` or `codex exec`) with a natural-language prompt. A fail verdict is reported back to the host agent as blocking feedback so it can self-correct on its next turn.
 
-`konpy check` and `konpy validate` never invoke an agent. `konpy hook` is the only subcommand that does, and only when a matching write event actually occurs.
+`konpy gate` is the deterministic `PreToolUse` counterpart: it reconstructs Claude Code's proposed `Write`/`Edit`/`MultiEdit` content, runs the normal convention check in-process before the write lands, and exits `2` only for verified convention violations.
+
+`konpy check`, `konpy validate`, and `konpy gate` never invoke an agent. `konpy hook` is the only subcommand that does, and only when a matching write event actually occurs.
 
 ## Which hook mechanism should I use?
 
-konpy ships **two** distinct, unrelated PostToolUse hook mechanisms — pick the one that matches what you're verifying:
+konpy ships **three** distinct hook mechanisms — pick the one that matches what you're verifying and whether you need to block before the write lands:
 
-| | [`konpy check --files` recipe](claude-code-hook.md) | `konpy hook` (this guide) |
-|---|---|---|
-| Verifies | structural conventions in `konpy.json` | anything expressible as a natural-language instruction |
-| How | runs the deterministic linter directly | spawns a read-only LLM agent (`claude -p` / `codex exec`) per matched file |
-| Cost | cheap — no LLM call, milliseconds | an agent invocation per matched write, seconds to tens of seconds |
-| Setup | a shell script calling `konpy check --files <path> --format json` | `konpy hook --agent <claude|codex> --match <glob> --prompt <instruction>` directly as the hook command |
-| Use when | you already have (or can write) a `konpy.json` rule for it | the check is semantic/judgment-based and hard to express as a structural predicate (e.g. "docstrings aren't aspirational", "this class actually implements what its name claims") |
+| | [`konpy check --files` recipe](claude-code-hook.md) | [`konpy gate`](../reference/cli.md#gate) | `konpy hook` (this guide) |
+|---|---|---|---|
+| Hook event | `PostToolUse` | `PreToolUse` | `PostToolUse` |
+| Verifies | structural conventions in `konpy.json` after a write | structural conventions in `konpy.json` against proposed Claude Code content before a write | anything expressible as a natural-language instruction after a write |
+| How | runs the deterministic linter directly on disk | reconstructs proposed `Write`/`Edit`/`MultiEdit` content in an overlay filesystem, then runs the deterministic linter in-process | spawns a read-only LLM agent (`claude -p` / `codex exec`) per matched file |
+| Cost | cheap — no LLM call, milliseconds | cheap — no LLM call, milliseconds | an agent invocation per matched write, seconds to tens of seconds |
+| Setup | a shell script calling `konpy check --files <path> --format json` | `konpy gate --match <glob>` directly as the hook command | `konpy hook --agent <claude|codex> --match <glob> --prompt <instruction>` directly as the hook command |
+| Use when | you already have (or can write) a `konpy.json` rule and feedback after the write is enough | you already have (or can write) a `konpy.json` rule and want non-conforming proposed content blocked before it lands | the check is semantic/judgment-based and hard to express as a structural predicate (e.g. "docstrings aren't aspirational", "this class actually implements what its name claims") |
 
-They can be run side by side — the deterministic recipe as a fast first pass, the agentic hook for the subset of checks that need judgment. Neither depends on the other.
+They can be run side by side — `konpy gate` as a hard deterministic guard, the deterministic PostToolUse recipe as a fast after-write fallback, and the agentic hook for the subset of checks that need judgment. None depends on the others.
+
+## `konpy gate` at a glance
+
+Use `konpy gate` when you want model-free, deterministic `PreToolUse` blocking for existing `konpy.json` conventions. It reads the Claude Code payload from stdin, supports `Write`, `Edit`, and `MultiEdit`, treats omitted `--match` as "gate every target path", writes check-compatible JSON diagnostics to stderr on exit `2`, and fails open on config/runtime/unreconstructable payloads with exit `0`. It does not spawn an agent and does not use the `KONPY_HOOK_ACTIVE` recursion sentinel.
+
+For setup details, see [Claude Code hook integration](claude-code-hook.md#a-pretooluse-gate-with-konpy-gate) and the [`konpy gate` CLI reference](../reference/cli.md#gate).
 
 ## What it does
 

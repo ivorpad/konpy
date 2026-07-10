@@ -30,6 +30,31 @@ class PlaceholderSatisfiesConditionV1(_StrictModel):
 ConditionV1 = HasFileConditionV1 | PlaceholderSatisfiesConditionV1
 
 
+_MUST_ONLY_PREDICATE_MESSAGES = {
+    "restrictAnnotations": (
+        'restrictAnnotations is only supported in "must", not "mustNot"; '
+        "it already reports restricted annotations directly."
+    ),
+    "restrictRepeatedLiterals": (
+        'restrictRepeatedLiterals is only supported in "must", not "mustNot"; '
+        "it already reports repeated literals directly."
+    ),
+    "restrictDuplicateFunctions": (
+        'restrictDuplicateFunctions is only supported in "must", not "mustNot"; '
+        "it already reports duplicate functions directly."
+    ),
+}
+
+
+def _reject_must_only_predicates(must_not: MustPredicatesV1 | None) -> None:
+    if must_not is None:
+        return
+
+    for predicate_name, message in _MUST_ONLY_PREDICATE_MESSAGES.items():
+        if getattr(must_not, predicate_name) is not None:
+            raise ValueError(message)
+
+
 class ForV1(_StrictModel):
     """Scopes a ``must``/``mustNot`` block to a subset of files within a convention's paths."""
 
@@ -41,6 +66,7 @@ class _RequiresMustOrMustNot(_StrictModel):
     def _check_must_or_must_not(self) -> Self:
         if getattr(self, "must", None) is None and getattr(self, "mustNot", None) is None:
             raise ValueError('requires at least one of "must" or "mustNot"')
+        _reject_must_only_predicates(getattr(self, "mustNot", None))
         return self
 
 
@@ -92,6 +118,11 @@ class MustBlockUseRefV1(_StrictModel):
     must: MustPredicatesV1 | None = None
     mustNot: MustPredicatesV1 | None = None
 
+    @model_validator(mode="after")
+    def _check_must_not(self) -> Self:
+        _reject_must_only_predicates(self.mustNot)
+        return self
+
 
 class ConventionV1(_RequiresMustOrMustNot):
     """A fully-materialized convention (after reference expansion)."""
@@ -133,6 +164,11 @@ class ConventionUseRefV1(_StrictModel):
     for_: ForV1 | None = Field(default=None, alias="for")
     must: MustPredicatesV1 | None = None
     mustNot: MustPredicatesV1 | None = None
+
+    @model_validator(mode="after")
+    def _check_must_not(self) -> Self:
+        _reject_must_only_predicates(self.mustNot)
+        return self
 
 
 class UnusedCodeV1(_StrictModel):

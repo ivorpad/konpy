@@ -21,6 +21,7 @@ Commands:
   extract-rules  Extract reusable convention proposals from prose rules
   infer          Mine the codebase for candidate structural conventions
   explain        Render resolved conventions as agent guidance (markdown/text)
+  gate           Run a deterministic PreToolUse convention gate
   hook           Run an agentic PostToolUse verification hook
   hook-propose   Promote logged hook findings into reusable convention proposals
   version        Print the version number
@@ -58,7 +59,11 @@ Infer options:
   --min-confidence <n>       Minimum support/total ratio required to propose (default: 0.9)
   --min-support <n>          Minimum sample size required to consider a signal (default: 3)
   --max-violators <n>        Maximum violator paths listed per proposal (default: 10)
-  --heuristic <name>         Restrict to specific heuristics; repeatable
+  --heuristic <name>         Restrict to heuristics; repeatable: export-suffix,
+                             paired-test-file, docstring-coverage,
+                             annotate-functions-coverage, barrel-usage,
+                             import-dominance, repeated-literals,
+                             duplicate-functions
   --format <format>          Report format: text, markdown, json
   -o, --output <path>        Write the proposed reusable convention pack here instead of stdout
   -r, --report <path>        Write the confidence/violators report here instead of stderr
@@ -68,6 +73,16 @@ Explain options:
   --config-package <pkg>     Unsupported in the Python port
   --format <format>          Output format: md, text
   --placeholder <name:value> Inject a placeholder value; may be repeated
+
+Gate options:
+  --match <glob>             Glob pattern to filter proposed write paths; may be repeated
+                             If omitted, every target path is gated
+  --config-path <path>       Path to konpy.json config file
+  --config-package <pkg>     Unsupported in the Python port
+  --diagnostic-level <level> Minimum severity to evaluate: warning or error
+  --error-on-warnings        Block proposed writes on warnings as well as errors
+  --placeholder <name:value> Inject a placeholder value; may be repeated
+  --max-diagnostics <n>      Maximum diagnostics to report when blocking
 
 Hook options:
   --match <glob>             Glob pattern to filter written/edited files; may be repeated
@@ -84,6 +99,11 @@ Hook-propose options:
   --report <path>            Write unmapped-rules report to this path
   --model <model>            Model passed through to the agent CLI (default: sonnet)
   --timeout <seconds>        Timeout for the proposal agent subprocess
+
+Exit codes (gate):
+  0  allow, skipped, unreconstructable, or fail-open config/runtime warning
+  1  unrecognized gate arguments only; non-blocking misconfiguration
+  2  verified convention violation in proposed content; JSON diagnostics on stderr
 
 Exit codes (hook):
   0  pass, or skipped (no match, non-write tool, sentinel active, unparseable payload)

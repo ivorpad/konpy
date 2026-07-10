@@ -120,7 +120,12 @@ def _process_const_assignment(
         return
     pos = _position(target)
     collector.constants.append(
-        ConstantInfo(name=target.id, pos=pos, type_name=_annotation_info(annotation))
+        ConstantInfo(
+            name=target.id,
+            pos=pos,
+            type_name=_annotation_info(annotation),
+            is_public=_is_public(target.id, collector.all_state),
+        )
     )
     _add_declaration_symbol(collector, kind="const", name=target.id, pos=pos)
     if _is_public(target.id, collector.all_state):

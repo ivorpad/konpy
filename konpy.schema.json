@@ -1223,6 +1223,54 @@
           ],
           "default": null,
           "title": "Annotatefunctions"
+        },
+        "restrictAnnotations": {
+          "anyOf": [
+            {
+              "const": true,
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/$defs/RestrictAnnotationsOptionsV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Restrictannotations"
+        },
+        "restrictRepeatedLiterals": {
+          "anyOf": [
+            {
+              "const": true,
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/$defs/RestrictRepeatedLiteralsOptionsV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Restrictrepeatedliterals"
+        },
+        "restrictDuplicateFunctions": {
+          "anyOf": [
+            {
+              "const": true,
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/$defs/RestrictDuplicateFunctionsOptionsV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Restrictduplicatefunctions"
         }
       },
       "title": "MustPredicatesV1",
@@ -1392,6 +1440,151 @@
         "paths"
       ],
       "title": "RawHandWrittenConventionV1",
+      "type": "object"
+    },
+    "RestrictAnnotationsOptionsV1": {
+      "additionalProperties": false,
+      "description": "Options for the ``restrictAnnotations`` predicate.",
+      "properties": {
+        "forbid": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Forbid"
+        },
+        "allow": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Allow"
+        },
+        "defaults": {
+          "default": true,
+          "title": "Defaults",
+          "type": "boolean"
+        },
+        "publicOnly": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Publiconly"
+        }
+      },
+      "title": "RestrictAnnotationsOptionsV1",
+      "type": "object"
+    },
+    "RestrictDuplicateFunctionsOptionsV1": {
+      "additionalProperties": false,
+      "description": "Options for the ``restrictDuplicateFunctions`` predicate.",
+      "properties": {
+        "minStatements": {
+          "default": 4,
+          "description": "Minimum normalized statement count before a function is considered.",
+          "minimum": 1,
+          "title": "Minstatements",
+          "type": "integer"
+        },
+        "publicOnly": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When true, skip private functions and methods.",
+          "title": "Publiconly"
+        },
+        "allowNames": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Star-pattern function names, qualified names, or file::qualified_name labels to ignore.",
+          "title": "Allownames"
+        }
+      },
+      "title": "RestrictDuplicateFunctionsOptionsV1",
+      "type": "object"
+    },
+    "RestrictRepeatedLiteralsOptionsV1": {
+      "additionalProperties": false,
+      "description": "Options for the ``restrictRepeatedLiterals`` predicate.",
+      "properties": {
+        "minLength": {
+          "default": 8,
+          "description": "Minimum decoded string length before a literal is considered.",
+          "minimum": 1,
+          "title": "Minlength",
+          "type": "integer"
+        },
+        "maxOccurrences": {
+          "default": 2,
+          "description": "Maximum allowed occurrences of one literal in the matched scope.",
+          "minimum": 1,
+          "title": "Maxoccurrences",
+          "type": "integer"
+        },
+        "allow": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Star-pattern string literal values to ignore.",
+          "title": "Allow"
+        }
+      },
+      "title": "RestrictRepeatedLiteralsOptionsV1",
       "type": "object"
     },
     "UnusedCodeV1": {

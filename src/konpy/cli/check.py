@@ -4,10 +4,19 @@ import sys
 from enum import Enum, StrEnum
 from pathlib import Path
 
-from konpy.config.cli_placeholders import normalize_placeholder_arg, parse_cli_placeholders
+from konpy.cli._check_support import (
+    enum_value as _shared_enum_value,
+)
+from konpy.cli._check_support import (
+    has_errors as _shared_has_errors,
+)
+from konpy.cli._check_support import (
+    has_warnings as _shared_has_warnings,
+)
+from konpy.cli._check_support import (
+    prepare_check_runtime,
+)
 from konpy.config.errors import Err
-from konpy.config.loader import load_config_runtime
-from konpy.config.schema import ConfigV1
 from konpy.core.diff_scope import resolve_diff_scope
 from konpy.core.filesystem import RealFileSystem
 from konpy.core.reporters import (
@@ -60,39 +69,28 @@ def run_check_command(
     """
     del verbose
 
-    cli_placeholders_result = parse_cli_placeholders(
-        raw=normalize_placeholder_arg(placeholder),
-    )
-    if isinstance(cli_placeholders_result, Err):
-        _write_error(cli_placeholders_result.error)
-        return 1
-
     scope_result = resolve_diff_scope(files=files, changed=changed, cwd=Path.cwd())
     if isinstance(scope_result, Err):
         _write_error(scope_result.error)
         return 1
     target_files = scope_result.value
 
-    loaded_result = load_config_runtime(
+    prepared_result = prepare_check_runtime(
         config_path=config_path,
         config_package=config_package,
-        cli_placeholders=cli_placeholders_result.value,
+        diagnostic_level=diagnostic_level,
+        placeholder=placeholder,
     )
-    if isinstance(loaded_result, Err):
-        _write_error(loaded_result.error)
+    if isinstance(prepared_result, Err):
+        _write_error(prepared_result.error)
         return 1
 
-    loaded = loaded_result.value
-    diagnostic_level_value = _enum_value(diagnostic_level)
-    config = _filter_config_for_diagnostic_level(
-        config=loaded.config,
-        diagnostic_level=diagnostic_level_value,
-    )
+    prepared = prepared_result.value
     run_result = run(
-        config=config,
+        config=prepared.config,
         file_system=RealFileSystem(cwd=Path.cwd()),
-        predicate_registry=loaded.predicate_registry,
-        report_suppression_warnings=diagnostic_level_value != "error",
+        predicate_registry=prepared.predicate_registry,
+        report_suppression_warnings=prepared.diagnostic_level_value != "error",
         target_files=target_files,
     )
 
@@ -146,28 +144,6 @@ def run_check_command(
     return 0
 
 
-def _filter_config_for_diagnostic_level(
-    *,
-    config: ConfigV1,
-    diagnostic_level: str,
-) -> ConfigV1:
-    if diagnostic_level != "error":
-        return config
-
-    update: dict[str, object] = {
-        "conventions": [
-            convention
-            for convention in config.conventions
-            if (convention.severity or "error") != "warning"
-        ]
-    }
-
-    if config.unusedCode is not None and (config.unusedCode.severity or "warning") == "warning":
-        update["unusedCode"] = None
-
-    return config.model_copy(update=update)
-
-
 def _format_result(
     *,
     result: RunResult,
@@ -194,17 +170,15 @@ def _format_result(
 
 
 def _has_errors(result: RunResult) -> bool:
-    return any(diagnostic.severity == "error" for diagnostic in result.diagnostics)
+    return _shared_has_errors(result)
 
 
 def _has_warnings(result: RunResult) -> bool:
-    return any(diagnostic.severity == "warning" for diagnostic in result.diagnostics)
+    return _shared_has_warnings(result)
 
 
 def _enum_value(value: Enum | str) -> str:
-    if isinstance(value, Enum):
-        return str(value.value)
-    return value
+    return _shared_enum_value(value)
 
 
 def _write_error(message: str) -> None:

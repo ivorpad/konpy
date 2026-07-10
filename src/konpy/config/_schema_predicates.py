@@ -100,6 +100,63 @@ class AnnotateFunctionsOptionsV1(_StrictModel):
         return self
 
 
+class RestrictAnnotationsOptionsV1(_StrictModel):
+    """Options for the ``restrictAnnotations`` predicate."""
+
+    forbid: list[NonEmptyString] | None = Field(default=None, min_length=1)
+    allow: list[NonEmptyString] | None = Field(default=None, min_length=1)
+    defaults: bool = True
+    publicOnly: bool | None = None
+
+    @model_validator(mode="after")
+    def _requires_defaults_or_forbid(self) -> Self:
+        if self.defaults is False and not self.forbid:
+            raise ValueError("restrictAnnotations requires forbid when defaults is false")
+        return self
+
+
+class RestrictRepeatedLiteralsOptionsV1(_StrictModel):
+    """Options for the ``restrictRepeatedLiterals`` predicate."""
+
+    minLength: int = Field(
+        default=8,
+        ge=1,
+        description="Minimum decoded string length before a literal is considered.",
+    )
+    maxOccurrences: int = Field(
+        default=2,
+        ge=1,
+        description="Maximum allowed occurrences of one literal in the matched scope.",
+    )
+    allow: list[NonEmptyString] | None = Field(
+        default=None,
+        min_length=1,
+        description="Star-pattern string literal values to ignore.",
+    )
+
+
+class RestrictDuplicateFunctionsOptionsV1(_StrictModel):
+    """Options for the ``restrictDuplicateFunctions`` predicate."""
+
+    minStatements: int = Field(
+        default=4,
+        ge=1,
+        description="Minimum normalized statement count before a function is considered.",
+    )
+    publicOnly: bool | None = Field(
+        default=None,
+        description="When true, skip private functions and methods.",
+    )
+    allowNames: list[NonEmptyString] | None = Field(
+        default=None,
+        min_length=1,
+        description=(
+            "Star-pattern function names, qualified names, or "
+            "file::qualified_name labels to ignore."
+        ),
+    )
+
+
 class MustPredicatesV1(_StrictModel):
     """The full set of predicates a convention's ``must``/``mustNot`` block may declare."""
 
@@ -133,6 +190,11 @@ class MustPredicatesV1(_StrictModel):
     areBarrelFiles: bool | None = None
     haveDocstrings: Literal[True] | HaveDocstringsOptionsV1 | None = None
     annotateFunctions: Literal[True] | AnnotateFunctionsOptionsV1 | None = None
+    restrictAnnotations: Literal[True] | RestrictAnnotationsOptionsV1 | None = None
+    restrictRepeatedLiterals: Literal[True] | RestrictRepeatedLiteralsOptionsV1 | None = None
+    restrictDuplicateFunctions: (
+        Literal[True] | RestrictDuplicateFunctionsOptionsV1 | None
+    ) = None
 
     @field_validator("matchContent")
     @classmethod

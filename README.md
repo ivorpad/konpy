@@ -47,7 +47,7 @@ Create `konpy.json` at the repo root:
 
 `paths` globs capture placeholders (`{name}`) that predicates consume via `${name}` templates with case transforms (`toPascalCase`, `toSnakeCase`, `toConstantCase`, …). Everything under `must` must hold; anything under `mustNot` must not. Full vocabulary: [docs/reference/predicates.md](docs/reference/predicates.md); path grammar: [docs/reference/path-patterns.md](docs/reference/path-patterns.md).
 
-Notable predicates: `haveFiles`, `haveType`, `export*`/`declare*` families, `import`/`importFrom`/`importFromParents`, `areBarrelFiles`, `useDeclarationOrder`, and the coverage/content set: `matchContent` (regex on file content — the escape hatch), `havePairedFile` (repo-root-relative), `haveDocstrings`, `annotateFunctions`. Dead-code detection is configured separately via the top-level `unusedCode` key — next section.
+Notable predicates: `haveFiles`, `haveType`, `export*`/`declare*` families, `import`/`importFrom`/`importFromParents`, `areBarrelFiles`, `useDeclarationOrder`, and the coverage/content set: `matchContent` (regex on file content — the escape hatch), `havePairedFile` (repo-root-relative), `haveDocstrings`, `annotateFunctions`, `restrictAnnotations`. Dead-code detection is configured separately via the top-level `unusedCode` key — next section.
 
 ## Unused-code detection
 
@@ -89,10 +89,11 @@ Rules can be packaged once and consumed everywhere. This repo ships a starter pa
 
 String form uses the pack rule's own paths; `use` form supplies (or overrides) paths, placeholders, and severity. Authoring guide: [docs/guides/authoring-reusable-conventions.md](docs/guides/authoring-reusable-conventions.md). Copy-paste templates for project-specific rules (layered import bans, DDD layouts, test-suite layout): [docs/guides/templates.md](docs/guides/templates.md).
 
-### More packs: hexagonal architecture and src layout
+### More packs: typed records, hexagonal architecture, and src layout
 
-Two additional off-the-shelf packs live alongside the best-practices one:
+Additional off-the-shelf packs live alongside the best-practices one:
 
+- [`packs/typed-records.json`](packs/typed-records.json) — annotation hygiene for identity-less anonymous record mappings such as `dict[str, Any]`; encourages pydantic models, `TypedDict`, or dataclasses.
 - [`packs/hexagonal-architecture.json`](packs/hexagonal-architecture.json) — ports-and-adapters layering: domain modules stay free of adapter/infrastructure imports, ports are `Protocol`/`ABC` boundaries, adapters export an `*Adapter`-suffixed class, and each use case has a paired test. Assumes `src/domain/`, `src/ports/`, `src/adapters/`, `src/use_cases/`.
 - [`packs/src-layout.json`](packs/src-layout.json) — `src/` layout hygiene: the project root has `src/` + `pyproject.toml`, every top-level `src/` package has an `__init__.py`, and both flat and one-level-nested modules mirror into `tests/`.
 
@@ -103,7 +104,8 @@ Consume either one the same way, via `conventionSources`:
   "version": "v1",
   "conventionSources": {
     "hex": "./packs/hexagonal-architecture.json",
-    "layout": "./packs/src-layout.json"
+    "layout": "./packs/src-layout.json",
+    "typed": "./packs/typed-records.json"
   },
   "conventions": [
     "hex/domain-does-not-import-adapters-or-infrastructure",
@@ -113,7 +115,8 @@ Consume either one the same way, via `conventionSources`:
     "layout/project-root-uses-src-layout",
     "layout/top-level-src-packages-have-init",
     "layout/top-level-modules-mirror-into-tests",
-    "layout/nested-modules-mirror-into-tests"
+    "layout/nested-modules-mirror-into-tests",
+    "typed/no-anonymous-record-annotations"
   ]
 }
 ```

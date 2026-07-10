@@ -10,6 +10,7 @@ from konpy.python_ast._assignments import (
 from konpy.python_ast._classes import _process_class
 from konpy.python_ast._collector import _add_module_docstring_target, _Collector
 from konpy.python_ast._dunder_all import _collect_all_state
+from konpy.python_ast._function_fingerprints import _collect_function_fingerprints
 from konpy.python_ast._functions import _process_function
 from konpy.python_ast._imports import (
     _collect_typing_aliases,
@@ -18,6 +19,7 @@ from konpy.python_ast._imports import (
     _process_import_from,
     _process_type_checking_if,
 )
+from konpy.python_ast._string_literals import _collect_string_literals
 from konpy.python_ast.structure import PyFileStructure
 
 
@@ -32,6 +34,8 @@ def parse_file_structure(source: str, file_path: str = "<unknown>") -> PyFileStr
     aliases = _collect_typing_aliases(module.body)
     collector = _Collector(all_state=all_state)
     _add_module_docstring_target(module, collector)
+    _collect_string_literals(module, collector)
+    _collect_function_fingerprints(module, collector)
 
     for node in module.body:
         if isinstance(node, ast.Import):
@@ -56,6 +60,7 @@ def parse_file_structure(source: str, file_path: str = "<unknown>") -> PyFileStr
 def _empty_file_structure() -> PyFileStructure:
     return PyFileStructure(
         classes=(),
+        class_attributes=(),
         constants=(),
         declaration_symbols=(),
         default_export_symbols=(),
@@ -63,11 +68,13 @@ def _empty_file_structure() -> PyFileStructure:
         exports=(),
         function_annotation_targets=(),
         functions=(),
+        function_fingerprints=(),
         import_sources=(),
         imports=(),
         interfaces=(),
         named_export_symbols=(),
         non_barrel_statements=(),
+        string_literals=(),
         type_aliases=(),
         all_names=None,
         all_is_dynamic=False,
@@ -82,6 +89,7 @@ def _finalize_structure(collector: _Collector) -> PyFileStructure:
     )
     return PyFileStructure(
         classes=tuple(collector.classes),
+        class_attributes=tuple(collector.class_attributes),
         constants=tuple(collector.constants),
         declaration_symbols=tuple(collector.declaration_symbols),
         default_export_symbols=tuple(collector.default_export_symbols),
@@ -89,11 +97,13 @@ def _finalize_structure(collector: _Collector) -> PyFileStructure:
         exports=tuple(collector.exports),
         function_annotation_targets=tuple(collector.function_annotation_targets),
         functions=tuple(collector.functions),
+        function_fingerprints=tuple(collector.function_fingerprints),
         import_sources=tuple(collector.import_sources),
         imports=tuple(collector.imports),
         interfaces=tuple(collector.interfaces),
         named_export_symbols=tuple(collector.named_export_symbols),
         non_barrel_statements=tuple(collector.non_barrel_statements),
+        string_literals=tuple(collector.string_literals),
         type_aliases=tuple(collector.type_aliases),
         all_names=all_names,
         all_is_dynamic=collector.all_state.is_dynamic,

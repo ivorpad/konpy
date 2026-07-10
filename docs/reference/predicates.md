@@ -80,9 +80,12 @@ Plugin predicate keys remain strict: unknown keys are rejected unless a named pl
   - [`areBarrelFiles`](#arebarrelfiles)
   - [`haveDocstrings`](#havedocstrings)
   - [`annotateFunctions`](#annotatefunctions)
+  - [`restrictAnnotations`](#restrictannotations)
+  - [`restrictRepeatedLiterals`](#restrictrepeatedliterals)
+  - [`restrictDuplicateFunctions`](#restrictduplicatefunctions)
 - [Plugin predicates](#plugin-predicates)
 
-All predicates support template substitutions in their string values — see [path-patterns.md](./path-patterns.md#case-transformations) for the full case-transformation catalog. Exception: `matchContent` regex patterns are compiled as written and do **not** perform template substitution, because `${...}` is valid regex syntax.
+Most predicates support template substitutions in their string values — see [path-patterns.md](./path-patterns.md#case-transformations) for the full case-transformation catalog. Exceptions: `matchContent` regex patterns are compiled as written and do **not** perform template substitution, because `${...}` is valid regex syntax; `restrictAnnotations`, `restrictRepeatedLiterals`, and `restrictDuplicateFunctions` option patterns also do **not** perform template substitution, because they match parsed source facts exactly.
 
 `mustNot` accepts only the object form:
 
@@ -643,6 +646,180 @@ Objects that disable both `returns` and `params` are invalid.
 This is a coverage-style predicate: it checks all selected/public function definitions in the matched file. It differs from `exportFunctions`, which checks specific named exported functions and optional signature details.
 
 Nested local functions and methods on nested classes are not checked.
+
+### `restrictAnnotations`
+
+Flag identity-less anonymous record annotations and suggest replacing them with named record types.
+
+```json
+"must": { "restrictAnnotations": true }
+```
+
+The bare `true` form enables the default rules with `publicOnly: true`.
+
+Use the object form to customize matching:
+
+```json
+"must": {
+  "restrictAnnotations": {
+    "forbid": ["dict[str, *]"],
+    "allow": ["dict[str, JsonValue]"],
+    "defaults": true,
+    "publicOnly": true
+  }
+}
+```
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `forbid` | string[] | unset | Additional annotation patterns to forbid. Patterns match normalized `ast.unparse` annotation text. |
+| `allow` | string[] | unset | Annotation patterns to allow even when they match `forbid` or the defaults. |
+| `defaults` | boolean | `true` | Enable the built-in anonymous-record defaults. |
+| `publicOnly` | boolean | `true` | Skip private functions/methods, private module constants, and private class attributes. |
+
+`forbid` and `allow` use fnmatch-style `*` wildcards against normalized annotation text. Only `*` is a wildcard; `[`, `]`, and `?` are treated literally. Patterns are **not** `${...}` templates and are not expanded.
+
+Matching checks both:
+
+- the whole annotation, and
+- every nested subscript occurrence.
+
+For example, `list[dict[str, Any]]` has two matched annotation texts: `list[dict[str, Any]]` and the nested `dict[str, Any]`. This means a pattern like `dict[str, Any]` can report the nested occurrence with the nested line/column.
+
+Precedence is:
+
+1. `allow`
+2. explicit `forbid`
+3. defaults
+
+`allow` wins over both explicit `forbid` and defaults. An `allow` pattern can match either the offending nested occurrence or the root annotation text, so allowing `list[dict[str, Any]]` also allows the nested `dict[str, Any]` inside that root annotation.
+
+Default rules flag string-keyed mappings whose value type is broad or union-shaped:
+
+- mapping bases: `dict`, `Dict`, `Mapping`, `MutableMapping`, `OrderedDict`, `defaultdict` — including qualified forms such as `typing.Dict` and `collections.defaultdict`;
+- key type: `str`;
+- value type: `X | Y`, `Union[...]`, `Optional[...]`, `Any`, or `object`.
+
+Default examples that are flagged:
+
+```py
+payload: dict[str, Any]
+payload: dict[str, object]
+payload: dict[str, str | list[str]]
+payload: dict[str, Union[str, list[str]]]
+payload: dict[str, Optional[str]]
+payload: list[dict[str, Any]]
+```
+
+Default examples that are not flagged:
+
+```py
+payload: dict[str, str]
+payload: Mapping[str, int]
+payload: dict[int, Any]
+payload: dict[str, list[str]]
+```
+
+Targets checked:
+
+- function and method parameter annotations;
+- function and method return annotations;
+- module-level constants (`UPPER_CASE` assignments and `Final`-annotated assignments);
+- class-body annotated attributes such as `payload: dict[str, Any]`.
+
+For `publicOnly: true`, top-level symbols use normal export publicness (`__all__` when literal, otherwise no leading underscore). Class attributes are public only when their class is public and the attribute name does not start with `_`.
+
+`restrictAnnotations` is only supported under `must`. Putting it under `mustNot` is rejected during config validation with:
+
+```text
+restrictAnnotations is only supported in "must", not "mustNot"; it already reports restricted annotations directly.
+```
+
+### `restrictRepeatedLiterals`
+
+Flag repeated eligible string literals across the current matched scope.
+
+```json
+"must": { "restrictRepeatedLiterals": true }
+```
+
+The bare `true` form uses the default ratchet:
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `minLength` | integer | `8` | Minimum decoded string length before a literal is considered. |
+| `maxOccurrences` | integer | `2` | Maximum allowed occurrences of the same literal value in the effective scope. |
+| `allow` | string[] | unset | Literal values to ignore. Patterns support `*`; `[`, `]`, and `?` are literal. |
+
+Object form:
+
+```json
+"must": {
+  "restrictRepeatedLiterals": {
+    "minLength": 12,
+    "maxOccurrences": 1,
+    "allow": ["https://*"]
+  }
+}
+```
+
+Matching groups exact decoded Python string values across the whole effective scope of the convention or `must` block, after convention-level and block-level `excludeFiles` are applied. With a nested `for` block, the scope is the set of files produced by that block, not the parent `paths` file. Diagnostics are emitted only for occurrences in the currently evaluated file, so each repeated occurrence gets its own file/line/column diagnostic.
+
+Eligible literals are standard-library `ast.Constant` string values. These are intentionally excluded:
+
+- module, class, function, and method docstrings;
+- bare string expression statements used as sentinels;
+- f-string parts;
+- empty strings;
+- function parameter annotations, return annotations, and variable/class-body annotations;
+- `TypeAlias` / PEP 695 type alias values;
+- `__all__` assignment, augmentation, `append`, and `extend` values;
+- common dunder tuple/list declarations such as `__slots__` and `__match_args__`;
+- strings in `if __name__ == "__main__"` comparisons.
+
+`restrictRepeatedLiterals` is cross-file and always evaluates the full selected scope. Under `--files`/`--changed`, scoping selects a convention when any file in the predicate's effective block scope is in scope; once selected, grouping still uses the full block scope.
+
+`restrictRepeatedLiterals` is only supported under `must`. Putting it under `mustNot` is rejected during config validation.
+
+### `restrictDuplicateFunctions`
+
+Flag duplicate normalized function implementations across the current matched scope.
+
+```json
+"must": { "restrictDuplicateFunctions": true }
+```
+
+The bare `true` form uses the default ratchet:
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `minStatements` | integer | `4` | Minimum normalized statement count before a function is considered. |
+| `publicOnly` | boolean | `false` | When `true`, skip private top-level functions and private direct methods. |
+| `allowNames` | string[] | unset | Function names, qualified names, or `file.py::qualified.name` labels to ignore. Patterns support `*`; `[`, `]`, and `?` are literal. |
+
+Object form:
+
+```json
+"must": {
+  "restrictDuplicateFunctions": {
+    "minStatements": 6,
+    "publicOnly": true,
+    "allowNames": ["*_fixture", "tests/*::build_*"]
+  }
+}
+```
+
+Targets are top-level `def`/`async def` functions and direct methods inside top-level classes. Nested local functions and methods on nested classes are not collected as independent targets.
+
+The fingerprint ignores function names, decorator lists, return annotations, parameter annotations, and source positions. It excludes the leading function docstring from the body. It preserves async-ness, parameter shape, literal constants, attributes, external/global names, nested function/class bodies, and a deterministic normalized form of local variable/parameter names. This means renamed local variables do not create distinct fingerprints, but calls to different external APIs do.
+
+Functions are grouped by fingerprint across the whole effective scope of the convention or `must` block, after convention-level and block-level `excludeFiles` are applied. With a nested `for` block, the scope is the set of files produced by that block, not the parent `paths` file.
+
+When a duplicate group is found, the canonical function is the lowest `(file_path, line, column, qualified_name)` occurrence. Diagnostics are emitted only for non-canonical duplicates in the currently evaluated file, with `found` set to `duplicate of <canonical_file>::<canonical_qualified_name>`.
+
+`restrictDuplicateFunctions` is cross-file and always evaluates the full selected scope. Under `--files`/`--changed`, scoping selects a convention when any file in the predicate's effective block scope is in scope; once selected, grouping still uses the full block scope.
+
+`restrictDuplicateFunctions` is only supported under `must`. Putting it under `mustNot` is rejected during config validation.
 
 ---
 

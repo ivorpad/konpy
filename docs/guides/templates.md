@@ -43,6 +43,47 @@ For paths-less pack rules, use the object form and supply your project paths:
 }
 ```
 
+## Typed-record annotation hygiene
+
+Use the off-the-shelf typed-records pack to discourage anonymous record-shaped mappings in public annotations:
+
+```json
+{
+  "version": "v1",
+  "conventionSources": {
+    "typed": "./packs/typed-records.json"
+  },
+  "conventions": [
+    "typed/no-anonymous-record-annotations"
+  ]
+}
+```
+
+Customize the predicate when you want stricter or laxer local policy. `forbid`/`allow` patterns match normalized Python annotation text, not templates:
+
+```json
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "typed-records-custom",
+      "description": "Anonymous record annotations should be named unless explicitly allowed.",
+      "paths": "src/**/*.py",
+      "must": {
+        "restrictAnnotations": {
+          "forbid": ["dict[str, *]", "Mapping[str, *]"],
+          "allow": ["dict[str, JsonValue]", "Mapping[str, JsonValue]"],
+          "defaults": true,
+          "publicOnly": true
+        }
+      }
+    }
+  ]
+}
+```
+
+Set `defaults: false` with explicit `forbid` patterns when you only want project-specific bans and do not want the built-in `Any`/`object`/union mapping defaults.
+
 ## Layered import-direction bans
 
 > If your project already follows a ports-and-adapters (hexagonal) layout with `src/domain/`, `src/ports/`, `src/adapters/`, and `src/use_cases/`, the off-the-shelf [`packs/hexagonal-architecture.json`](../reference/packs.md#hexagonal-architecturejson) covers this and the DDD layout below — no hand-written rules needed. Use the template below only when your layer/package names diverge from that shape.

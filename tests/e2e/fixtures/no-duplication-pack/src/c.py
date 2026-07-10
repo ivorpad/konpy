@@ -1,0 +1,1 @@
+MESSAGE = "gamma-message-value"

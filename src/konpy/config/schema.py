@@ -39,6 +39,9 @@ from konpy.config._schema_predicates import (
     ImportDefinitionV1,
     InterfaceDefinitionV1,
     MustPredicatesV1,
+    RestrictAnnotationsOptionsV1,
+    RestrictDuplicateFunctionsOptionsV1,
+    RestrictRepeatedLiteralsOptionsV1,
 )
 from konpy.config._schema_types import (
     CONVENTION_NAME_PATTERN,
@@ -92,6 +95,9 @@ __all__ = [
     "PlaceholdersMap",
     "RawConfigV1",
     "RawHandWrittenConventionV1",
+    "RestrictAnnotationsOptionsV1",
+    "RestrictDuplicateFunctionsOptionsV1",
+    "RestrictRepeatedLiteralsOptionsV1",
     "ReusableConventionV1",
     "ReusableConventionsPackageV1",
     "Severity",

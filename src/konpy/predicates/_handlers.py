@@ -27,6 +27,9 @@ from konpy.predicates.import_from import check_import_from
 from konpy.predicates.import_source import check_import_source
 from konpy.predicates.import_types import check_import_types
 from konpy.predicates.match_content import check_match_content
+from konpy.predicates.restrict_annotations import check_restrict_annotations
+from konpy.predicates.restrict_duplicate_functions import check_restrict_duplicate_functions
+from konpy.predicates.restrict_repeated_literals import check_restrict_repeated_literals
 from konpy.predicates.use_declaration_order import check_use_declaration_order
 from konpy.python_ast.structure import PyFileStructure
 
@@ -56,6 +59,16 @@ AST_PREDICATES = frozenset(
         "areBarrelFiles",
         "haveDocstrings",
         "annotateFunctions",
+        "restrictAnnotations",
+        "restrictRepeatedLiterals",
+        "restrictDuplicateFunctions",
+    }
+)
+
+CROSS_FILE_PREDICATES = frozenset(
+    {
+        "restrictRepeatedLiterals",
+        "restrictDuplicateFunctions",
     }
 )
 
@@ -246,4 +259,7 @@ PREDICATE_HANDLERS: dict[str, PredicateHandler] = {
     "areBarrelFiles": _ast(check_are_barrel_files),
     "haveDocstrings": _ast(check_have_docstrings),
     "annotateFunctions": _ast(check_annotate_functions),
+    "restrictAnnotations": _ast(check_restrict_annotations),
+    "restrictRepeatedLiterals": _ast(check_restrict_repeated_literals),
+    "restrictDuplicateFunctions": _ast(check_restrict_duplicate_functions),
 }

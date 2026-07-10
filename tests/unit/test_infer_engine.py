@@ -61,7 +61,13 @@ class TestRunInfer:
             assert scopes == sorted(scopes)
 
         heuristics_present = {p.heuristic for p in report.proposals}
-        assert {"export-suffix", "paired-test-file", "barrel-usage"} <= heuristics_present
+        assert {
+            "export-suffix",
+            "paired-test-file",
+            "barrel-usage",
+            "repeated-literals",
+            "duplicate-functions",
+        } <= heuristics_present
 
     def test_directory_slug_collision_gets_deterministic_suffix(self) -> None:
         file_system = fs(

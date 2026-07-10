@@ -19,6 +19,16 @@ class TestSchemaArtifact:
             "konpy.schema.json is stale — run: uv run python scripts/generate_schema.py"
         )
 
+    def test_artifact_semantically_matches_generated_schema(self) -> None:
+        import json
+
+        checked_in = json.loads(ARTIFACT_PATH.read_text(encoding="utf-8"))
+        regenerated = json.loads(generate_schema_text())
+        assert checked_in == regenerated, (
+            "konpy.schema.json is semantically stale — run: "
+            "uv run python scripts/generate_schema.py"
+        )
+
     def test_artifact_declares_v1(self) -> None:
         import json
 

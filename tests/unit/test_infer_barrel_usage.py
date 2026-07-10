@@ -11,6 +11,7 @@ _POS = SourcePosition(line=1, column=0)
 
 def make_structure(non_barrel: tuple[NonBarrelStatementInfo, ...] = ()) -> PyFileStructure:
     defaults: dict[str, Any] = {
+        "class_attributes": (),
         "classes": (),
         "constants": (),
         "declaration_symbols": (),
@@ -19,11 +20,13 @@ def make_structure(non_barrel: tuple[NonBarrelStatementInfo, ...] = ()) -> PyFil
         "exports": (),
         "function_annotation_targets": (),
         "functions": (),
+        "function_fingerprints": (),
         "import_sources": (),
         "imports": (),
         "interfaces": (),
         "named_export_symbols": (),
         "non_barrel_statements": non_barrel,
+        "string_literals": (),
         "type_aliases": (),
         "all_names": None,
         "all_is_dynamic": False,

@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 
 from konpy.python_ast._dunder_all import _AllState, _is_public
 from konpy.python_ast.structure import (
+    ClassAttributeInfo,
     ClassInfo,
     ConstantInfo,
     DeclarationSymbolInfo,
@@ -14,6 +15,7 @@ from konpy.python_ast.structure import (
     ExportInfo,
     ExportKind,
     FunctionAnnotationInfo,
+    FunctionFingerprintInfo,
     FunctionInfo,
     ImportInfo,
     ImportSourceInfo,
@@ -21,6 +23,7 @@ from konpy.python_ast.structure import (
     NamedExportSymbolInfo,
     NonBarrelStatementInfo,
     SourcePosition,
+    StringLiteralInfo,
     TypeAliasInfo,
 )
 
@@ -39,18 +42,21 @@ class _ImportBinding:
 class _Collector:
     all_state: _AllState
     classes: list[ClassInfo] = field(default_factory=list)
+    class_attributes: list[ClassAttributeInfo] = field(default_factory=list)
     constants: list[ConstantInfo] = field(default_factory=list)
     declaration_symbols: list[DeclarationSymbolInfo] = field(default_factory=list)
     default_export_symbols: list[DefaultExportSymbolInfo] = field(default_factory=list)
     docstring_targets: list[DocstringTargetInfo] = field(default_factory=list)
     exports: list[ExportInfo] = field(default_factory=list)
     function_annotation_targets: list[FunctionAnnotationInfo] = field(default_factory=list)
+    function_fingerprints: list[FunctionFingerprintInfo] = field(default_factory=list)
     functions: list[FunctionInfo] = field(default_factory=list)
     import_sources: list[ImportSourceInfo] = field(default_factory=list)
     imports: list[ImportInfo] = field(default_factory=list)
     interfaces: list[InterfaceInfo] = field(default_factory=list)
     named_export_symbols: list[NamedExportSymbolInfo] = field(default_factory=list)
     non_barrel_statements: list[NonBarrelStatementInfo] = field(default_factory=list)
+    string_literals: list[StringLiteralInfo] = field(default_factory=list)
     type_aliases: list[TypeAliasInfo] = field(default_factory=list)
     import_bindings: dict[str, _ImportBinding] = field(default_factory=dict)
     _export_keys: set[tuple[str, str | None, bool, ExportKind]] = field(

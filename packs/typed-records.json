@@ -1,0 +1,14 @@
+{
+  "conventionSpecVersion": "v1",
+  "conventions": [
+    {
+      "name": "no-anonymous-record-annotations",
+      "description": "Python annotations should use named record types instead of identity-less string-keyed anonymous mappings with broad or union value types.",
+      "hint": "Define a named type for the record shape, such as a pydantic model, TypedDict, or dataclass, and use that name in the annotation.",
+      "paths": "**/*.py",
+      "must": {
+        "restrictAnnotations": true
+      }
+    }
+  ]
+}

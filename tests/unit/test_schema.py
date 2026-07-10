@@ -938,3 +938,247 @@ class TestReusableConventionsPluginPredicates:
 
         assert package.conventions[0].must is not None
         assert package.conventions[0].must.model_extra == {"customRule": "expected"}
+
+
+class TestRestrictAnnotationsSchema:
+    def test_accepts_true_literal(self) -> None:
+        assert parses(
+            config(
+                [
+                    {
+                        "paths": "src/*.py",
+                        "must": {"restrictAnnotations": True},
+                    }
+                ]
+            )
+        ) is True
+
+    def test_accepts_options_object(self) -> None:
+        assert parses(
+            config(
+                [
+                    {
+                        "paths": "src/*.py",
+                        "must": {
+                            "restrictAnnotations": {
+                                "forbid": ["dict[str, *]"],
+                                "allow": ["dict[str, JsonValue]"],
+                                "defaults": False,
+                                "publicOnly": False,
+                            }
+                        },
+                    }
+                ]
+            )
+        ) is True
+
+    @pytest.mark.parametrize(
+        "restrict_annotations",
+        [
+            pytest.param(False, id="false"),
+            pytest.param({"unknown": True}, id="unknown-field"),
+            pytest.param({"forbid": []}, id="empty-forbid"),
+            pytest.param({"allow": []}, id="empty-allow"),
+            pytest.param({"defaults": False}, id="defaults-false-without-forbid"),
+        ],
+    )
+    def test_rejects_invalid_options(self, restrict_annotations: object) -> None:
+        assert parses(
+            config(
+                [
+                    {
+                        "paths": "src/*.py",
+                        "must": {"restrictAnnotations": restrict_annotations},
+                    }
+                ]
+            )
+        ) is False
+
+    def test_rejects_top_level_must_not(self) -> None:
+        assert parses(
+            config(
+                [
+                    {
+                        "paths": "src/*.py",
+                        "mustNot": {"restrictAnnotations": True},
+                    }
+                ]
+            )
+        ) is False
+
+    def test_rejects_nested_must_block_must_not(self) -> None:
+        assert parses(
+            config(
+                [
+                    {
+                        "paths": "src/*.py",
+                        "must": [
+                            {
+                                "mustNot": {"restrictAnnotations": True},
+                            }
+                        ],
+                    }
+                ]
+            )
+        ) is False
+
+    def test_rejects_use_ref_must_not_override(self) -> None:
+        assert parses(
+            config(
+                [
+                    {
+                        "use": "common/no-anonymous-records",
+                        "mustNot": {"restrictAnnotations": True},
+                    }
+                ],
+                conventionSources={"common": "./packs/typed-records.json"},
+            )
+        ) is False
+
+
+class TestDuplicationPredicateSchema:
+    def test_accepts_repeated_literals_true_literal(self) -> None:
+        assert parses(
+            config(
+                [
+                    {
+                        "paths": "src/*.py",
+                        "must": {"restrictRepeatedLiterals": True},
+                    }
+                ]
+            )
+        ) is True
+
+    def test_accepts_repeated_literals_options_object(self) -> None:
+        assert parses(
+            config(
+                [
+                    {
+                        "paths": "src/*.py",
+                        "must": {
+                            "restrictRepeatedLiterals": {
+                                "minLength": 12,
+                                "maxOccurrences": 3,
+                                "allow": ["test-*"],
+                            }
+                        },
+                    }
+                ]
+            )
+        ) is True
+
+    def test_accepts_duplicate_functions_true_literal(self) -> None:
+        assert parses(
+            config(
+                [
+                    {
+                        "paths": "src/*.py",
+                        "must": {"restrictDuplicateFunctions": True},
+                    }
+                ]
+            )
+        ) is True
+
+    def test_accepts_duplicate_functions_options_object(self) -> None:
+        assert parses(
+            config(
+                [
+                    {
+                        "paths": "src/*.py",
+                        "must": {
+                            "restrictDuplicateFunctions": {
+                                "minStatements": 6,
+                                "publicOnly": True,
+                                "allowNames": ["*_fixture"],
+                            }
+                        },
+                    }
+                ]
+            )
+        ) is True
+
+    @pytest.mark.parametrize(
+        "predicate,value",
+        [
+            pytest.param("restrictRepeatedLiterals", False, id="repeated-false"),
+            pytest.param(
+                "restrictRepeatedLiterals",
+                {"minLength": 0},
+                id="repeated-min-length-zero",
+            ),
+            pytest.param(
+                "restrictRepeatedLiterals",
+                {"maxOccurrences": 0},
+                id="repeated-max-occurrences-zero",
+            ),
+            pytest.param(
+                "restrictRepeatedLiterals",
+                {"allow": []},
+                id="repeated-empty-allow",
+            ),
+            pytest.param("restrictDuplicateFunctions", False, id="duplicate-false"),
+            pytest.param(
+                "restrictDuplicateFunctions",
+                {"minStatements": 0},
+                id="duplicate-min-statements-zero",
+            ),
+            pytest.param(
+                "restrictDuplicateFunctions",
+                {"allowNames": []},
+                id="duplicate-empty-allow-names",
+            ),
+        ],
+    )
+    def test_rejects_invalid_options(self, predicate: str, value: object) -> None:
+        assert parses(
+            config(
+                [
+                    {
+                        "paths": "src/*.py",
+                        "must": {predicate: value},
+                    }
+                ]
+            )
+        ) is False
+
+    @pytest.mark.parametrize(
+        "predicate",
+        [
+            "restrictRepeatedLiterals",
+            "restrictDuplicateFunctions",
+        ],
+    )
+    def test_rejects_top_level_must_not(self, predicate: str) -> None:
+        assert parses(
+            config(
+                [
+                    {
+                        "paths": "src/*.py",
+                        "mustNot": {predicate: True},
+                    }
+                ]
+            )
+        ) is False
+
+    @pytest.mark.parametrize(
+        "predicate",
+        [
+            "restrictRepeatedLiterals",
+            "restrictDuplicateFunctions",
+        ],
+    )
+    def test_rejects_nested_must_block_must_not(self, predicate: str) -> None:
+        assert parses(
+            config(
+                [
+                    {
+                        "paths": "src/*.py",
+                        "must": [
+                            {
+                                "mustNot": {predicate: True},
+                            }
+                        ],
+                    }
+                ]
+            )
+        ) is False

@@ -8,6 +8,7 @@ per-module line limit; `hook.py` re-exports everything here under its own
 from __future__ import annotations
 
 import contextlib
+import json
 import os
 import re
 from collections.abc import Sequence
@@ -15,7 +16,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Literal, TypedDict
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from wcmatch import glob as wcglob
 
 from konpy.cli.agent_runner import first_json_object
@@ -56,6 +57,26 @@ class Verdict(TypedDict):
 
     verdict: Literal["pass", "fail"]
     reasons: list[str]
+
+
+def parse_hook_payload(raw: str) -> HookPayload | None:
+    """Parse a hook JSON payload from stdin, returning None for non-payloads."""
+    text = raw.strip()
+    if not text:
+        return None
+
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+
+    if not isinstance(data, dict):
+        return None
+
+    try:
+        return HookPayload.model_validate(data)
+    except ValidationError:
+        return None
 
 
 def extract_target_paths(payload: HookPayload) -> list[str]:
@@ -171,6 +192,7 @@ __all__ = [
     "build_hook_prompt",
     "extract_target_paths",
     "hook_child_args",
+    "parse_hook_payload",
     "parse_verdict",
     "path_matches_any",
 ]

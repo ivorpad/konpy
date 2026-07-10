@@ -24,9 +24,12 @@
       "excludeFiles": [
         "src/konpy/predicates/__init__.py",
         "src/konpy/predicates/registry.py",
+        "src/konpy/predicates/_duplication_index.py",
         "src/konpy/predicates/_handlers.py",
         "src/konpy/predicates/_plugin.py",
+        "src/konpy/predicates/_restrict_annotations_matching.py",
         "src/konpy/predicates/_utils.py",
+        "src/konpy/predicates/_wildcards.py",
         "src/konpy/predicates/declaration_utils.py",
         "src/konpy/predicates/import_.py"
       ],

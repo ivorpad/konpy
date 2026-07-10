@@ -2,7 +2,7 @@
 
 Run `konpy check --files <edited-file>` automatically every time Claude Code edits or writes a Python file, using a Claude Code `PostToolUse` hook. This gives fast, scoped feedback without waiting for a full `konpy check` run, and without requiring Claude to remember to run it. "Scoped" means *which conventions get selected*, not a promise that only the edited file gets checked — see the note on convention-level selection below.
 
-This is the **deterministic** hook: it runs the linter directly, no LLM call. If you need to verify something a `konpy.json` structural predicate can't express — a semantic/judgment check like "docstrings aren't aspirational" — see the separate, **agentic** [`konpy hook`](hooks.md) subcommand instead, which spawns a read-only verifier agent per matched write. The two are independent and can be used together.
+This is the **deterministic PostToolUse** hook: it runs the linter directly after a write, no LLM call. If you need to verify something a `konpy.json` structural predicate can't express — a semantic/judgment check like "docstrings aren't aspirational" — see the separate, **agentic** [`konpy hook`](hooks.md) subcommand instead, which spawns a read-only verifier agent per matched write. If you need to block non-conforming proposed content before it reaches disk, use the **deterministic PreToolUse** [`konpy gate`](#a-pretooluse-gate-with-konpy-gate) flow below. The three mechanisms are independent and can be used together.
 
 See also: [The ratchet](ratchet.md) shows how logged agentic hook failures can be promoted into deterministic conventions that this hook then enforces model-free.
 
@@ -11,6 +11,8 @@ For flags and scoping semantics, see [Diff-scoped checking](../reference/cli.md#
 ## Why `PostToolUse`, not `PreToolUse`
 
 `PostToolUse` fires after the tool call already happened, so it can't block the edit — but that's fine here: we want to *react* to a completed edit, not prevent it. Per the Claude Code hooks model, `PostToolUse` cannot block; on exit code `2` its `stderr` is shown to Claude as feedback so it can fix the violation in a follow-up turn, which is exactly the workflow we want. On exit code `0`, hook stdout is not shown to Claude (only in the debug log) — so a clean check is silent, and only violations surface.
+
+If you do want a hard gate, use [`konpy gate`](#a-pretooluse-gate-with-konpy-gate): it is a `PreToolUse` command that reconstructs Claude Code's proposed `Write`/`Edit`/`MultiEdit` content in memory and runs the same deterministic checks before the write lands.
 
 ## 1. The hook script
 
@@ -105,7 +107,44 @@ Place this file at `.claude/settings.json` to share it with your team (checked i
 
   JSON is deliberately structured, not prose — `conventionName` and `predicateName` give Claude the stable identifiers it needs to locate the rule in `konpy.json`, and `message`/`hint`/`fixHint` (when present) name the fix. Claude can then fix the violation in the same session, the same way it reacts to a failing test or lint error surfaced by any other hook.
 
+## A PreToolUse gate with `konpy gate`
+
+Use `konpy gate` when you want Claude Code to block a proposed write before it reaches disk. Unlike the shell recipe above, no `jq` wrapper is needed: `konpy gate` reads the `PreToolUse` payload from stdin, reconstructs the proposed content for Claude Code `Write`, `Edit`, and `MultiEdit` calls, checks that content in-process through an overlay filesystem, and exits `2` only for verified convention violations.
+
+Add a `PreToolUse` hook in `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run konpy gate --match 'src/**/*.py'",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Field notes:
+
+- `"matcher": "Edit|Write|MultiEdit"` keeps the hook on Claude Code write tools whose proposed content `konpy gate` can reconstruct.
+- `--match` is a repeatable glob filter applied to the target path. If omitted, `konpy gate` gates every target path in the payload.
+- On a block, `konpy gate` writes the same JSON object shape as `konpy check --format json` to `stderr`, then exits `2`, so Claude sees stable fields like `conventionName`, `predicateName`, `message`, `hint`, and `fixHint`.
+- Clean proposed content exits `0` silently.
+- Config/load/runtime failures fail open: the write proceeds, and `stderr` gets one `konpy gate: warning: <detail>` line.
+- Unreconstructable payloads fail open. In v1, Codex-style `apply_patch` reconstruction is out of scope; the gate is Claude-Code-first for `Write`/`Edit`/`MultiEdit`.
+
+Claude Code also supports a structured stdout JSON permission-decision channel for `PreToolUse` hooks, but `konpy gate` intentionally uses exit `2` plus stderr in v1 so all konpy hook mechanisms share one blocking-feedback contract.
+
 ## 4. Limitations to know about
 
-- `PostToolUse` cannot prevent the edit — by the time the hook runs, the file is already on disk. This is a *feedback* loop, not a *gate*. For a hard gate, use a `PreToolUse` hook that runs `konpy check --files <path>` against the *proposed* content before the edit is applied (more involved — requires diffing `tool_input` against the file to construct a temporary scratch copy — not covered by this guide) or rely on CI.
+- The shell `PostToolUse` recipe cannot prevent the edit — by the time the hook runs, the file is already on disk. This is a *feedback* loop, not a *gate*. For a hard gate, use the [`PreToolUse` `konpy gate`](#a-pretooluse-gate-with-konpy-gate) flow above or rely on CI.
+- `konpy gate` reconstructs Claude Code `Write`, `Edit`, and `MultiEdit` payloads only. Codex `apply_patch` and malformed/unreconstructable edits fail open in v1 rather than guessing.
 - Because `--files` selects whole conventions rather than individual files, a single edit can surface violations on files Claude didn't touch in this turn (any file sharing a selected convention's matched set, or any `unusedCode` finding project-wide). This is intentional — it is real, actionable signal, not noise — but it does mean hook output is not strictly bounded to the edited file. See [Diff-scoped checking](../reference/cli.md#diff-scoped-checking---files----changed) in the CLI reference for exactly which cases are and aren't covered.

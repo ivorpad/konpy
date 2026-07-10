@@ -1,0 +1,9 @@
+{
+  "version": "v1",
+  "conventionSources": {
+    "typed": "../../../../packs/typed-records.json"
+  },
+  "conventions": [
+    "typed/no-anonymous-record-annotations"
+  ]
+}

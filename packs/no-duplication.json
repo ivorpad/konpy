@@ -1,0 +1,25 @@
+{
+  "conventionSpecVersion": "v1",
+  "conventions": [
+    {
+      "name": "no-repeated-string-literals",
+      "description": "Python source should not repeat the same non-trivial string literal across a matched scope.",
+      "hint": "Extract repeated string values into a named constant or shared fixture and reference that name instead.",
+      "severity": "warning",
+      "paths": "**/*.py",
+      "must": {
+        "restrictRepeatedLiterals": true
+      }
+    },
+    {
+      "name": "no-duplicate-functions",
+      "description": "Python functions and direct methods should not duplicate another normalized implementation in the matched scope.",
+      "hint": "Extract shared implementation into one helper, or make the duplicate implementations meaningfully different.",
+      "severity": "warning",
+      "paths": "**/*.py",
+      "must": {
+        "restrictDuplicateFunctions": true
+      }
+    }
+  ]
+}

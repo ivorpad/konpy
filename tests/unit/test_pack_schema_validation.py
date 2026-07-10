@@ -15,6 +15,7 @@ PACK_FILENAMES = [
     "python-best-practices.json",
     "hexagonal-architecture.json",
     "src-layout.json",
+    "typed-records.json",
 ]
 
 

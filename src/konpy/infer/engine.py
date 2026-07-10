@@ -18,9 +18,11 @@ from konpy.infer.heuristics import (
     annotate_coverage,
     barrel_usage,
     docstring_coverage,
+    duplicate_functions,
     export_suffix,
     import_dominance,
     paired_test_file,
+    repeated_literals,
 )
 from konpy.infer.models import InferProposal, InferReport, InferSkipped
 from konpy.infer.scan import collect_file_records
@@ -34,6 +36,8 @@ HEURISTIC_NAMES: tuple[str, ...] = (
     "annotate-functions-coverage",
     "barrel-usage",
     "import-dominance",
+    "repeated-literals",
+    "duplicate-functions",
 )
 
 DEFAULT_MIN_CONFIDENCE = 0.9
@@ -47,6 +51,8 @@ _MINERS = {
     "annotate-functions-coverage": annotate_coverage.mine,
     "barrel-usage": barrel_usage.mine,
     "import-dominance": import_dominance.mine,
+    "repeated-literals": repeated_literals.mine,
+    "duplicate-functions": duplicate_functions.mine,
 }
 
 

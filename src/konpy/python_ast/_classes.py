@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import ast
 
-from konpy.python_ast._annotations import _expr_name, _subscript_type_arguments
+from konpy.python_ast._annotations import (
+    _annotation_info,
+    _expr_name,
+    _subscript_type_arguments,
+)
 from konpy.python_ast._collector import (
     _add_declaration_symbol,
     _add_docstring_target,
@@ -13,6 +17,7 @@ from konpy.python_ast._collector import (
 from konpy.python_ast._dunder_all import _is_public
 from konpy.python_ast._functions import _add_function_coverage_target
 from konpy.python_ast.structure import (
+    ClassAttributeInfo,
     ClassInfo,
     DeclarationSymbolKind,
     ExportInfo,
@@ -42,6 +47,7 @@ def _process_class(node: ast.ClassDef, collector: _Collector) -> None:
         has_docstring=ast.get_docstring(node) is not None,
         pos=pos,
     )
+    _process_class_attributes(node, collector, class_is_public=is_public)
     _process_class_methods(node, collector, class_is_public=is_public)
 
     if is_protocol:
@@ -78,6 +84,34 @@ def _process_class_methods(
             qualified_name=f"{node.name}.{body_node.name}",
             is_public=class_is_public and not body_node.name.startswith("_"),
             skip_first_self_or_cls=True,
+        )
+
+
+def _process_class_attributes(
+    node: ast.ClassDef,
+    collector: _Collector,
+    *,
+    class_is_public: bool,
+) -> None:
+    for body_node in node.body:
+        if not isinstance(body_node, ast.AnnAssign):
+            continue
+        if not isinstance(body_node.target, ast.Name):
+            continue
+
+        name = body_node.target.id
+        annotation = _annotation_info(body_node.annotation)
+        if annotation is None:
+            continue
+
+        collector.class_attributes.append(
+            ClassAttributeInfo(
+                name=name,
+                qualified_name=f"{node.name}.{name}",
+                is_public=class_is_public and not name.startswith("_"),
+                pos=_position(body_node.target),
+                type_name=annotation,
+            )
         )
 
 

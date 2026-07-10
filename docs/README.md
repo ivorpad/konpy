@@ -39,7 +39,7 @@ _Inspired by [Vercel's konsistent](https://github.com/vercel-labs/konsistent), r
 - [Conditional rules](./reference/conditional-rules.md) — `if`, `for`, `excludeFiles` blocks inside `must` arrays.
 - [Case maps](./reference/case-maps.md) — `kebabToPascalMap`, `kebabToCamelMap` for acronyms and special casing.
 - [Reusable conventions](./reference/reusable-conventions.md) — `conventionSources`, string and `use` references, merge semantics, error reference.
-- [Reusable packs](./reference/packs.md) — per-convention reference for the shipped packs (`python-best-practices.json`, `hexagonal-architecture.json`, `src-layout.json`), including each pack's layout assumptions and hints.
+- [Reusable packs](./reference/packs.md) — per-convention reference for the shipped packs (`python-best-practices.json`, `typed-records.json`, `hexagonal-architecture.json`, `src-layout.json`), including each pack's layout assumptions and hints.
 - [Unused-code detection](./reference/unused-code.md) — the optional `unusedCode` classifier: taxonomy, config keys, framework presets, limitations.
 - [Suppressions](./reference/suppressions.md) — inline `# konpy: ignore[...]` comments for approved exceptions, visibility guarantees, and the rules AI agents must follow.
 
@@ -48,10 +48,11 @@ _Inspired by [Vercel's konsistent](https://github.com/vercel-labs/konsistent), r
 The repo includes reusable convention packs under [`../packs/`](../packs/):
 
 - [`python-best-practices.json`](../packs/python-best-practices.json) — general Python structural conventions: barrel `__init__.py` files, absolute imports, docstrings, annotations, paired tests, `__all__` discipline, TODO hygiene, README-per-component.
+- [`typed-records.json`](../packs/typed-records.json) — annotation hygiene for identity-less anonymous record mappings such as `dict[str, Any]`; encourages pydantic models, `TypedDict`, or dataclasses.
 - [`hexagonal-architecture.json`](../packs/hexagonal-architecture.json) — ports-and-adapters layering: domain purity (no adapter/infrastructure imports), Protocol/ABC ports, `*Adapter`-suffixed adapter exports, use-case/test pairing. Assumes a single-package `src/domain/`, `src/ports/`, `src/adapters/`, `src/use_cases/` layout.
 - [`src-layout.json`](../packs/src-layout.json) — `src/` layout conventions and tests mirroring, both flat (`src/<module>.py` → `tests/test_<module>.py`) and one level nested (`src/<package>/<module>.py` → `tests/<package>/test_<module>.py`).
 
-Full per-convention reference for all three: [Reusable packs](./reference/packs.md).
+Full per-convention reference for all four: [Reusable packs](./reference/packs.md).
 
 ## Schema
 

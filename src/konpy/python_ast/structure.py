@@ -99,11 +99,22 @@ class ExtendsClauseInfo:
 
 
 @dataclass(frozen=True, kw_only=True)
+class AnnotationTextOccurrenceInfo:
+    """A normalized annotation text occurrence and its source position."""
+
+    text: str
+    pos: SourcePosition
+    is_root: bool
+
+
+@dataclass(frozen=True, kw_only=True)
 class TypeAnnotationInfo:
     """A parsed type annotation, with its unsubscripted base name."""
 
     base_name: str
     text: str
+    pos: SourcePosition | None = None
+    occurrences: tuple[AnnotationTextOccurrenceInfo, ...] = ()
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -123,6 +134,17 @@ class ClassInfo:
     implements: tuple[str, ...]
     name: str
     pos: SourcePosition
+
+
+@dataclass(frozen=True, kw_only=True)
+class ClassAttributeInfo:
+    """A class-body annotated attribute."""
+
+    name: str
+    qualified_name: str
+    is_public: bool
+    pos: SourcePosition
+    type_name: TypeAnnotationInfo
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -162,6 +184,7 @@ class ConstantInfo:
     name: str
     pos: SourcePosition
     type_name: TypeAnnotationInfo | None
+    is_public: bool = True
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -170,6 +193,26 @@ class TypeAliasInfo:
 
     name: str
     pos: SourcePosition
+
+
+@dataclass(frozen=True, kw_only=True)
+class StringLiteralInfo:
+    """An eligible repeated-literal candidate in Python source."""
+
+    value: str
+    pos: SourcePosition
+
+
+@dataclass(frozen=True, kw_only=True)
+class FunctionFingerprintInfo:
+    """A normalized implementation fingerprint for a function or direct method."""
+
+    name: str
+    qualified_name: str
+    is_public: bool
+    pos: SourcePosition
+    fingerprint: str
+    statement_count: int
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -185,6 +228,7 @@ class PyFileStructure:
     """The full structural summary of a parsed Python source file."""
 
     classes: tuple[ClassInfo, ...]
+    class_attributes: tuple[ClassAttributeInfo, ...]
     constants: tuple[ConstantInfo, ...]
     declaration_symbols: tuple[DeclarationSymbolInfo, ...]
     default_export_symbols: tuple[DefaultExportSymbolInfo, ...]
@@ -192,17 +236,21 @@ class PyFileStructure:
     exports: tuple[ExportInfo, ...]
     function_annotation_targets: tuple[FunctionAnnotationInfo, ...]
     functions: tuple[FunctionInfo, ...]
+    function_fingerprints: tuple[FunctionFingerprintInfo, ...]
     import_sources: tuple[ImportSourceInfo, ...]
     imports: tuple[ImportInfo, ...]
     interfaces: tuple[InterfaceInfo, ...]
     named_export_symbols: tuple[NamedExportSymbolInfo, ...]
     non_barrel_statements: tuple[NonBarrelStatementInfo, ...]
+    string_literals: tuple[StringLiteralInfo, ...]
     type_aliases: tuple[TypeAliasInfo, ...]
     all_names: tuple[str, ...] | None
     all_is_dynamic: bool
 
 
 __all__ = [
+    "AnnotationTextOccurrenceInfo",
+    "ClassAttributeInfo",
     "ClassInfo",
     "ConstantInfo",
     "DeclarationSymbolInfo",
@@ -214,6 +262,7 @@ __all__ = [
     "ExportKind",
     "ExtendsClauseInfo",
     "FunctionAnnotationInfo",
+    "FunctionFingerprintInfo",
     "FunctionInfo",
     "ImportInfo",
     "ImportSourceInfo",
@@ -224,6 +273,7 @@ __all__ = [
     "ParamInfo",
     "PyFileStructure",
     "SourcePosition",
+    "StringLiteralInfo",
     "TypeAliasInfo",
     "TypeAnnotationInfo",
 ]

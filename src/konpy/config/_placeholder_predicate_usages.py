@@ -50,6 +50,9 @@ _BUILTIN_PREDICATE_KEYS = {
     "importTypesFromExternals",
     "importTypesFromParents",
     "matchContent",
+    "restrictAnnotations",
+    "restrictDuplicateFunctions",
+    "restrictRepeatedLiterals",
     "useDeclarationOrder",
 }
 

@@ -6,9 +6,13 @@ from typing import Any
 from pydantic import TypeAdapter
 
 from konpy.config.schema import ConfigV1
-from konpy.core.context import PredicateContext
+from konpy.core._runner_cross_file import RunCrossFileIndexCache
+from konpy.core._runner_matching import _build_case_maps, _prepare_block_evaluation
+from konpy.core.context import PredicateContext, build_context
 from konpy.core.diagnostics import Diagnostic, DiagnosticSeverity, create_diagnostic
 from konpy.core.filesystem import FakeFileSystem, FileSystem
+from konpy.core.path_matcher import MatchedPath
+from konpy.core.placeholders import PlaceholderValue
 from konpy.core.runner import run
 from konpy.predicates.registry import (
     PredicateHandler,
@@ -1355,6 +1359,473 @@ class TestCaching:
         assert result.diagnostics == []
         assert file_system.read_file_calls == ["src/index.py"]
 
+
+class TestRestrictAnnotationsRunner:
+    def test_runs_as_builtin_ast_predicate_through_run(self) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "typed-records",
+                        "paths": "src/service.py",
+                        "must": {"restrictAnnotations": True},
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(
+                contents={
+                    "src/service.py": (
+                        "from typing import Any\n\n"
+                        "def handle(payload: dict[str, Any]) -> None:\n"
+                        "    pass\n"
+                    )
+                },
+            ),
+        )
+
+        assert len(result.diagnostics) == 1
+        assert result.diagnostics[0].predicate_name == "restrictAnnotations"
+
+    def test_clean_file_returns_no_diagnostics(self) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "typed-records",
+                        "paths": "src/service.py",
+                        "must": {"restrictAnnotations": True},
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(
+                contents={
+                    "src/service.py": (
+                        "from typing import TypedDict\n\n"
+                        "class Payload(TypedDict):\n"
+                        "    name: str\n\n"
+                        "def handle(payload: Payload) -> dict[str, str]:\n"
+                        "    return {}\n"
+                    )
+                },
+            ),
+        )
+
+        assert result.diagnostics == []
+
+    def test_violating_file_reports_through_run(self) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "typed-records",
+                        "paths": "src/service.py",
+                        "must": {"restrictAnnotations": True},
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(
+                contents={
+                    "src/service.py": (
+                        "from typing import Any\n\n"
+                        "def handle(payload: list[dict[str, Any]]) -> None:\n"
+                        "    pass\n"
+                    )
+                },
+            ),
+        )
+
+        assert [(item.found, item.line, item.column) for item in result.diagnostics] == [
+            ("dict[str, Any]", 3, 26)
+        ]
+
+    def test_metadata_propagates_to_restrict_annotations_diagnostic(self) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "typed-records",
+                        "description": "Anonymous record annotations are not allowed.",
+                        "hint": "Use a named record type.",
+                        "severity": "warning",
+                        "paths": "src/service.py",
+                        "must": {"restrictAnnotations": True},
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(
+                contents={
+                    "src/service.py": (
+                        "from typing import Any\n\n"
+                        "def handle(payload: dict[str, Any]) -> None:\n"
+                        "    pass\n"
+                    )
+                },
+            ),
+        )
+
+        diagnostic = result.diagnostics[0]
+        assert diagnostic.convention_name == "typed-records"
+        assert diagnostic.severity == "warning"
+        assert diagnostic.description == "Anonymous record annotations are not allowed."
+        assert diagnostic.hint == "Use a named record type."
+
+    def test_combined_ast_predicates_parse_file_once(self) -> None:
+        file_system = CountingFileSystem(
+            contents={
+                "src/service.py": (
+                    "from typing import Any\n\n"
+                    "def handle(payload: dict[str, Any]) -> None:\n"
+                    "    pass\n"
+                )
+            },
+        )
+
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "typed-records",
+                        "paths": "src/service.py",
+                        "must": {
+                            "restrictAnnotations": True,
+                            "areBarrelFiles": False,
+                        },
+                    }
+                ]
+            ),
+            file_system=file_system,
+        )
+
+        assert len(result.diagnostics) == 1
+        assert file_system.read_file_calls == ["src/service.py"]
+
+
+class TestDuplicationPredicatesRunner:
+    def test_repeated_literals_group_across_files_and_report_each_occurrence(
+        self,
+    ) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "no-repeated-literals",
+                        "paths": "src/*.py",
+                        "must": {"restrictRepeatedLiterals": True},
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(
+                contents={
+                    "src/a.py": (
+                        'FIRST = "shared-value"\n'
+                        'SECOND = "shared-value"\n'
+                    ),
+                    "src/b.py": 'THIRD = "shared-value"\n',
+                    "src/c.py": 'OTHER = "different-value"\n',
+                },
+            ),
+        )
+
+        assert [
+            (diagnostic.file_path, diagnostic.found, diagnostic.line)
+            for diagnostic in result.diagnostics
+        ] == [
+            ("src/a.py", "shared-value", 1),
+            ("src/a.py", "shared-value", 2),
+            ("src/b.py", "shared-value", 1),
+        ]
+
+    def test_repeated_literals_scope_respects_convention_and_block_excludes(
+        self,
+    ) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "no-repeated-literals",
+                        "paths": "src/*.py",
+                        "excludeFiles": ["src/excluded.py"],
+                        "must": [
+                            {
+                                "excludeFiles": ["b.py"],
+                                "must": {"restrictRepeatedLiterals": True},
+                            }
+                        ],
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(
+                contents={
+                    "src/a.py": 'A = "shared-value"\n',
+                    "src/b.py": 'B = "shared-value"\n',
+                    "src/excluded.py": 'C = "shared-value"\n',
+                },
+            ),
+        )
+
+        assert result.diagnostics == []
+
+    def test_duplicate_functions_report_only_non_canonical_duplicates(self) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "no-duplicate-functions",
+                        "paths": "src/*.py",
+                        "must": {"restrictDuplicateFunctions": True},
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(
+                contents={
+                    "src/a.py": (
+                        "def canonical(value):\n"
+                        "    total = value + 1\n"
+                        "    doubled = total * 2\n"
+                        "    if doubled:\n"
+                        "        return doubled\n"
+                        "    return 0\n"
+                    ),
+                    "src/b.py": (
+                        "def duplicate(item):\n"
+                        "    result = item + 1\n"
+                        "    doubled = result * 2\n"
+                        "    if doubled:\n"
+                        "        return doubled\n"
+                        "    return 0\n"
+                    ),
+                },
+            ),
+        )
+
+        assert len(result.diagnostics) == 1
+        assert result.diagnostics[0].file_path == "src/b.py"
+        assert result.diagnostics[0].found == "duplicate of src/a.py::canonical"
+
+    def test_repeated_literal_diagnostics_can_be_suppressed(self) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "no-repeated-literals",
+                        "paths": "src/*.py",
+                        "must": {"restrictRepeatedLiterals": True},
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(
+                contents={
+                    "src/a.py": (
+                        "# konpy: ignore-file[no-repeated-literals] -- fixture\n"
+                        'A = "shared-value"\n'
+                    ),
+                    "src/b.py": 'B = "shared-value"\n',
+                    "src/c.py": 'C = "shared-value"\n',
+                },
+            ),
+        )
+
+        assert [diagnostic.file_path for diagnostic in result.diagnostics] == [
+            "src/b.py",
+            "src/c.py",
+        ]
+        assert len(result.suppressed_diagnostics) == 1
+        assert result.suppressed_diagnostics[0].diagnostic.file_path == "src/a.py"
+
+    def test_diff_scope_selects_convention_by_cross_file_block_scope(self) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "nested-no-repeated-literals",
+                        "paths": "packages/{name}/marker.txt",
+                        "must": [
+                            {
+                                "for": {"files": "*.py"},
+                                "must": {
+                                    "restrictRepeatedLiterals": {
+                                        "maxOccurrences": 1
+                                    }
+                                },
+                            }
+                        ],
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(
+                contents={
+                    "packages/pkg/marker.txt": "marker\n",
+                    "packages/pkg/a.py": 'A = "shared-value"\n',
+                    "packages/pkg/b.py": 'B = "shared-value"\n',
+                },
+            ),
+            target_files=frozenset({"packages/pkg/b.py"}),
+        )
+
+        assert [
+            (diagnostic.file_path, diagnostic.found)
+            for diagnostic in result.diagnostics
+        ] == [
+            ("packages/pkg/a.py", "shared-value"),
+            ("packages/pkg/b.py", "shared-value"),
+        ]
+
+
+class TestCrossFileIndexCache:
+    def test_scope_paths_are_sorted_and_deduplicated(self) -> None:
+        file_system = CountingFileSystem(contents={})
+        cache = RunCrossFileIndexCache(
+            file_system=file_system,
+            file_structure_cache={},
+            source_cache={},
+        )
+
+        scope = cache.scope(["src/b.py", "src/a.py", "src/a.py"])
+
+        assert scope.paths == ("src/a.py", "src/b.py")
+
+    def test_index_is_built_once_per_scope_and_key_without_double_reads(self) -> None:
+        file_system = CountingFileSystem(
+            contents={
+                "src/a.py": "VALUE = 1\n",
+                "src/b.py": "VALUE = 2\n",
+            }
+        )
+        cache = RunCrossFileIndexCache(
+            file_system=file_system,
+            file_structure_cache={},
+            source_cache={},
+        )
+        scope = cache.scope(["src/b.py", "src/a.py", "src/a.py"])
+        builder_calls: list[tuple[str, ...]] = []
+
+        def builder(structures: Mapping[str, PyFileStructure]) -> tuple[str, ...]:
+            builder_calls.append(tuple(structures))
+            return tuple(sorted(structures))
+
+        def fail_builder(structures: Mapping[str, PyFileStructure]) -> tuple[str, ...]:
+            del structures
+            raise AssertionError("cached index should have been reused")
+
+        first = scope.get_or_build_index(("predicate", 1), builder)
+        second = scope.get_or_build_index(("predicate", 1), fail_builder)
+        third = scope.get_or_build_index(("predicate", 2), builder)
+
+        assert first == ("src/a.py", "src/b.py")
+        assert second is first
+        assert third == ("src/a.py", "src/b.py")
+        assert builder_calls == [
+            ("src/a.py", "src/b.py"),
+            ("src/a.py", "src/b.py"),
+        ]
+        assert file_system.read_file_calls == ["src/a.py", "src/b.py"]
+
+
+class TestPreparedBlockEvaluation:
+    def test_prepare_applies_if_and_exclude_files_without_for(self) -> None:
+        parsed = config(
+            [
+                {
+                    "paths": "src/{name}.py",
+                    "must": [
+                        {
+                            "if": {"hasFile": "${name}.marker"},
+                            "excludeFiles": ["b.py"],
+                            "must": {"haveType": "file"},
+                        }
+                    ],
+                }
+            ]
+        )
+        block = parsed.conventions[0].must[0]  # type: ignore[index]
+        file_system = FakeFileSystem(
+            files=[
+                "src/a.py",
+                "src/b.py",
+                "src/c.py",
+                "src/a.marker",
+                "src/b.marker",
+            ],
+        )
+        parent_contexts = [
+            build_context(
+                matched=MatchedPath(path="src/a.py", placeholders={"name": PlaceholderValue("a")}),
+                file_system=file_system,
+            ),
+            build_context(
+                matched=MatchedPath(path="src/b.py", placeholders={"name": PlaceholderValue("b")}),
+                file_system=file_system,
+            ),
+            build_context(
+                matched=MatchedPath(path="src/c.py", placeholders={"name": PlaceholderValue("c")}),
+                file_system=file_system,
+            ),
+        ]
+
+        prepared = _prepare_block_evaluation(
+            block=block,
+            parent_contexts=parent_contexts,
+            file_system=file_system,
+            case_maps=_build_case_maps(parsed),
+        )
+
+        assert [
+            context.path
+            for context in prepared.contexts_by_parent_path["src/a.py"]
+        ] == ["src/a.py"]
+        assert prepared.contexts_by_parent_path["src/b.py"] == ()
+        assert prepared.contexts_by_parent_path["src/c.py"] == ()
+        assert prepared.scope_paths == ("src/a.py",)
+        assert prepared.checked_paths == ()
+
+    def test_prepare_preserves_for_expansion_and_parent_placeholder_precedence(
+        self,
+    ) -> None:
+        parsed = config(
+            [
+                {
+                    "paths": "components/{name}",
+                    "must": [
+                        {
+                            "for": {"files": "{name}.py"},
+                            "excludeFiles": ["skip.py"],
+                            "must": {"haveType": "file"},
+                        }
+                    ],
+                }
+            ]
+        )
+        block = parsed.conventions[0].must[0]  # type: ignore[index]
+        file_system = FakeFileSystem(
+            files=[
+                "components/Button/child.py",
+                "components/Button/skip.py",
+            ],
+            directories=["components/Button"],
+        )
+        parent_context = build_context(
+            matched=MatchedPath(
+                path="components/Button",
+                placeholders={"name": "Button"},
+            ),
+            file_system=file_system,
+        )
+
+        prepared = _prepare_block_evaluation(
+            block=block,
+            parent_contexts=(parent_context,),
+            file_system=file_system,
+            case_maps=_build_case_maps(parsed),
+        )
+
+        targets = prepared.contexts_by_parent_path["components/Button"]
+        assert [context.path for context in targets] == ["components/Button/child.py"]
+        assert targets[0].placeholders["name"] == "Button"
+        assert prepared.scope_paths == ("components/Button/child.py",)
+        assert prepared.checked_paths == (
+            "components/Button/child.py",
+            "components/Button/skip.py",
+        )
 
 
 def plugin_config(

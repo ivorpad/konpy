@@ -8,6 +8,7 @@ from pydantic import TypeAdapter
 from konpy.config.schema import MustPredicatesV1
 from konpy.predicates._handlers import (
     AST_PREDICATES,
+    CROSS_FILE_PREDICATES,
     ITEM_LEVEL_MUST_NOT_PREDICATES,
     PREDICATE_HANDLERS,
     PredicateHandler,
@@ -20,6 +21,7 @@ from konpy.predicates._plugin import (
 
 __all__ = [
     "AST_PREDICATES",
+    "CROSS_FILE_PREDICATES",
     "ITEM_LEVEL_MUST_NOT_PREDICATES",
     "PREDICATE_HANDLERS",
     "ForbiddenMessageProvider",
@@ -44,6 +46,7 @@ class PredicateRegistry:
     plugin_forbidden_messages: Mapping[str, ForbiddenMessageProvider]
     plugin_validate_placeholders: Mapping[str, bool]
     plugin_origins: Mapping[str, PluginOrigin]
+    cross_file_predicates: frozenset[str] = frozenset()
 
     def validation_context(self) -> dict[str, PredicateRegistry]:
         """Build the pydantic validation context that carries this registry."""
@@ -60,6 +63,7 @@ def builtin_predicate_registry() -> PredicateRegistry:
         plugin_forbidden_messages={},
         plugin_validate_placeholders={},
         plugin_origins={},
+        cross_file_predicates=frozenset(CROSS_FILE_PREDICATES),
     )
 
 

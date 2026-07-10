@@ -13,26 +13,30 @@ data), `_runner_predicates` (`must`/`mustNot` evaluation), `_runner_matching`
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from konpy.config.schema import ConfigV1
 from konpy.core._runner_convention_setup import (
     _normalize_must_blocks,
     _with_convention_metadata,
 )
+from konpy.core._runner_cross_file import RunCrossFileIndexCache
 from konpy.core._runner_matching import (
+    _block_has_cross_file_predicate,
     _build_case_maps,
     _convention_in_scope,
-    _evaluate_for_block,
     _match_with_case_maps,
+    _prepare_block_evaluation,
     _to_list,
 )
 from konpy.core._runner_placeholders import (
     _build_static_placeholders,
-    _evaluate_condition,
     _is_file_excluded,
 )
-from konpy.core._runner_predicates import _resolve_block_convention_name
+from konpy.core._runner_predicates import (
+    _check_predicates,
+    _resolve_block_convention_name,
+)
 from konpy.core._runner_suppressions import _add_known_rule_names, _apply_suppressions
 from konpy.core.context import build_context
 from konpy.core.convention_name import generate_convention_name
@@ -83,6 +87,11 @@ def run(
     known_rule_names: set[str] = set()
     file_structure_cache: dict[str, PyFileStructure] = {}
     source_cache: dict[str, str] = {}
+    cross_file_cache = RunCrossFileIndexCache(
+        file_system=file_system,
+        file_structure_cache=file_structure_cache,
+        source_cache=source_cache,
+    )
     unused_files_scanned: set[str] = set()
 
     for convention in config.conventions:
@@ -123,14 +132,17 @@ def run(
             matched=matched,
             blocks=blocks,
             static_placeholders=static_placeholders,
+            convention_exclude_files=convention.excludeFiles,
             file_system=file_system,
             target_files=target_files,
             case_maps=case_maps,
+            predicate_registry=registry,
         ):
             continue
 
         severity: DiagnosticSeverity = convention.severity or "error"
 
+        parent_contexts = []
         for entry in matched:
             checked_paths.add(entry.path)
             merged_entry = MatchedPath(
@@ -146,27 +158,68 @@ def run(
             ):
                 continue
 
-            for block in blocks:
-                if not _evaluate_condition(block=block, context=context):
+            parent_contexts.append(context)
+
+        prepared_blocks = [
+            (
+                block,
+                _resolve_block_convention_name(
+                    block=block,
+                    convention_name=convention_name,
+                ),
+                _prepare_block_evaluation(
+                    block=block,
+                    parent_contexts=parent_contexts,
+                    file_system=file_system,
+                    case_maps=case_maps,
+                ),
+                _block_has_cross_file_predicate(
+                    block=block,
+                    predicate_registry=registry,
+                ),
+            )
+            for block in blocks
+        ]
+
+        for _block, _block_convention_name, prepared, _has_cross_file in prepared_blocks:
+            checked_paths.update(prepared.checked_paths)
+
+        for parent_context in parent_contexts:
+            for block, block_convention_name, prepared, has_cross_file in prepared_blocks:
+                target_contexts = prepared.contexts_by_parent_path.get(
+                    parent_context.path,
+                    (),
+                )
+                if not target_contexts:
                     continue
 
-                diagnostics.extend(
-                    _with_convention_metadata(
-                        _evaluate_for_block(
-                            block=block,
-                            parent_context=context,
-                            file_system=file_system,
-                            convention_name=_resolve_block_convention_name(
-                                block=block,
-                                convention_name=convention_name,
+                cross_file_scope = (
+                    cross_file_cache.scope(prepared.scope_paths) if has_cross_file else None
+                )
+                block_diagnostics: list[Diagnostic] = []
+
+                for target_context in target_contexts:
+                    block_diagnostics.extend(
+                        _check_predicates(
+                            must=block.must,
+                            must_not=block.mustNot,
+                            convention_name=block_convention_name,
+                            context=(
+                                replace(target_context, cross_file=cross_file_scope)
+                                if cross_file_scope is not None
+                                else target_context
                             ),
+                            file_system=file_system,
                             file_structure_cache=file_structure_cache,
                             source_cache=source_cache,
                             severity=severity,
-                            checked_paths=checked_paths,
-                            case_maps=case_maps,
                             predicate_registry=registry,
-                        ),
+                        )
+                    )
+
+                diagnostics.extend(
+                    _with_convention_metadata(
+                        block_diagnostics,
                         description=block.description or convention.description,
                         hint=block.hint or convention.hint,
                     )

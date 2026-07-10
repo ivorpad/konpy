@@ -5,6 +5,12 @@ from __future__ import annotations
 import posixpath
 
 from konpy.config.schema import ConfigV1, MustBlockV1
+from konpy.core._runner_block_prep import (
+    _prepare_block_evaluation as _prepare_block_evaluation,
+)
+from konpy.core._runner_block_prep import (
+    _PreparedBlockEvaluation as _PreparedBlockEvaluation,
+)
 from konpy.core._runner_placeholders import _is_file_excluded
 from konpy.core._runner_predicates import _check_predicates
 from konpy.core._runner_types import CaseMaps
@@ -14,7 +20,7 @@ from konpy.core.diagnostics import Diagnostic, DiagnosticSeverity
 from konpy.core.filesystem import FileSystem
 from konpy.core.path_matcher import MatchedPath, match_paths
 from konpy.core.placeholders import PlaceholderValue
-from konpy.predicates.registry import PredicateRegistry
+from konpy.predicates.registry import PredicateRegistry, iter_predicate_items
 from konpy.python_ast.structure import PyFileStructure
 
 
@@ -74,70 +80,22 @@ def _evaluate_for_block(
     case_maps: CaseMaps,
     predicate_registry: PredicateRegistry,
 ) -> list[Diagnostic]:
-    if block.for_ is None:
-        if _is_file_excluded(
-            file_path=parent_context.path,
-            exclude_files=block.excludeFiles,
-            context=parent_context,
-        ):
-            return []
-
-        return _check_predicates(
-            must=block.must,
-            must_not=block.mustNot,
-            convention_name=convention_name,
-            context=parent_context,
-            file_system=file_system,
-            file_structure_cache=file_structure_cache,
-            source_cache=source_cache,
-            severity=severity,
-            predicate_registry=predicate_registry,
-        )
-
-    raw_files = block.for_.files
-    file_patterns = raw_files if isinstance(raw_files, list) else [raw_files]
-    full_patterns = [
-        posixpath.join(parent_context.base_path, parent_context.resolve_template(pattern))
-        for pattern in file_patterns
-    ]
-
-    matched = _match_with_case_maps(
-        patterns=full_patterns,
+    prepared = _prepare_block_evaluation(
+        block=block,
+        parent_contexts=(parent_context,),
         file_system=file_system,
         case_maps=case_maps,
     )
-
-    if not matched:
-        return []
+    checked_paths.update(prepared.checked_paths)
 
     diagnostics: list[Diagnostic] = []
-
-    for entry in matched:
-        checked_paths.add(entry.path)
-        merged_placeholders = dict(entry.placeholders)
-        merged_placeholders.update(parent_context.placeholders)
-
-        for_context = build_context(
-            matched=MatchedPath(
-                path=entry.path,
-                placeholders=merged_placeholders,
-            ),
-            file_system=file_system,
-        )
-
-        if _is_file_excluded(
-            file_path=entry.path,
-            exclude_files=block.excludeFiles,
-            context=for_context,
-        ):
-            continue
-
+    for target_context in prepared.contexts_by_parent_path.get(parent_context.path, ()):
         diagnostics.extend(
             _check_predicates(
                 must=block.must,
                 must_not=block.mustNot,
                 convention_name=convention_name,
-                context=for_context,
+                context=target_context,
                 file_system=file_system,
                 file_structure_cache=file_structure_cache,
                 source_cache=source_cache,
@@ -213,14 +171,32 @@ def _companion_paths_for_block(
     return companion_paths
 
 
+def _block_has_cross_file_predicate(
+    *,
+    block: MustBlockV1,
+    predicate_registry: PredicateRegistry,
+) -> bool:
+    for predicates in (block.must, block.mustNot):
+        if predicates is None:
+            continue
+        if any(
+            key in predicate_registry.cross_file_predicates
+            for key, _value in iter_predicate_items(predicates)
+        ):
+            return True
+    return False
+
+
 def _convention_in_scope(
     *,
     matched: list[MatchedPath],
     blocks: list[MustBlockV1],
     static_placeholders: dict[str, PlaceholderValue],
+    convention_exclude_files: list[str] | None,
     file_system: FileSystem,
     target_files: frozenset[str],
     case_maps: CaseMaps,
+    predicate_registry: PredicateRegistry,
 ) -> bool:
     # `havePairedFile` is cross-file: whether the anchor file (matched by
     # `convention.paths`) is compliant depends on whether its companion
@@ -232,6 +208,14 @@ def _convention_in_scope(
     # whose file pattern can capture placeholders that don't exist on the
     # convention's top-level match (see `_companion_paths_for_block`).
     has_paired_file_templates = any(_paired_file_templates(block) for block in blocks)
+    cross_file_blocks = tuple(
+        block
+        for block in blocks
+        if _block_has_cross_file_predicate(
+            block=block,
+            predicate_registry=predicate_registry,
+        )
+    )
 
     for entry in matched:
         if _path_in_scope(path=entry.path, target_files=target_files):
@@ -258,5 +242,36 @@ def _convention_in_scope(
                 for companion_path in companion_paths
             ):
                 return True
+
+    if not cross_file_blocks:
+        return False
+
+    parent_contexts: list[PredicateContext] = []
+    for entry in matched:
+        merged_entry = MatchedPath(
+            path=entry.path,
+            placeholders={**static_placeholders, **entry.placeholders},
+        )
+        context = build_context(matched=merged_entry, file_system=file_system)
+        if _is_file_excluded(
+            file_path=entry.path,
+            exclude_files=convention_exclude_files,
+            context=context,
+        ):
+            continue
+        parent_contexts.append(context)
+
+    for block in cross_file_blocks:
+        prepared = _prepare_block_evaluation(
+            block=block,
+            parent_contexts=parent_contexts,
+            file_system=file_system,
+            case_maps=case_maps,
+        )
+        if any(
+            _path_in_scope(path=path, target_files=target_files)
+            for path in prepared.scope_paths
+        ):
+            return True
 
     return False

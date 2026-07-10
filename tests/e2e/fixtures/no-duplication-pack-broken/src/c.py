@@ -1,0 +1,1 @@
+MESSAGE = "shared-error-message"

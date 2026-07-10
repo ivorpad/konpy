@@ -679,3 +679,405 @@ class TestSyntaxErrors:
         assert result.type_aliases == ()
         assert result.all_names is None
         assert result.all_is_dynamic is False
+
+
+class TestAnnotationMetadata:
+    def test_type_annotation_positions_are_collected_for_all_targets(self) -> None:
+        result = parse_source(
+            """
+            from typing import Any
+
+            VALUE: dict[str, int] = {}
+
+            class Model:
+                payload: dict[str, object]
+
+            def handle(payload: dict[str, Any]) -> list[str]:
+                return []
+            """
+        )
+
+        function = result.function_annotation_targets[0]
+        param_type = function.params[0].type_name
+        return_type = function.return_type
+        constant_type = result.constants[0].type_name
+        class_attr_type = result.class_attributes[0].type_name
+
+        assert param_type is not None
+        assert param_type.pos == SourcePosition(line=8, column=21)
+
+        assert return_type is not None
+        assert return_type.pos == SourcePosition(line=8, column=40)
+
+        assert constant_type is not None
+        assert constant_type.pos == SourcePosition(line=3, column=8)
+
+        assert class_attr_type.pos == SourcePosition(line=6, column=14)
+
+    def test_annotation_occurrences_include_root_and_nested_subscripts(self) -> None:
+        result = parse_source(
+            """
+            from typing import Any
+
+            def handle(payload: list[dict[str, Any]]) -> None:
+                pass
+            """
+        )
+
+        type_name = result.function_annotation_targets[0].params[0].type_name
+        assert type_name is not None
+
+        assert [
+            (occurrence.text, occurrence.pos, occurrence.is_root)
+            for occurrence in type_name.occurrences
+        ] == [
+            ("list[dict[str, Any]]", SourcePosition(line=3, column=21), True),
+            ("dict[str, Any]", SourcePosition(line=3, column=26), False),
+        ]
+
+    def test_collects_class_body_annotated_attributes(self) -> None:
+        result = parse_source(
+            """
+            __all__ = ["Public"]
+
+            class Public:
+                payload: dict[str, object]
+                _secret: str
+
+            class Hidden:
+                payload: dict[str, object]
+            """
+        )
+
+        assert [
+            (
+                entry.name,
+                entry.qualified_name,
+                entry.is_public,
+                entry.pos,
+                entry.type_name.text,
+            )
+            for entry in result.class_attributes
+        ] == [
+            (
+                "payload",
+                "Public.payload",
+                True,
+                SourcePosition(line=4, column=5),
+                "dict[str, object]",
+            ),
+            (
+                "_secret",
+                "Public._secret",
+                False,
+                SourcePosition(line=5, column=5),
+                "str",
+            ),
+            (
+                "payload",
+                "Hidden.payload",
+                False,
+                SourcePosition(line=8, column=5),
+                "dict[str, object]",
+            ),
+        ]
+
+    def test_multiline_nested_annotation_positions_use_each_expression_start(self) -> None:
+        result = parse_source(
+            """
+            from typing import Any
+
+            VALUE: list[
+                dict[str, Any]
+            ] = []
+            """
+        )
+
+        type_name = result.constants[0].type_name
+        assert type_name is not None
+
+        assert [
+            (occurrence.text, occurrence.pos, occurrence.is_root)
+            for occurrence in type_name.occurrences
+        ] == [
+            ("list[dict[str, Any]]", SourcePosition(line=3, column=8), True),
+            ("dict[str, Any]", SourcePosition(line=4, column=5), False),
+        ]
+
+
+class TestStringLiteralCollection:
+    def test_collects_eligible_string_literals_with_positions(self) -> None:
+        result = parse_source(
+            """
+            VALUE = "shared"
+            data = {"key": "value"}
+            def run():
+                return "done"
+            """
+        )
+
+        assert [
+            (entry.value, entry.pos)
+            for entry in result.string_literals
+        ] == [
+            ("shared", SourcePosition(line=1, column=9)),
+            ("key", SourcePosition(line=2, column=9)),
+            ("value", SourcePosition(line=2, column=16)),
+            ("done", SourcePosition(line=4, column=12)),
+        ]
+
+    def test_excludes_all_fixed_exemption_classes(self) -> None:
+        result = parse_source(
+            '''
+            """Module docs."""
+            "module sentinel"
+
+            __all__ = ["Public"]
+            __all__ += ["Extra"]
+            __all__.append("Appended")
+            __all__.extend(("Extended",))
+            __slots__ = ("slot",)
+            __match_args__: tuple[str, ...] = ("field",)
+
+            def run(value: "Input") -> "Output":
+                """Function docs."""
+                "function sentinel"
+                if __name__ == "__main__":
+                    print("entrypoint")
+                return "kept"
+
+            class Model:
+                """Class docs."""
+                "class sentinel"
+                attr: "Attr"
+
+                def method(self) -> "Result":
+                    return "method kept"
+
+            rendered = f"prefix {name}"
+            raw = b"bytes"
+            EMPTY = ""
+            '''
+        )
+
+        assert [entry.value for entry in result.string_literals] == [
+            "entrypoint",
+            "kept",
+            "method kept",
+        ]
+
+    def test_excludes_string_literals_in_type_alias_values(self) -> None:
+        result = parse_source(
+            """
+            from typing import Literal, TypeAlias
+
+            Alias: TypeAlias = Literal["tag"]
+            type Other = Literal["other"]
+
+            VALUE = "tag"
+            """
+        )
+
+        assert [entry.value for entry in result.string_literals] == ["tag"]
+
+
+class TestFunctionFingerprints:
+    @staticmethod
+    def fingerprints_by_name(source: str) -> dict[str, str]:
+        result = parse_source(source)
+        return {
+            entry.qualified_name: entry.fingerprint
+            for entry in result.function_fingerprints
+        }
+
+    def test_renamed_locals_have_same_fingerprint(self) -> None:
+        fingerprints = self.fingerprints_by_name(
+            """
+            def one(value):
+                total = value + 1
+                return total
+
+            def two(item):
+                result = item + 1
+                return result
+            """
+        )
+
+        assert fingerprints["one"] == fingerprints["two"]
+
+    def test_docstring_annotation_and_decorator_deltas_are_equal(self) -> None:
+        fingerprints = self.fingerprints_by_name(
+            '''
+            def decorator(fn):
+                return fn
+
+            @decorator
+            def typed(value: int) -> str:
+                """Different documentation."""
+                result = str(value)
+                return result
+
+            def plain(item):
+                result = str(item)
+                return result
+            '''
+        )
+
+        assert fingerprints["typed"] == fingerprints["plain"]
+
+    def test_behavioral_differences_are_not_equal(self) -> None:
+        fingerprints = self.fingerprints_by_name(
+            """
+            def add_one(value):
+                return value + 1
+
+            def add_two(value):
+                return value + 2
+
+            def use_json(value):
+                return json.dumps(value)
+
+            def use_yaml(value):
+                return yaml.dump(value)
+
+            async def async_one(value):
+                return value + 1
+
+            def with_varargs(value, *items):
+                return value
+
+            def with_keyword(value, *, flag):
+                return value
+            """
+        )
+
+        assert fingerprints["add_one"] != fingerprints["add_two"]
+        assert fingerprints["use_json"] != fingerprints["use_yaml"]
+        assert fingerprints["add_one"] != fingerprints["async_one"]
+        assert fingerprints["with_varargs"] != fingerprints["with_keyword"]
+
+    def test_statement_count_excludes_docstring_and_nested_bodies(self) -> None:
+        result = parse_source(
+            '''
+            def complicated(value):
+                """Function docs."""
+                if value:
+                    return 1
+                for item in range(value):
+                    print(item)
+                def nested():
+                    return "ignored"
+                return 0
+            '''
+        )
+
+        entry = result.function_fingerprints[0]
+        assert entry.qualified_name == "complicated"
+        assert entry.statement_count == 6
+
+    def test_publicness_rules_cover_top_level_functions_and_direct_methods(self) -> None:
+        result = parse_source(
+            """
+            __all__ = ["Public", "Exported"]
+
+            def Public():
+                pass
+
+            def Hidden():
+                pass
+
+            class Exported:
+                def method(self):
+                    pass
+
+                def _hidden(self):
+                    pass
+
+            class Other:
+                def method(self):
+                    pass
+            """
+        )
+
+        assert {
+            entry.qualified_name: entry.is_public
+            for entry in result.function_fingerprints
+        } == {
+            "Public": True,
+            "Hidden": False,
+            "Exported.method": True,
+            "Exported._hidden": False,
+            "Other.method": False,
+        }
+
+    def test_collects_only_top_level_functions_and_direct_methods(self) -> None:
+        result = parse_source(
+            """
+            def outer():
+                def inner():
+                    return 1
+                return inner()
+
+            class Service:
+                class Nested:
+                    def nested_method(self):
+                        return 1
+
+                def direct(self):
+                    return 2
+            """
+        )
+
+        assert [
+            entry.qualified_name
+            for entry in result.function_fingerprints
+        ] == ["outer", "Service.direct"]
+
+    def test_nested_function_body_differences_are_not_equal(self) -> None:
+        fingerprints = self.fingerprints_by_name(
+            """
+            def one(value):
+                def inner(item):
+                    return item + 1
+                return inner(value)
+
+            def two(value):
+                def inner(item):
+                    return item + 2
+                return inner(value)
+            """
+        )
+
+        assert fingerprints["one"] != fingerprints["two"]
+
+    def test_nested_function_parameter_renames_are_equal(self) -> None:
+        fingerprints = self.fingerprints_by_name(
+            """
+            def one(value):
+                def inner(item):
+                    return item + value
+                return inner(value)
+
+            def two(value):
+                def inner(other):
+                    return other + value
+                return inner(value)
+            """
+        )
+
+        assert fingerprints["one"] == fingerprints["two"]
+
+    def test_lambda_parameter_renames_are_equal(self) -> None:
+        fingerprints = self.fingerprints_by_name(
+            """
+            def one(value):
+                transform = lambda item: item + value
+                return transform(value)
+
+            def two(value):
+                transform = lambda other: other + value
+                return transform(value)
+            """
+        )
+
+        assert fingerprints["one"] == fingerprints["two"]

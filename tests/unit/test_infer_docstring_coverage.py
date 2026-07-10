@@ -28,6 +28,7 @@ def target(
 
 def make_structure(targets: tuple[DocstringTargetInfo, ...]) -> PyFileStructure:
     defaults: dict[str, Any] = {
+        "class_attributes": (),
         "classes": (),
         "constants": (),
         "declaration_symbols": (),
@@ -36,11 +37,13 @@ def make_structure(targets: tuple[DocstringTargetInfo, ...]) -> PyFileStructure:
         "exports": (),
         "function_annotation_targets": (),
         "functions": (),
+        "function_fingerprints": (),
         "import_sources": (),
         "imports": (),
         "interfaces": (),
         "named_export_symbols": (),
         "non_barrel_statements": (),
+        "string_literals": (),
         "type_aliases": (),
         "all_names": None,
         "all_is_dynamic": False,
