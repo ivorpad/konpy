@@ -25,6 +25,24 @@ dev = [
     "ruff>=0.11",
 ]
 
+[tool.hatch.build.targets.sdist]
+only-include = [
+    ".github",
+    ".gitignore",
+    "CLAUDE.md",
+    "README.md",
+    "docs",
+    "konpy.json",
+    "konpy.schema.json",
+    "konpy.strict.json",
+    "packs",
+    "scripts",
+    "skills-lock.json",
+    "src",
+    "tests",
+    "uv.lock",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/konpy"]
 
