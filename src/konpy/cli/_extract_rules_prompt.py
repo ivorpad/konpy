@@ -14,7 +14,7 @@ from konpy.config.errors import Err, Ok, Result
 
 
 def pack_contract_and_rubric() -> str:
-    """Return the reusable-pack JSON contract and mappability rubric for agent prompts."""
+    """Return the four-lane JSON contract and routing rubric for agent prompts."""
     return """Return exactly one JSON object with this contract and no required commentary:
 
 {
@@ -22,10 +22,25 @@ def pack_contract_and_rubric() -> str:
     "conventionSpecVersion": "v1",
     "conventions": []
   },
+  "semantic": [
+    {
+      "name": "kebab-slug",
+      "prompt": "self-contained verification instruction for a read-only agent inspecting one file",
+      "match": ["**/*.py"],
+      "source": "original rule text"
+    }
+  ],
+  "coveredElsewhere": [
+    {
+      "rule": "original rule text",
+      "tool": "ruff RUF012",
+      "note": "why the established linter rule covers it"
+    }
+  ],
   "unmapped": [
     {
       "rule": "original or summarized source rule",
-      "reason": "why it cannot be represented with konpy predicates"
+      "reason": "why it requires repository-wide, runtime, operational, or process knowledge"
     }
   ]
 }
@@ -43,17 +58,33 @@ ReusableConventionsPackageV1 format summary:
 - Do not edit, describe edits to, or assume edits to konpy.json. The pack
   is only a human-review proposal.
 
-Mappability rubric:
-- Map only rules expressible with the predicates and placeholders in the
-  predicates reference below.
+Routing order:
+1. If an established Ruff or mypy rule covers the check, emit it only in
+   "coveredElsewhere". Do not duplicate it with a konpy convention, including
+   a weak matchContent approximation.
+2. Otherwise, if the rule is expressible with the supplied konpy predicates
+   and placeholders, emit it only in "pack".
+3. Otherwise, if a read-only agent can verify the rule by inspecting a single
+   changed file with judgment, emit it only in "semantic".
+4. Only rules requiring repository-wide, runtime, operational, or process
+   knowledge belong in "unmapped".
+
+Semantic-rule requirements:
+- "name" must be a kebab-case identifier containing only lowercase letters,
+  digits, and hyphens.
+- "prompt" must be a non-empty, self-contained verification instruction.
+  It must not require the verifier to read or know the original source document.
+- "match" must be a non-empty list of non-empty globs scoping the files where
+  the instruction applies.
+- "source" should preserve the original rule text as provenance.
+
+Additional routing rules:
 - Do not invent predicate keys.
-- Rules about formatting, Ruff, mypy, pytest behavior, in-function linting,
-  process advice, review workflow, dependency choices, runtime performance,
-  or broad design judgment should be reported in "unmapped".
-- Ambiguous or project-specific rules whose paths/placeholders cannot be
-  inferred should be reported in "unmapped" with a reason.
-- Never silently drop a source rule. If a rule cannot be mapped, list it in
-  "unmapped"."""
+- Ambiguous structural rules whose paths or placeholders cannot be inferred
+  may be semantic only when one-file inspection is sufficient; otherwise put
+  them in "unmapped" with a reason.
+- Never silently drop a source rule. Every source rule must land in exactly one
+  of "pack", "semantic", "coveredElsewhere", or "unmapped"."""
 
 
 def build_prompt(
@@ -62,9 +93,9 @@ def build_prompt(
     source_label: str,
     predicates_reference: str,
 ) -> str:
-    """Build the agent prompt that converts prose rules into a reusable pack."""
+    """Build the agent prompt that routes prose rules into four lanes."""
     return f"""\
-You convert prose best-practices into a reviewable konpy reusable convention pack.
+You convert prose best-practices into reviewable konpy rule artifacts.
 
 {pack_contract_and_rubric()}
 
@@ -82,7 +113,9 @@ Source file: {source_label}
 
 def read_predicates_reference() -> Result[str]:
     """Read `docs/reference/predicates.md` from the source tree or package data."""
-    source_tree_path = Path(__file__).resolve().parents[3] / "docs/reference/predicates.md"
+    source_tree_path = (
+        Path(__file__).resolve().parents[3] / "docs/reference/predicates.md"
+    )
     try:
         if source_tree_path.is_file():
             return Ok(source_tree_path.read_text(encoding="utf-8"))
@@ -96,9 +129,15 @@ def read_predicates_reference() -> Result[str]:
             .read_text(encoding="utf-8")
         )
     except (FileNotFoundError, ModuleNotFoundError, OSError):
-        return Err("Could not read predicates reference docs/reference/predicates.md.")
+        return Err(
+            "Could not read predicates reference docs/reference/predicates.md."
+        )
 
     return Ok(text)
 
 
-__all__ = ["build_prompt", "pack_contract_and_rubric", "read_predicates_reference"]
+__all__ = [
+    "build_prompt",
+    "pack_contract_and_rubric",
+    "read_predicates_reference",
+]

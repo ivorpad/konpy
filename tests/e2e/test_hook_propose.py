@@ -9,183 +9,197 @@ import pytest
 from konpy.cli._hook_findings import HookFinding
 
 
-def _write_claude_stub(
+def write_claude_stub(
     path: Path,
     *,
-    payload: dict[str, object] | None = None,
-    exit_code: int = 0,
-    marker_path: Path | None = None,
+    payload: dict[str, object],
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    lines = ["#!/usr/bin/env python3"]
-    if marker_path is not None:
-        lines.append("from pathlib import Path")
-        lines.append(f"Path({str(marker_path)!r}).write_text('invoked\\n', encoding='utf-8')")
-    if payload is not None:
-        lines.append(f"print({json.dumps(payload)!r})")
-    if exit_code:
-        lines.append("import sys")
-        lines.append(f"sys.exit({exit_code})")
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    path.write_text(
+        "#!/usr/bin/env python3\n"
+        f"print({json.dumps(payload)!r})\n",
+        encoding="utf-8",
+    )
     path.chmod(0o755)
 
 
-def _prepend_stub_bin_to_path(monkeypatch: pytest.MonkeyPatch, stub_bin: Path) -> None:
-    monkeypatch.setenv("PATH", f"{stub_bin}{os.pathsep}{os.environ.get('PATH', '')}")
+def prepend_stub(
+    monkeypatch: pytest.MonkeyPatch,
+    stub_bin: Path,
+) -> None:
+    monkeypatch.setenv(
+        "PATH",
+        f"{stub_bin}{os.pathsep}{os.environ.get('PATH', '')}",
+    )
 
 
-def _seed_findings(path: Path) -> None:
-    prompt = "verify service modules export matching service classes"
+def seed_findings(path: Path) -> None:
+    prompt = "Verify service modules implement their documented behavior."
     findings = [
         HookFinding(
             filePath="src/user_service.py",
             prompt=prompt,
+            rule="service-behavior",
             agent="claude",
             model="sonnet",
-            reasons=["expected UserService export was missing"],
+            reasons=["UserService documents persistence but only validates."],
         ),
         HookFinding(
             filePath="src/order_service.py",
             prompt=prompt,
+            rule="service-behavior",
             agent="claude",
             model="sonnet",
-            reasons=["expected OrderService export was missing"],
+            reasons=["OrderService documents persistence but only validates."],
         ),
     ]
     path.write_text(
-        "".join(f"{finding.model_dump_json(exclude_none=True)}\n" for finding in findings),
+        "".join(
+            f"{finding.model_dump_json(exclude_none=True)}\n"
+            for finding in findings
+        ),
         encoding="utf-8",
     )
 
 
-class TestHookProposeEndToEnd:
-    def test_hook_propose_uses_stub_agent_and_writes_default_pack(
-        self,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-        run_cli,
-    ) -> None:
-        project_dir = tmp_path / "project"
-        project_dir.mkdir()
-        _seed_findings(project_dir / "findings.jsonl")
+def test_hook_propose_writes_structural_semantic_and_routing_artifacts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    run_cli,
+) -> None:
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    seed_findings(project_dir / "findings.jsonl")
 
-        stub_bin = tmp_path / "bin"
-        _write_claude_stub(
-            stub_bin / "claude",
-            payload={
-                "pack": {
-                    "conventionSpecVersion": "v1",
-                    "conventions": [
-                        {
-                            "name": "service-modules-export-matching-class",
-                            "description": "Service modules export the matching Service class.",
-                            "paths": "src/{name}_service.py",
-                            "must": {
-                                "exportClasses": ["${name.toPascalCase()}Service"]
-                            },
-                        }
-                    ],
-                },
-                "unmapped": [
+    stub_bin = tmp_path / "bin"
+    write_claude_stub(
+        stub_bin / "claude",
+        payload={
+            "pack": {
+                "conventionSpecVersion": "v1",
+                "conventions": [
                     {
-                        "rule": "Semantic service behavior review",
-                        "reason": "Requires human judgment.",
+                        "name": "service-files-are-files",
+                        "description": "Service modules are regular files.",
+                        "paths": "src/**/*_service.py",
+                        "must": {"haveType": "file"},
                     }
                 ],
             },
-        )
-        _prepend_stub_bin_to_path(monkeypatch, stub_bin)
+            "semantic": [
+                {
+                    "name": "service-behavior",
+                    "prompt": (
+                        "Verify service modules implement their documented "
+                        "behavior."
+                    ),
+                    "match": ["src/**/*_service.py"],
+                    "source": "Services must implement documented behavior.",
+                }
+            ],
+            "coveredElsewhere": [
+                {
+                    "rule": "Service functions need return annotations.",
+                    "tool": "mypy",
+                    "note": "mypy checks declared return types.",
+                }
+            ],
+            "unmapped": [
+                {
+                    "rule": "Review service metrics weekly.",
+                    "reason": "Requires runtime telemetry and process knowledge.",
+                }
+            ],
+        },
+    )
+    prepend_stub(monkeypatch, stub_bin)
 
-        exit_code, stdout, stderr = run_cli(
-            project_dir,
-            "hook-propose",
-            "findings.jsonl",
-            "--agent",
-            "claude",
-        )
+    exit_code, stdout, stderr = run_cli(
+        project_dir,
+        "hook-propose",
+        "findings.jsonl",
+        "--agent",
+        "claude",
+        "--report",
+        "reports/routing.md",
+    )
 
-        output_pack = project_dir / "packs" / "hook-proposals.json"
-        assert exit_code == 0
-        assert stderr == ""
-        assert output_pack.exists()
-        parsed = json.loads(output_pack.read_text(encoding="utf-8"))
-        assert parsed["conventionSpecVersion"] == "v1"
-        assert parsed["conventions"][0]["name"] == "service-modules-export-matching-class"
-        assert "Wrote reusable convention proposal to" in stdout
-        assert "packs/hook-proposals.json" in stdout
-        assert "Unmapped rules:" in stdout
-        assert "Semantic service behavior review" in stdout
-        assert not (project_dir / "konpy.json").exists()
+    pack_path = project_dir / "packs" / "hook-proposals.json"
+    rules_path = project_dir / "packs" / "hook-proposals.rules.json"
+    report_path = project_dir / "reports" / "routing.md"
 
-    def test_hook_propose_invalid_pack_exits_one_and_writes_no_output(
-        self,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-        run_cli,
-    ) -> None:
-        project_dir = tmp_path / "project"
-        project_dir.mkdir()
-        _seed_findings(project_dir / "findings.jsonl")
+    assert exit_code == 0
+    assert "konpy hook-propose: proposing conventions from" in stderr
+    assert pack_path.exists()
+    assert rules_path.exists()
+    assert report_path.exists()
 
-        stub_bin = tmp_path / "bin"
-        _write_claude_stub(
-            stub_bin / "claude",
-            payload={
-                "pack": {
-                    "conventionSpecVersion": "v1",
-                    "conventions": [
-                        {
-                            "name": "invalid-proposal",
-                            "description": "Missing must and mustNot.",
-                            "paths": "src/*.py",
-                        }
-                    ],
-                },
-                "unmapped": [],
+    pack = json.loads(pack_path.read_text(encoding="utf-8"))
+    rules = json.loads(rules_path.read_text(encoding="utf-8"))
+    report = report_path.read_text(encoding="utf-8")
+
+    assert pack["conventions"][0]["name"] == "service-files-are-files"
+    assert rules["semanticRulesSpecVersion"] == "v1"
+    assert rules["rules"][0]["name"] == "service-behavior"
+    assert "# Rule routing report" in report
+    assert "## Covered by existing linters" in report
+    assert "Service functions need return annotations." in report
+    assert "mypy checks declared return types." in report
+    assert "## Unmapped rules" in report
+    assert "Review service metrics weekly." in report
+    assert "## Semantic hook wiring" in report
+    assert "--rules packs/hook-proposals.rules.json" in report
+
+    assert "Wrote reusable convention proposal to" in stdout
+    assert "Wrote semantic rules to packs/hook-proposals.rules.json" in stdout
+    assert "Wrote rule-routing report to reports/routing.md" in stdout
+    assert "Review service metrics weekly." not in stdout
+    assert not (project_dir / "konpy.json").exists()
+
+
+def test_hook_propose_rules_output_override(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    run_cli,
+) -> None:
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    seed_findings(project_dir / "findings.jsonl")
+
+    stub_bin = tmp_path / "bin"
+    write_claude_stub(
+        stub_bin / "claude",
+        payload={
+            "pack": {
+                "conventionSpecVersion": "v1",
+                "conventions": [],
             },
-        )
-        _prepend_stub_bin_to_path(monkeypatch, stub_bin)
+            "semantic": [
+                {
+                    "name": "service-behavior",
+                    "prompt": "Verify service behavior.",
+                    "match": ["src/**/*_service.py"],
+                }
+            ],
+            "coveredElsewhere": [],
+            "unmapped": [],
+        },
+    )
+    prepend_stub(monkeypatch, stub_bin)
 
-        exit_code, _stdout, stderr = run_cli(
-            project_dir,
-            "hook-propose",
-            "findings.jsonl",
-            "--agent",
-            "claude",
-        )
+    exit_code, stdout, _stderr = run_cli(
+        project_dir,
+        "hook-propose",
+        "findings.jsonl",
+        "--agent",
+        "claude",
+        "--rules-output",
+        "generated/service-rules.json",
+    )
 
-        assert exit_code == 1
-        assert "Invalid proposed reusable-convention package:" in stderr
-        assert not (project_dir / "packs" / "hook-proposals.json").exists()
-
-    def test_hook_propose_missing_findings_exits_zero_without_invoking_agent(
-        self,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-        run_cli,
-    ) -> None:
-        project_dir = tmp_path / "project"
-        project_dir.mkdir()
-
-        stub_bin = tmp_path / "bin"
-        marker_path = tmp_path / "claude-invoked.txt"
-        _write_claude_stub(
-            stub_bin / "claude",
-            exit_code=99,
-            marker_path=marker_path,
-        )
-        _prepend_stub_bin_to_path(monkeypatch, stub_bin)
-
-        exit_code, stdout, stderr = run_cli(
-            project_dir,
-            "hook-propose",
-            "missing-findings.jsonl",
-            "--agent",
-            "claude",
-        )
-
-        assert exit_code == 0
-        assert "No fail findings to promote from" in stdout
-        assert stderr == ""
-        assert not marker_path.exists()
-        assert not (project_dir / "packs" / "hook-proposals.json").exists()
+    assert exit_code == 0
+    assert (project_dir / "generated" / "service-rules.json").exists()
+    assert not (
+        project_dir / "packs" / "hook-proposals.rules.json"
+    ).exists()
+    assert "generated/service-rules.json" in stdout

@@ -31,13 +31,14 @@ class HookFinding(BaseModel):
     toolName: str | None = None
     filePath: str
     prompt: str
+    rule: str | None = None
     agent: str
     model: str
     reasons: list[str] = Field(min_length=1)
 
 
 def append_hook_finding(path: str | Path, finding: HookFinding) -> Result[None]:
-    """Append one hook finding as JSONL, creating parent directories when needed."""
+    """Append one hook finding as JSONL."""
     destination = Path(path)
     try:
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -51,7 +52,7 @@ def append_hook_finding(path: str | Path, finding: HookFinding) -> Result[None]:
 
 
 def read_hook_findings(path: str | Path) -> tuple[list[HookFinding], list[str]]:
-    """Read valid fail findings from a JSONL log, returning ordered skip warnings."""
+    """Read valid fail findings, returning ordered warnings for skipped lines."""
     source = Path(path)
     if not source.exists():
         return ([], [])
@@ -70,20 +71,26 @@ def read_hook_findings(path: str | Path) -> tuple[list[HookFinding], list[str]]:
             continue
 
         location = f"{source}:{line_number}"
-
         try:
             decoded: object = json.loads(line)
         except json.JSONDecodeError:
-            warnings.append(f"Skipping invalid hook finding at {location}: malformed JSON.")
+            warnings.append(
+                f"Skipping invalid hook finding at {location}: malformed JSON."
+            )
             continue
 
         if not isinstance(decoded, dict):
-            warnings.append(f"Skipping invalid hook finding at {location}: expected object.")
+            warnings.append(
+                f"Skipping invalid hook finding at {location}: expected object."
+            )
             continue
 
         verdict = decoded.get("verdict")
         if verdict is None:
-            warnings.append(f"Skipping invalid hook finding at {location}: missing fail verdict.")
+            warnings.append(
+                f"Skipping invalid hook finding at {location}: "
+                "missing fail verdict."
+            )
             continue
         if verdict != "fail":
             warnings.append(f"Skipping non-fail hook finding at {location}.")

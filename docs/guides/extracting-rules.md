@@ -1,18 +1,20 @@
 # Extracting rules from prose
 
-`konpy extract-rules` turns a prose source — such as a team style guide, an internal checklist, or an agent skill file — into a reviewable reusable-convention pack proposal.
+`konpy extract-rules` turns a prose source, such as a team style guide or agent skill, into reviewable structural and semantic rule proposals.
 
-Extraction is always explicit. `konpy check` and `konpy validate` never invoke an agent.
+Extraction is explicit. `konpy check` and `konpy validate` never invoke an agent.
 
 ## Basic workflow
 
-Start with a markdown or text file:
+Start with a Markdown or text file:
 
 ```md
 # Team rules
 
 Every package directory must have a README.md.
-Python modules should use Ruff formatting.
+Errors must identify the failed operation.
+Mutable function defaults are forbidden.
+Review service metrics weekly.
 ```
 
 Run extraction:
@@ -21,19 +23,44 @@ Run extraction:
 konpy extract-rules docs/team-rules.md
 ```
 
-By default this writes:
+By default, a response containing structural and semantic rules writes:
 
 ```text
 packs/team-rules.json
+packs/team-rules.rules.json
 ```
 
-You can choose the destination:
+Choose either destination:
 
 ```bash
-konpy extract-rules docs/team-rules.md -o packs/team-style.json
+konpy extract-rules docs/team-rules.md \
+  --output packs/team-style.json \
+  --rules-output packs/team-style.rules.json
 ```
 
-The generated file is a [`ReusableConventionsPackageV1`](../reference/reusable-conventions.md) proposal:
+The agent run may take several minutes. Progress goes to stderr. Use `--verbose` to relay agent activity and `--timeout` to cap the subprocess.
+
+## Four output lanes
+
+Every source rule must enter one lane.
+
+### Covered by existing linters
+
+If Ruff or mypy already checks a rule, extraction reports the existing tool instead of creating a weaker konpy approximation.
+
+Example:
+
+```json
+{
+  "rule": "Mutable function defaults are forbidden.",
+  "tool": "ruff B006",
+  "note": "Ruff checks mutable function argument defaults."
+}
+```
+
+### Structural conventions
+
+Rules expressible with konpy predicates and placeholders enter the reusable convention pack:
 
 ```json
 {
@@ -51,17 +78,94 @@ The generated file is a [`ReusableConventionsPackageV1`](../reference/reusable-c
 }
 ```
 
+These rules can later be consumed through `conventionSources`.
+
+### Semantic rules
+
+Rules that need judgment but can be checked by reading one changed file enter a semantic-rules package:
+
+```json
+{
+  "semanticRulesSpecVersion": "v1",
+  "rules": [
+    {
+      "name": "contextual-errors",
+      "prompt": "Verify that raised errors identify the failed operation and relevant input.",
+      "match": ["src/**/*.py"],
+      "source": "Errors must identify the failed operation."
+    }
+  ]
+}
+```
+
+Wire the package into an agent hook:
+
+```bash
+konpy hook \
+  --agent claude \
+  --match '**/*.py' \
+  --rules packs/team-rules.rules.json
+```
+
+See [Semantic rules](../reference/semantic-rules.md).
+
+### Unmapped rules
+
+Only checks requiring repository-wide, runtime, operational, or process knowledge stay unmapped.
+
+Examples include:
+
+- monitoring policy;
+- release versioning decisions;
+- reviewer rotation;
+- production behavior that cannot be inferred from one file.
+
+## Routing order
+
+The extraction prompt applies this order:
+
+1. Use Ruff or mypy when an established rule covers the check.
+2. Use a structural konpy convention when predicates can express it.
+3. Use a semantic rule when one-file read-only inspection is enough.
+4. Use unmapped only for checks that do not fit the first three lanes.
+
+This order prevents generated `matchContent` rules from duplicating mature linters.
+
+## Reports
+
+Without `--report`, stdout shows covered and unmapped entries. When semantic rules were written, it also prints a hook command:
+
+```text
+Wrote reusable convention proposal to packs/team-rules.json
+Wrote semantic rules to packs/team-rules.rules.json
+Covered by existing linters:
+- Mutable function defaults are forbidden.: ruff B006 — Ruff checks mutable defaults.
+
+Unmapped rules:
+- Review service metrics weekly.: Requires runtime telemetry and a review process.
+
+Add a PostToolUse hook: konpy hook --match '**/*.py' --rules packs/team-rules.rules.json --agent claude
+```
+
+Write the routing details to Markdown instead:
+
+```bash
+konpy extract-rules docs/team-rules.md \
+  --report reports/team-rules.md
+```
+
+The report contains covered, unmapped, and semantic hook-wiring sections. Stdout only confirms the artifact paths.
+
 ## Review before use
 
-The generated pack is not automatically enabled.
+Neither output artifact is enabled automatically.
 
-After extraction:
+Review the structural pack:
 
-1. Open the generated JSON.
-2. Check that every convention is meaningful for your repository.
-3. Delete or rewrite over-broad rules.
-4. Check the unmapped-rules output.
-5. Only after review, manually add the pack to `conventionSources`.
+1. Check paths and placeholders.
+2. Delete weak or duplicated conventions.
+3. Confirm the predicate expresses the original rule.
+4. Add accepted conventions to `conventionSources`.
 
 Example:
 
@@ -77,82 +181,37 @@ Example:
 }
 ```
 
-`extract-rules` never edits `konpy.json` for you.
+Review semantic rules separately:
 
-Sibling workflow: [`konpy hook-propose`](ratchet.md) uses the same reviewable-pack idea, but its input is logged `konpy hook` fail findings instead of a prose source file.
+- ensure each prompt is self-contained;
+- narrow broad `match` globs;
+- confirm the rule can be judged from one file;
+- remove rules already handled by deterministic tooling.
+
+`extract-rules` never edits `konpy.json` or hook configuration.
 
 ## Agent selection
-
-The command shells out to a local agent CLI.
 
 ```bash
 konpy extract-rules docs/team-rules.md --agent auto
 konpy extract-rules docs/team-rules.md --agent claude
-konpy extract-rules docs/team-rules.md --agent codex
+konpy extract-rules docs/team-rules.md --agent codex --model gpt-5-codex
 ```
 
-`--agent auto` is the default. It selects the first available binary on `PATH`:
+`auto` checks for `claude` first, then `codex`.
 
-1. `claude`
-2. `codex`
-
-`--model` pins the model the agent CLI runs on (forwarded as its own `--model` flag). The default is `sonnet` — a Claude model name, so pass an explicit `--model` when the resolved agent is `codex`.
-
-The invocation forms are:
+The command forms are:
 
 ```bash
 claude -p <prompt>
 codex exec <prompt>
 ```
 
-If neither binary is found, the command exits with an error naming both `claude` and `codex`.
+The default model is `sonnet`. Supply a Codex model explicitly when using Codex.
 
-## Unmapped rules
+## Validation and write behavior
 
-The extraction prompt tells the agent not to silently drop rules. Anything that cannot be expressed with `konpy` predicates should be returned as unmapped.
-
-Without `--report`, unmapped rules are printed to stdout:
-
-```bash
-konpy extract-rules docs/team-rules.md
-```
-
-With `--report`, they are written to a Markdown file:
-
-```bash
-konpy extract-rules docs/team-rules.md --report unmapped-rules.md
-```
-
-Typical unmapped rules include:
-
-- formatting rules, which belong in Ruff;
-- type-checking rules, which belong in mypy or pyright;
-- pytest behavior rules;
-- in-function lint rules;
-- review-process guidance;
-- rules that need project-specific context the source did not provide;
-- broad design advice that cannot be checked structurally.
-
-Use the unmapped list as a follow-up checklist. Some items may belong in another tool; others may need a custom plugin predicate or a hand-written convention.
-
-## What can be mapped
-
-`konpy` is best at structural repository rules:
-
-- files or directories must exist;
-- matched paths must be files or directories;
-- modules must export, declare, or import specific symbols;
-- imports must or must not come from specific sources;
-- barrels must remain pure re-export modules;
-- files must contain simple regex-matched content;
-- public functions/classes should have docstrings or annotations;
-- source files should have paired test files.
-
-The agent prompt includes the full [predicate reference](../reference/predicates.md), so generated rules should use the same vocabulary as hand-written conventions.
-
-## Validation before write
-
-The agent must return one JSON object with this shape:
+The expected agent response is:
 
 ```json
 {
@@ -160,10 +219,30 @@ The agent must return one JSON object with this shape:
     "conventionSpecVersion": "v1",
     "conventions": []
   },
+  "semantic": [],
+  "coveredElsewhere": [],
   "unmapped": []
 }
 ```
 
-`konpy` validates `pack` with the reusable-conventions schema before writing. If validation fails, the command exits non-zero and writes nothing.
+`pack` and `unmapped` are required. The other lanes default to empty lists when omitted.
 
-This means a generated file is at least schema-valid, but it still needs human review.
+The response contract, structural pack, and semantic rules are validated before the first artifact is written.
+
+When `semantic` is empty:
+
+- no rules file is created;
+- an existing `--rules-output` file is not changed;
+- no hook-wiring hint is printed.
+
+The structural pack is written first, followed by semantic rules and the report. A later write error leaves an already-written earlier artifact in place.
+
+## Related workflows
+
+[`konpy hook-propose`](./ratchet.md) uses the same four-lane output contract. Its input is logged hook failures rather than a prose document.
+
+See also:
+
+- [Semantic rules](../reference/semantic-rules.md)
+- [Agentic verification hooks](./hooks.md)
+- [Reusable conventions](../reference/reusable-conventions.md)

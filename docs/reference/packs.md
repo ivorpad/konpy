@@ -1,93 +1,126 @@
 # Reusable packs
 
-The repo ships five off-the-shelf convention packs under [`packs/`](../../packs/). Each is a `ReusableConventionsPackageV1` (`conventionSpecVersion: "v1"`) that you bind via `conventionSources` and reference by `<alias>/<name>` — see [Reusable conventions](./reusable-conventions.md) for the general mechanism. This page documents what each pack's conventions check, the layout each one assumes, and every convention's `hint`.
+The repository ships reusable structural convention packs under [`packs/`](../../packs/). Each is a `ReusableConventionsPackageV1` loaded through `conventionSources`.
 
-Packs are **off-the-shelf**: if your layout doesn't match a pack's assumptions, use the matching section in [Templates](../guides/templates.md) to hand-write an equivalent convention with your own paths instead of fighting the pack's placeholders.
+If a rule needs one-file judgment rather than a structural predicate, use a [semantic-rules package](./semantic-rules.md) instead. Semantic rules are consumed by `konpy hook --rules`, not `konpy.json`.
 
 ## `python-best-practices.json`
 
-General Python structural hygiene, layout-independent (paths use `**` globs, not a fixed directory shape). See [Authoring reusable conventions](../guides/authoring-reusable-conventions.md) for how to consume individual rules with `use` overrides.
+General Python structural checks.
 
 | Convention | Checks | Hint |
 | --- | --- | --- |
-| `init-files-are-barrels` | Every `__init__.py` is a barrel file (docstring, imports, `__all__`, re-export aliases only — no other logic). | Move non-barrel logic out of the `__init__.py` into a dedicated module and re-export it. |
-| `absolute-imports-only` | Non-`__init__.py` modules use absolute imports, never `from .` / `from ..`. | Rewrite relative imports as absolute imports rooted at the top-level package. |
-| `no-underscore-exports` | `__all__` never lists an underscore-prefixed name. | Drop the underscore-prefixed name from `__all__`, or rename it without the leading underscore. |
-| `class-name-matches-filename` | A `*_service.py` module exports a `${name.toPascalCase()}Service` class. | Export a PascalCase `Service` class named after the file's stem. |
-| `exported-constants-are-upper-case` | A constant module exports `${name.toConstantCase()}`. | Export a `CONSTANT_CASE` constant named after the file. |
-| `docstrings-on-public-api` | Public classes and functions have docstrings. | Add a docstring explaining what the class/function does, its parameters, and its return value. |
-| `annotated-public-functions` | Public functions/methods annotate parameters and return values. | Add type annotations to the function's parameters and return value. |
-| `paired-test-files` | Top-level `src/{name}.py` has a matching `tests/test_{name}.py`. | Add a `tests/test_<module>.py` covering the module's public behavior. |
-| `no-todo-comments` | No `TODO`/`FIXME`/`XXX` markers in source. | Remove the marker and file a tracked issue for the remaining work. |
-| `public-api-modules-declare-all` | Non-`__init__.py` modules under `src/**` declare `__all__` explicitly. | Add an explicit `__all__` list naming the module's public names. |
-| `package-inits-have-docstrings` | Every `__init__.py` has a module docstring. | Add a module docstring summarizing what the package exposes and why. |
-| `component-packages-have-readme` | Each top-level directory under `packages/` has a `README.md`. | Add a `README.md` describing the package's purpose, ownership, and usage. |
+| `init-files-are-barrels` | `__init__.py` files contain barrel content only | Move logic into a module and re-export it |
+| `absolute-imports-only` | Non-init modules avoid relative imports | Rewrite imports from the top-level package |
+| `no-underscore-exports` | `__all__` excludes private names | Remove or rename the export |
+| `class-name-matches-filename` | Service modules export a matching service class | Match the class name to the filename |
+| `exported-constants-are-upper-case` | Constant modules export a matching constant | Use constant case |
+| `docstrings-on-public-api` | Public classes and functions have docstrings | Add a description of behavior |
+| `annotated-public-functions` | Public functions have parameter and return annotations | Add missing annotations |
+| `paired-test-files` | Source modules have paired test files | Add the matching test file |
+| `no-todo-comments` | Source excludes TODO-style markers | Track work outside source comments |
+| `public-api-modules-declare-all` | Public modules declare `__all__` | Add the public names |
+| `package-inits-have-docstrings` | Package init files have module docstrings | Describe the package |
+| `component-packages-have-readme` | Component directories contain a README | Document purpose and usage |
 
 ## `typed-records.json`
 
-Typed-record hygiene for Python annotations. This pack is layout-independent and applies to `**/*.py`.
+Typed-record annotation checks.
 
 | Convention | Checks | Hint |
 | --- | --- | --- |
-| `no-anonymous-record-annotations` | Public annotations should not use identity-less string-keyed anonymous mappings with broad or union value types, such as `dict[str, Any]`, `dict[str, object]`, or `dict[str, str \| list[str]]`. | Define a named type for the record shape, such as a pydantic model, `TypedDict`, or dataclass, and use that name in the annotation. |
+| `no-anonymous-record-annotations` | Public annotations avoid identity-less mappings such as `dict[str, Any]` | Define a named model, `TypedDict`, or dataclass |
 
 ## `no-duplication.json`
 
-Duplication ratchets for Python source. This pack is layout-independent, applies to `**/*.py`, and ships its rules as warnings so teams can adopt it incrementally.
+Cross-file duplication ratchets.
 
 | Convention | Checks | Hint |
 | --- | --- | --- |
-| `no-repeated-string-literals` | The same eligible string literal value should not appear more than twice in the matched scope. | Extract repeated string values into a named constant or shared fixture and reference that name instead. |
-| `no-duplicate-functions` | Top-level functions and direct methods should not duplicate another normalized implementation of at least four statements. | Extract shared implementation into one helper, or make the duplicate implementations meaningfully different. |
+| `no-repeated-string-literals` | Eligible string literals do not exceed the configured repetition threshold | Extract a shared constant or fixture |
+| `no-duplicate-functions` | Functions and methods do not repeat the same normalized implementation | Extract shared behavior |
+
+These rules ship at warning severity for incremental adoption.
 
 ## `hexagonal-architecture.json`
 
-Ports-and-adapters (hexagonal) layering. Assumes a single-package layout with `src/domain/`, `src/ports/`, `src/adapters/`, and `src/use_cases/` directories, plus `tests/use_cases/` for use-case tests. If your project splits into multiple packages or nests these directories differently, adapt the paths with the `use` object form or write the equivalent rule from scratch (see [Templates § Layered import-direction bans](../guides/templates.md#layered-import-direction-bans) and [§ DDD package layout](../guides/templates.md#ddd-package-layout)).
+Assumes:
+
+```text
+src/domain/
+src/ports/
+src/adapters/
+src/use_cases/
+tests/use_cases/
+```
 
 | Convention | Checks | Hint |
 | --- | --- | --- |
-| `domain-does-not-import-adapters-or-infrastructure` | `src/domain/**/*.py` never imports anything from an `adapters` or `infrastructure` package. | Move the framework-specific logic behind a port and inject it into the domain, instead of importing adapters/infrastructure directly. |
-| `ports-are-protocols-or-abcs` | `src/ports/**/*.py` (excluding `__init__.py`) defines a class extending `Protocol` or `ABC`. | Define the port as a `typing.Protocol` or `abc.ABC` subclass so adapters can be swapped without changing the domain. |
-| `adapters-export-adapter-suffix` | `src/adapters/**/*.py` (excluding `__init__.py`) defines a class whose name ends in `Adapter`. | Name the implementing class with an `Adapter` suffix (e.g. `PostgresOrderRepositoryAdapter`). |
-| `use-cases-paired-with-tests` | Every `src/use_cases/{name}.py` has a matching `tests/use_cases/test_{name}.py`. | Add a `tests/use_cases/test_<name>.py` covering the use case's application logic. |
-
-Fixtures demonstrating both the clean and violating shape live at `tests/e2e/fixtures/hexagonal-architecture-pack/` and `tests/e2e/fixtures/hexagonal-architecture-pack-broken/`.
+| `domain-does-not-import-adapters-or-infrastructure` | Domain modules avoid adapter and infrastructure imports | Move integration logic behind a port |
+| `ports-are-protocols-or-abcs` | Port modules define `Protocol` or `ABC` classes | Define the boundary explicitly |
+| `adapters-export-adapter-suffix` | Adapter modules define `*Adapter` classes | Use the adapter suffix |
+| `use-cases-paired-with-tests` | Use cases have paired tests | Add the corresponding test |
 
 ## `src-layout.json`
 
-`src/` layout hygiene and test mirroring. Assumes the conventional `src/`-root layout: `pyproject.toml` and `src/` at the project root, one or two levels of packages under `src/`, and a `tests/` tree that mirrors `src/`'s shape one-to-one.
+Assumes a standard `src/` layout with mirrored tests.
 
 | Convention | Checks | Hint |
 | --- | --- | --- |
-| `project-root-uses-src-layout` | The project root is a directory containing both `pyproject.toml` and `src`. | Move importable code into a `src/` directory and keep `pyproject.toml` at the project root. |
-| `top-level-src-packages-have-init` | Each top-level directory under `src/` contains an `__init__.py`. | Add an `__init__.py` to the directory so it's importable as a package. |
-| `top-level-modules-mirror-into-tests` | Every top-level `src/{name}.py` (excluding `src/__init__.py`) has a matching `tests/test_{name}.py`. | Add a `tests/test_<module>.py` covering the module's public behavior. |
-| `nested-modules-mirror-into-tests` | Every `src/{package}/{name}.py` one level deep (excluding `__init__.py` files) has a matching `tests/{package}/test_{name}.py`. | Add a `tests/<package>/test_<module>.py` mirroring the module's location under `src/`. |
-
-Fixtures: `tests/e2e/fixtures/src-layout-pack/` (clean) and `tests/e2e/fixtures/src-layout-pack-broken/` (violating).
+| `project-root-uses-src-layout` | Root contains `pyproject.toml` and `src` | Move importable code under `src` |
+| `top-level-src-packages-have-init` | Top-level packages contain `__init__.py` | Add the package initializer |
+| `top-level-modules-mirror-into-tests` | Flat modules have matching tests | Add `tests/test_<name>.py` |
+| `nested-modules-mirror-into-tests` | One-level nested modules have mirrored tests | Mirror the package path under `tests` |
 
 ## Consuming a pack
 
-Bind it through `conventionSources`, then reference rules by name (string form uses the pack's own `paths`; object `use` form lets you override `paths`/`placeholders`/`severity`):
+Bind pack files to local prefixes:
 
 ```json
 {
   "version": "v1",
   "conventionSources": {
+    "bp": "./packs/python-best-practices.json",
     "hex": "./packs/hexagonal-architecture.json",
     "layout": "./packs/src-layout.json"
   },
   "conventions": [
+    "bp/docstrings-on-public-api",
     "hex/domain-does-not-import-adapters-or-infrastructure",
-    "hex/ports-are-protocols-or-abcs",
-    "hex/adapters-export-adapter-suffix",
-    "hex/use-cases-paired-with-tests",
-    "layout/project-root-uses-src-layout",
-    "layout/top-level-src-packages-have-init",
-    "layout/top-level-modules-mirror-into-tests",
-    "layout/nested-modules-mirror-into-tests"
+    "layout/project-root-uses-src-layout"
   ]
 }
 ```
 
-Packs can also be published on PyPI and consumed by distribution name — see [README § Distributing packs on PyPI](../../README.md#distributing-packs-on-pypi) and [Reusable conventions](./reusable-conventions.md).
+Use object form to override paths or severity:
+
+```json
+{
+  "use": "bp/paired-test-files",
+  "paths": [
+    "src/{name}.py",
+    "!src/__init__.py"
+  ]
+}
+```
+
+Installed Python distributions may also supply reusable packages. See [Reusable conventions](./reusable-conventions.md).
+
+## When a pack is not enough
+
+Use the cheapest suitable mechanism:
+
+1. a shipped convention;
+2. a hand-written convention using built-in predicates;
+3. a reusable package;
+4. a semantic rule for one-file judgment;
+5. a plugin predicate for deterministic custom logic.
+
+Do not use `matchContent` to imitate an established Ruff or mypy rule.
+
+## See also
+
+- [Reusable conventions](./reusable-conventions.md)
+- [Semantic rules](./semantic-rules.md)
+- [Templates](../guides/templates.md)
+- [Extracting rules](../guides/extracting-rules.md)

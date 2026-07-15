@@ -8,6 +8,7 @@ from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 
+from konpy.cli._agent_subprocess import run_streaming_subprocess
 from konpy.config.errors import Err, Ok, Result
 
 
@@ -129,11 +130,17 @@ def run_agent_subprocess(
     env: dict[str, str] | None = None,
     extra_args: Sequence[str] = (),
     model: str | None = None,
+    on_progress: Callable[[float], None] | None = None,
+    progress_interval: float = 10.0,
+    on_output_line: Callable[[str, str], None] | None = None,
 ) -> AgentRunResult:
     """Run the agent CLI as a subprocess with `prompt` as its final argument.
 
     Captures stdout/stderr and turns a timeout or missing executable into an
-    `AgentRunResult` rather than letting the exception propagate.
+    `AgentRunResult` rather than letting the exception propagate. When either
+    callback is given, the subprocess is polled instead of blocked on:
+    `on_progress(elapsed_seconds)` fires roughly every `progress_interval`
+    and `on_output_line(stream_name, line)` fires per captured output line.
     """
     model_args = ("--model", model) if model else ()
     command = [
@@ -143,6 +150,23 @@ def run_agent_subprocess(
         *extra_args,
         prompt,
     ]
+
+    if on_progress is not None or on_output_line is not None:
+        returncode, stdout, stderr, timed_out = run_streaming_subprocess(
+            command=command,
+            agent_label=invocation.agent,
+            timeout=timeout,
+            env=env,
+            on_progress=on_progress,
+            progress_interval=progress_interval,
+            on_output_line=on_output_line,
+        )
+        return AgentRunResult(
+            returncode=returncode,
+            stdout=stdout,
+            stderr=stderr,
+            timed_out=timed_out,
+        )
 
     try:
         completed = subprocess.run(

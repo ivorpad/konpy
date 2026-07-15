@@ -4,8 +4,10 @@ from konpy.cli._propose_prompt import build_propose_prompt
 from konpy.cli._propose_support import AggregatedFinding
 
 
-def test_build_propose_prompt_embeds_contract_rubrics_evidence_and_predicates() -> None:
-    first_prompt = "Verify docstrings are not aspirational.\nInspect the implementation."
+def test_prompt_embeds_four_lane_contract_routing_and_evidence() -> None:
+    first_prompt = (
+        "Verify docstrings are not aspirational.\nInspect the implementation."
+    )
     second_prompt = "Verify service names match exported classes."
     prompt = build_propose_prompt(
         aggregated=[
@@ -14,7 +16,10 @@ def test_build_propose_prompt_embeds_contract_rubrics_evidence_and_predicates() 
                 agent="claude",
                 occurrences=2,
                 file_paths=("src/service.py", "src/other_service.py"),
-                reasons=("docstring overclaims behavior", "method body disagrees"),
+                reasons=(
+                    "docstring overclaims behavior",
+                    "method body disagrees",
+                ),
             ),
             AggregatedFinding(
                 prompt=second_prompt,
@@ -27,11 +32,26 @@ def test_build_propose_prompt_embeds_contract_rubrics_evidence_and_predicates() 
         predicates_reference="# Predicates\n\n## haveType\n",
     )
 
-    assert "You convert recurring konpy hook agentic verification failures" in prompt
-    assert "reviewable reusable convention pack" in prompt
-    assert "Mappability rubric:" in prompt
+    assert (
+        "You convert recurring konpy hook agentic verification failures"
+        in prompt
+    )
+    assert '"pack"' in prompt
+    assert '"semantic"' in prompt
+    assert '"coveredElsewhere"' in prompt
+    assert '"unmapped"' in prompt
+    assert "Routing order:" in prompt
+    assert "Ruff or mypy" in prompt
+    assert "read-only agent can verify" in prompt
+    assert "Every source rule must land in exactly one" in prompt
+    assert "self-contained verification instruction" in prompt
+
+    assert "Evidence-sufficiency rubric:" in prompt
     assert "insufficient evidence" in prompt
-    assert "Never propose or reference a konpy ignore suppression comment" in prompt
+    assert (
+        "Never propose or reference a konpy ignore suppression comment"
+        in prompt
+    )
     assert "require explicit human approval and are out of scope" in prompt
 
     first_header = "## Finding group 1 (occurrences: 2, agent: claude)"
@@ -40,8 +60,14 @@ def test_build_propose_prompt_embeds_contract_rubrics_evidence_and_predicates() 
     assert second_header in prompt
     assert prompt.index(first_header) < prompt.index(second_header)
 
-    assert f"--- PROMPT START ---\n{first_prompt}\n--- PROMPT END ---" in prompt
-    assert f"--- PROMPT START ---\n{second_prompt}\n--- PROMPT END ---" in prompt
+    assert (
+        f"--- PROMPT START ---\n{first_prompt}\n--- PROMPT END ---"
+        in prompt
+    )
+    assert (
+        f"--- PROMPT START ---\n{second_prompt}\n--- PROMPT END ---"
+        in prompt
+    )
     assert "- src/service.py" in prompt
     assert "- src/other_service.py" in prompt
     assert "- src/user_service.py" in prompt

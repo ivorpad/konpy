@@ -1,4 +1,4 @@
-"""`extract-rules`, `hook`, and `hook-propose` command registrations for the CLI."""
+"""`extract-rules`, `hook`, and `hook-propose` command registrations."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ def extract_rules(
     source_file: Annotated[
         str,
         typer.Argument(
-            help="Markdown/text source to extract reusable convention rules from.",
+            help="Markdown/text source to extract rules from.",
         ),
     ],
     output_path: Annotated[
@@ -29,6 +29,13 @@ def extract_rules(
             "--output",
             "-o",
             help="Path for the generated reusable convention pack proposal.",
+        ),
+    ] = None,
+    rules_output_path: Annotated[
+        str | None,
+        typer.Option(
+            "--rules-output",
+            help="Path for the generated semantic-rules package.",
         ),
     ] = None,
     agent: Annotated[
@@ -42,37 +49,59 @@ def extract_rules(
         str | None,
         typer.Option(
             "--report",
-            help="Write unmapped-rules report to this path instead of stdout.",
+            help="Write the rule-routing report to this path.",
         ),
     ] = None,
     model: Annotated[
         str,
         typer.Option(
             "--model",
-            help="Model passed through to the agent CLI as --model. Default: sonnet.",
+            help="Model passed through to the agent CLI. Default: sonnet.",
         ),
     ] = DEFAULT_MODEL,
+    timeout: Annotated[
+        float | None,
+        typer.Option(
+            "--timeout",
+            help="Timeout in seconds for the extraction agent subprocess.",
+        ),
+    ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            help="Stream the agent CLI's own output to stderr while it runs.",
+        ),
+    ] = False,
 ) -> None:
-    """Extract reviewable reusable conventions from a prose source file."""
+    """Extract reviewable structural and semantic rules from prose."""
     exit_code = run_extract_rules_command(
         source_file=source_file,
         output_path=output_path,
+        rules_output_path=rules_output_path,
         agent=agent,
         report_path=report_path,
         model=model,
+        timeout=timeout,
+        verbose=verbose,
     )
     if exit_code != 0:
         raise typer.Exit(exit_code)
 
 
-@app.command(context_settings={"ignore_unknown_options": True, "allow_extra_args": True})
+@app.command(
+    context_settings={
+        "ignore_unknown_options": True,
+        "allow_extra_args": True,
+    }
+)
 def hook(
     ctx: typer.Context,
     match: Annotated[
         list[str] | None,
         typer.Option(
             "--match",
-            help="Glob pattern to filter written/edited files against. May be repeated.",
+            help="Glob filtering written/edited files. May be repeated.",
         ),
     ] = None,
     prompt: Annotated[
@@ -80,10 +109,18 @@ def hook(
         typer.Option(
             "--prompt",
             help=(
-                "Natural-language verification instruction for the agent. "
-                "Required; a missing value fails open with exit code 1 rather "
-                "than a CLI usage error, so exit code 2 stays reserved for a "
-                "verified fail verdict."
+                "One natural-language verification instruction. Exactly one "
+                "of --prompt or --rules is required at runtime."
+            ),
+        ),
+    ] = None,
+    rules_path: Annotated[
+        str | None,
+        typer.Option(
+            "--rules",
+            help=(
+                "Semantic-rules package to verify. Exactly one of --prompt "
+                "or --rules is required at runtime."
             ),
         ),
     ] = None,
@@ -92,10 +129,8 @@ def hook(
         typer.Option(
             "--agent",
             help=(
-                "Verifier agent CLI to use: claude or codex. Required; a "
-                "missing or invalid value fails open with exit code 1 rather "
-                "than a CLI usage error, so exit code 2 stays reserved for a "
-                "verified fail verdict."
+                "Verifier agent CLI: claude or codex. Missing or invalid "
+                "values fail open with exit code 1."
             ),
         ),
     ] = None,
@@ -103,31 +138,25 @@ def hook(
         str,
         typer.Option(
             "--model",
-            help="Model passed through to the agent CLI as --model. Default: sonnet.",
+            help="Model passed through to the agent CLI. Default: sonnet.",
         ),
     ] = DEFAULT_MODEL,
     timeout: Annotated[
         float,
         typer.Option(
             "--timeout",
-            help="Timeout in seconds for the verifier agent subprocess.",
+            help="Timeout in seconds for the verifier subprocess.",
         ),
     ] = DEFAULT_TIMEOUT,
     log_path: Annotated[
         str | None,
         typer.Option(
             "--log",
-            help=(
-                "Append verified fail verdicts as JSONL to this path for later "
-                "hook-propose."
-            ),
+            help="Append verified fail findings as JSONL for hook-propose.",
         ),
     ] = None,
 ) -> None:
-    """Run an agentic PostToolUse verification hook for Claude Code or Codex."""
-    # Unknown options land in ctx.args (ignore_unknown_options) instead of
-    # raising Click's UsageError, which exits 2 -- a code reserved exclusively
-    # for a verified fail verdict. A misconfigured hook must fail open with 1.
+    """Run an agentic PostToolUse verification hook."""
     if ctx.args:
         sys.stderr.write(
             f"Unrecognized arguments for konpy hook: {' '.join(ctx.args)}\n"
@@ -137,6 +166,7 @@ def hook(
     exit_code = run_hook_command(
         match=match or [],
         prompt=prompt,
+        rules_path=rules_path,
         agent=agent,
         model=model,
         timeout=timeout,
@@ -151,7 +181,7 @@ def hook_propose(
     findings_path: Annotated[
         str,
         typer.Argument(
-            help="JSONL hook findings log to promote into a reusable convention pack.",
+            help="JSONL hook findings log to promote into rule proposals.",
         ),
     ] = DEFAULT_FINDINGS_LOG_PATH,
     output_path: Annotated[
@@ -160,6 +190,13 @@ def hook_propose(
             "--output",
             "-o",
             help="Path for the generated reusable convention pack proposal.",
+        ),
+    ] = None,
+    rules_output_path: Annotated[
+        str | None,
+        typer.Option(
+            "--rules-output",
+            help="Path for the generated semantic-rules package.",
         ),
     ] = None,
     agent: Annotated[
@@ -173,14 +210,14 @@ def hook_propose(
         str | None,
         typer.Option(
             "--report",
-            help="Write unmapped-rules report to this path instead of stdout.",
+            help="Write the rule-routing report to this path.",
         ),
     ] = None,
     model: Annotated[
         str,
         typer.Option(
             "--model",
-            help="Model passed through to the agent CLI as --model. Default: sonnet.",
+            help="Model passed through to the agent CLI. Default: sonnet.",
         ),
     ] = DEFAULT_MODEL,
     timeout: Annotated[
@@ -190,15 +227,24 @@ def hook_propose(
             help="Timeout in seconds for the proposal agent subprocess.",
         ),
     ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            help="Stream the agent CLI's own output to stderr while it runs.",
+        ),
+    ] = False,
 ) -> None:
-    """Promote aggregated `konpy hook` findings into a reviewable reusable convention pack."""
+    """Promote hook findings into structural and semantic proposals."""
     exit_code = run_propose_command(
         findings_path=findings_path,
         output_path=output_path,
+        rules_output_path=rules_output_path,
         agent=agent,
         report_path=report_path,
         model=model,
         timeout=timeout,
+        verbose=verbose,
     )
     if exit_code != 0:
         raise typer.Exit(exit_code)

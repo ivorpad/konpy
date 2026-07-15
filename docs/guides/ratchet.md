@@ -1,123 +1,221 @@
-# The ratchet: from agentic findings to deterministic conventions
+# The ratchet: from agentic findings to rule proposals
 
 ## The loop
 
-The ratchet loop turns repeated agentic feedback into deterministic checks: `konpy hook --log` observes verified agentic failures, `konpy hook-propose` mines the log into a reviewable `ReusableConventionsPackageV1` pack plus an unmapped report, a human reviews the proposal and wires survivors into `konpy.json` via `conventionSources`, and deterministic checking (`konpy check --files`, including the [`claude-code-hook.md`](./claude-code-hook.md) recipe) enforces them forever without a model. Each promotion shrinks the slice of review that needs an agent.
+The ratchet turns verified hook failures into reviewable proposals:
+
+1. `konpy hook --log` records verified failures.
+2. `konpy hook-propose` groups recurring prompts.
+3. The proposal agent routes them into structural, semantic, covered, and unmapped lanes.
+4. A human reviews each artifact.
+5. Accepted structural rules enter `konpy.json`; accepted semantic rules remain in a `hook --rules` package.
+
+Not every semantic rule can become deterministic. A recurring finding may remain semantic if no structural predicate expresses it.
 
 ## Turning on logging
 
-Add `--log .konpy/hook-findings.jsonl` to the agentic hook command from [Agentic verification hooks](./hooks.md):
+Prompt mode:
 
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "konpy hook --agent claude --model sonnet --match 'src/**/*.py' --prompt 'Check that this module defines what it claims to: class and function names match their bodies, docstrings are not aspirational.' --log .konpy/hook-findings.jsonl"
-          }
-        ]
-      }
-    ]
-  }
-}
+```bash
+konpy hook \
+  --agent claude \
+  --match 'src/**/*.py' \
+  --prompt 'Verify that docstrings match implemented behavior.' \
+  --log .konpy/hook-findings.jsonl
 ```
 
-Logging is fail-open and never changes the hook exit-code contract: `0` still means pass or skipped, `1` still means infra fail-open, and `2` still means a verified fail verdict. If writing the log fails, the hook still exits `2`; after the normal reason lines, stderr gets one extra warning line prefixed with:
+Rules mode:
+
+```bash
+konpy hook \
+  --agent claude \
+  --match '**/*.py' \
+  --rules packs/team-style.rules.json \
+  --log .konpy/hook-findings.jsonl
+```
+
+Logging is fail-open. Exit codes remain:
+
+- `0`: pass or skip;
+- `1`: configuration or infrastructure error;
+- `2`: verified failure.
+
+A log write error is printed after verifier feedback:
 
 ```text
-konpy hook: --log warning:
+konpy hook: --log warning: <detail>
 ```
-
-Only verified `fail` verdicts are logged. Pass verdicts, skipped hook invocations, malformed payloads, agent subprocess failures, and unparseable agent output are not logged. Because `konpy hook` returns immediately on the first failing matched path, each hook invocation logs at most one finding: the first failing path.
 
 ## HookFinding JSONL schema
 
-The log is newline-delimited JSON. Each line is one `HookFinding`.
+Each line is one JSON object.
 
 | Field | Meaning |
 | --- | --- |
-| `schemaVersion` | Log record schema version. Currently always `"v1"`. |
-| `verdict` | Persisted verdict. Currently only `"fail"` records are valid promotion input. |
-| `loggedAt` | UTC ISO-8601 timestamp for when the finding was written. |
-| `sessionId` | Optional hook-session identifier from the host payload. |
-| `cwd` | Optional working directory from the host payload. |
-| `toolName` | Optional write tool name, such as `Write`, `Edit`, `MultiEdit`, or `apply_patch`. |
-| `filePath` | Matched file path that failed verification. |
-| `prompt` | Exact natural-language verification prompt passed to `konpy hook`. |
-| `agent` | Verifier agent used by the hook, such as `claude` or `codex`. |
-| `model` | Model value forwarded to the verifier agent. |
-| `reasons` | Non-empty list of concrete fail reasons returned by the verifier. |
+| `schemaVersion` | Record version, currently `"v1"` |
+| `verdict` | Persisted verdict, currently `"fail"` |
+| `loggedAt` | UTC ISO-8601 timestamp |
+| `sessionId` | Optional host session identifier |
+| `cwd` | Optional host working directory |
+| `toolName` | Optional write tool name |
+| `filePath` | Failed file |
+| `prompt` | Verification prompt used for promotion grouping |
+| `rule` | Optional semantic rule name |
+| `agent` | Verifier CLI |
+| `model` | Verifier model |
+| `reasons` | Non-empty list of failure reasons |
 
-Example line:
+An old prompt-mode record can omit `rule`:
 
 ```json
-{"schemaVersion":"v1","verdict":"fail","loggedAt":"2026-07-03T12:34:56.789012+00:00","cwd":"/repo","toolName":"Write","filePath":"src/service.py","prompt":"Docstrings are not aspirational.","agent":"claude","model":"sonnet","reasons":["Function docstring claims persistence, but the implementation only validates input."]}
+{"schemaVersion":"v1","verdict":"fail","filePath":"src/service.py","prompt":"Verify docstrings match behavior.","agent":"claude","model":"sonnet","reasons":["The docstring overstates the implementation."]}
 ```
+
+A rules-mode record stores the failed rule's own prompt and name:
+
+```json
+{"schemaVersion":"v1","verdict":"fail","filePath":"src/service.py","prompt":"Verify that errors identify the failed operation.","rule":"contextual-errors","agent":"claude","model":"sonnet","reasons":["The ValueError omits the failed operation."]}
+```
+
+The batched verifier prompt is not persisted. This keeps promotion groups tied to individual semantic rules.
+
+Readers ignore unknown fields, so newer records remain compatible with older tooling.
+
+## Rules-mode logging
+
+A rules verdict may fail several rules for one file. konpy appends one finding per failed rule.
+
+Given:
+
+```json
+{
+  "verdict": "fail",
+  "failures": [
+    {
+      "rule": "contextual-errors",
+      "reasons": ["The ValueError omits the operation."]
+    },
+    {
+      "rule": "honest-docstrings",
+      "reasons": ["The docstring claims persistence that is absent."]
+    }
+  ]
+}
+```
+
+the log receives two lines.
+
+Prompt mode still records one finding for the first failed path.
 
 ## Running `hook-propose`
 
-By default, `hook-propose` reads `.konpy/hook-findings.jsonl` and writes `packs/hook-proposals.json`:
+The default input and outputs are:
+
+```text
+.konpy/hook-findings.jsonl
+packs/hook-proposals.json
+packs/hook-proposals.rules.json
+```
+
+The semantic file is written only when the proposed semantic lane is non-empty.
+
+Run with defaults:
 
 ```bash
 konpy hook-propose
 ```
 
-Pass an explicit findings log:
-
-```bash
-konpy hook-propose .konpy/hook-findings.jsonl
-```
-
-Choose output and report paths:
+Choose all artifact paths:
 
 ```bash
 konpy hook-propose .konpy/hook-findings.jsonl \
-  -o packs/ratcheted-conventions.json \
-  --report reports/hook-unmapped.md
+  --output packs/ratcheted-conventions.json \
+  --rules-output packs/ratcheted.rules.json \
+  --report reports/ratchet-routing.md
 ```
 
-Choose the proposal agent and model:
+Select an agent:
 
 ```bash
 konpy hook-propose --agent claude --model sonnet
 konpy hook-propose --agent codex --model gpt-5-codex --timeout 600
 ```
 
-`--agent auto` is the default and selects the first available supported agent CLI, preferring `claude` before `codex`. `--model` defaults to `sonnet`; pass an explicit model when using `codex`.
+`auto` prefers Claude, then Codex.
 
-`hook-propose` groups findings by exact `prompt`. The number of records in each group becomes the `occurrences` count, which is evidence that a finding is recurring. File paths and reasons are deduplicated in first-seen order and capped before being shown to the agent, so very large logs stay prompt-sized while still preserving representative evidence.
+## Aggregation
 
-The proposal prompt uses an evidence-sufficiency rubric:
+Findings are grouped by exact `prompt`.
 
-- propose only when occurrences show a recurring, generalizable pattern;
-- a single occurrence is weak evidence and should be proposed only if the reasons make the pattern unambiguous;
-- otherwise, report it in `unmapped` with an insufficient-evidence reason;
-- base every proposal only on the shown prompts, files, and reasons.
+The optional `rule` field does not change grouping. Two findings with different rule names but identical prompts enter the same group. Two semantic rules with different prompts remain separate.
+
+Within each group:
+
+- occurrences are counted;
+- file paths are deduplicated in first-seen order;
+- reasons are deduplicated in first-seen order;
+- samples are capped before prompt construction.
+
+## Four-lane promotion
+
+The proposal agent returns:
+
+```json
+{
+  "pack": {
+    "conventionSpecVersion": "v1",
+    "conventions": []
+  },
+  "semantic": [],
+  "coveredElsewhere": [],
+  "unmapped": []
+}
+```
+
+A finding may become:
+
+- a structural reusable convention;
+- a semantic rule that remains in hook verification;
+- a Ruff or mypy recommendation;
+- an unmapped item when the evidence is insufficient or the rule needs broader context.
+
+The evidence rubric treats a single occurrence as weak evidence unless its reasons identify a clear general pattern.
+
+## Output and failure behavior
+
+Without `--report`, stdout prints covered and unmapped entries plus a semantic wiring command when applicable.
+
+With `--report`, the Markdown report contains those details and stdout only confirms artifact paths.
 
 Exit codes:
 
 | Exit | Meaning |
 | --- | --- |
-| `0` | Successful proposal, or no valid fail findings to promote. |
-| `1` | Read/prompt/agent/JSON/schema/write failure. |
+| `0` | Proposal succeeded, or no valid findings were present |
+| `1` | Read, agent, contract, schema, path, or write failure |
 
-On failure, `hook-propose` does not write the proposal pack. If no findings exist, it prints a calm message and does not invoke an agent.
+A missing findings file produces a calm no-findings message and no agent call.
+
+The pack is written first. A later semantic or report write failure leaves the pack in place.
 
 ## Review workflow
 
-`hook-propose` output is a proposal, not a config change. Review it the same way you review [`extract-rules`](./extracting-rules.md) output:
+Review the structural pack and semantic rules separately.
 
-1. Open the generated pack.
-2. Check that every convention is meaningful for your repository.
-3. Delete, rename, narrow, or rewrite weak proposals.
-4. Inspect the unmapped report.
-5. Only after review, manually add the pack to `conventionSources`.
+For a structural proposal:
 
-Example:
+1. Confirm the paths and predicates match the evidence.
+2. Remove rules already handled by Ruff or mypy.
+3. Add accepted rules through `conventionSources`.
+
+For a semantic proposal:
+
+1. Confirm the prompt can be judged from one file.
+2. Narrow the `match` globs.
+3. Keep the prompt self-contained.
+4. Add the rules package to the hook command.
+
+Example structural wiring:
 
 ```json
 {
@@ -131,16 +229,26 @@ Example:
 }
 ```
 
-`hook-propose` never edits `konpy.json`.
+Example semantic wiring:
+
+```bash
+konpy hook \
+  --agent claude \
+  --match '**/*.py' \
+  --rules packs/ratcheted.rules.json
+```
+
+`hook-propose` never edits `konpy.json` or hook settings.
 
 ## Suppressions
 
-The promotion prompt explicitly refuses to propose or reference `# konpy: ignore[...]` suppression comments. Suppressions require explicit human approval and are out of scope for the ratchet. If a proposed convention would need an exception, review it manually under the [suppression consent policy](../reference/suppressions.md).
+The promotion prompt rejects proposals that create or recommend `# konpy: ignore[...]` comments.
+
+Suppressions require explicit human approval under the [suppression consent policy](../reference/suppressions.md).
 
 ## See also
 
+- [Semantic rules](../reference/semantic-rules.md)
 - [Agentic verification hooks](./hooks.md)
-- [Claude Code hook integration](./claude-code-hook.md)
 - [Extracting rules from prose](./extracting-rules.md)
-- [Inferring conventions from an existing codebase](./inferring-conventions.md)
-- [CLI reference](../reference/cli.md)
+- [Reusable conventions](../reference/reusable-conventions.md)

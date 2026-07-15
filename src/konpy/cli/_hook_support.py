@@ -1,9 +1,4 @@
-"""Payload parsing, path extraction, and prompt/verdict helpers for `konpy hook`.
-
-Split out of `konpy.cli.hook` to keep that module under the project's
-per-module line limit; `hook.py` re-exports everything here under its own
-`__all__` so the public import path (`konpy.cli.hook`) is unchanged.
-"""
+"""Payload, path, prompt, and verdict helpers for `konpy hook`."""
 
 from __future__ import annotations
 
@@ -19,6 +14,14 @@ from typing import Literal, TypedDict
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from wcmatch import glob as wcglob
 
+from konpy.cli._hook_rules import (
+    NormalizedRuleFailure,
+    RuleFailure,
+    RulesVerdict,
+    build_rules_hook_prompt,
+    normalize_rules_verdict,
+    parse_rules_verdict,
+)
 from konpy.cli.agent_runner import first_json_object
 
 _GLOB_FLAGS = wcglob.BRACE | wcglob.GLOBSTAR
@@ -26,7 +29,10 @@ _GLOB_FLAGS = wcglob.BRACE | wcglob.GLOBSTAR
 CLAUDE_WRITE_TOOLS = {"Write", "Edit", "MultiEdit"}
 CODEX_WRITE_TOOLS = {"apply_patch"}
 
-_APPLY_PATCH_ENVELOPE_RE = re.compile(r"^\*\*\* (?:Add|Update|Delete) File: (.+)$", re.MULTILINE)
+_APPLY_PATCH_ENVELOPE_RE = re.compile(
+    r"^\*\*\* (?:Add|Update|Delete) File: (.+)$",
+    re.MULTILINE,
+)
 _UNIFIED_DIFF_RE = re.compile(r"^\+\+\+ b/(.+)$", re.MULTILINE)
 _CODEX_PATH_KEYS = ("file_path", "path")
 _CODEX_SCAN_KEYS = ("input", "patch", "changes", "content", "diff")
@@ -40,7 +46,7 @@ class HookAgent(StrEnum):
 
 
 class HookPayload(BaseModel):
-    """Parsed subset of a Claude Code/Codex PostToolUse hook JSON payload."""
+    """Parsed subset of a Claude Code/Codex PostToolUse payload."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -53,14 +59,14 @@ class HookPayload(BaseModel):
 
 
 class Verdict(TypedDict):
-    """Normalized pass/fail verdict returned by the verifier agent."""
+    """Normalized single-prompt verifier verdict."""
 
     verdict: Literal["pass", "fail"]
     reasons: list[str]
 
 
 def parse_hook_payload(raw: str) -> HookPayload | None:
-    """Parse a hook JSON payload from stdin, returning None for non-payloads."""
+    """Parse a hook JSON payload, returning None for non-payloads."""
     text = raw.strip()
     if not text:
         return None
@@ -69,7 +75,6 @@ def parse_hook_payload(raw: str) -> HookPayload | None:
         data = json.loads(text)
     except json.JSONDecodeError:
         return None
-
     if not isinstance(data, dict):
         return None
 
@@ -80,7 +85,7 @@ def parse_hook_payload(raw: str) -> HookPayload | None:
 
 
 def extract_target_paths(payload: HookPayload) -> list[str]:
-    """Return the file path(s) a write/edit tool call targeted, if any."""
+    """Return the file paths targeted by a supported write tool."""
     if payload.tool_name in CLAUDE_WRITE_TOOLS:
         raw = payload.tool_input.get("file_path")
         if isinstance(raw, str) and raw:
@@ -89,18 +94,17 @@ def extract_target_paths(payload: HookPayload) -> list[str]:
 
     if payload.tool_name in CODEX_WRITE_TOOLS:
         return _extract_codex_paths(payload)
-
     return []
 
 
 def path_matches_any(path: str, patterns: Sequence[str]) -> bool:
-    """Check whether `path` matches any of the given glob `patterns`."""
+    """Check whether `path` matches any supplied glob."""
     normalized = path.replace(os.sep, "/")
     return wcglob.globmatch(normalized, list(patterns), flags=_GLOB_FLAGS)
 
 
 def build_hook_prompt(*, file_path: str, cwd: str, user_prompt: str) -> str:
-    """Build the verification prompt sent to the read-only verifier agent."""
+    """Build the existing single-instruction verification prompt."""
     return f"""\
 You are a read-only verification agent invoked from a konpy PostToolUse hook.
 
@@ -125,9 +129,10 @@ the coding agent that wrote the file so it can self-correct.
 
 
 def parse_verdict(stdout: str) -> Verdict | None:
-    """Parse the verifier agent's stdout into a `Verdict`, or None if invalid."""
+    """Parse the existing single-prompt verifier verdict."""
     candidate = first_json_object(
-        stdout, predicate=lambda obj: obj.get("verdict") in {"pass", "fail"}
+        stdout,
+        predicate=lambda obj: obj.get("verdict") in {"pass", "fail"},
     )
     if candidate is None:
         return None
@@ -146,10 +151,17 @@ def parse_verdict(stdout: str) -> Verdict | None:
 
 
 def hook_child_args(agent: HookAgent | str) -> tuple[str, ...]:
-    """Return extra read-only-mode CLI args for the given verifier agent."""
+    """Return read-only CLI arguments for the verifier agent."""
     value = agent.value if isinstance(agent, HookAgent) else str(agent)
     if value == HookAgent.CLAUDE.value:
-        return ("--allowedTools", "Read", "Grep", "Glob", "--settings", '{"hooks":{}}')
+        return (
+            "--allowedTools",
+            "Read",
+            "Grep",
+            "Glob",
+            "--settings",
+            '{"hooks":{}}',
+        )
     if value == HookAgent.CODEX.value:
         return ("--sandbox", "read-only")
     return ()
@@ -164,22 +176,24 @@ def _normalize_target_path(raw: str, *, cwd: str | None) -> str:
 
 
 def _extract_codex_paths(payload: HookPayload) -> list[str]:
-    tool_input = payload.tool_input
-
     for key in _CODEX_PATH_KEYS:
-        value = tool_input.get(key)
+        value = payload.tool_input.get(key)
         if isinstance(value, str) and value:
             return [_normalize_target_path(value, cwd=payload.cwd)]
 
     for key in _CODEX_SCAN_KEYS:
-        value = tool_input.get(key)
+        value = payload.tool_input.get(key)
         if not isinstance(value, str):
             continue
-
-        matches = _APPLY_PATCH_ENVELOPE_RE.findall(value) or _UNIFIED_DIFF_RE.findall(value)
+        matches = (
+            _APPLY_PATCH_ENVELOPE_RE.findall(value)
+            or _UNIFIED_DIFF_RE.findall(value)
+        )
         if matches:
-            return [_normalize_target_path(match.strip(), cwd=payload.cwd) for match in matches]
-
+            return [
+                _normalize_target_path(match.strip(), cwd=payload.cwd)
+                for match in matches
+            ]
     return []
 
 
@@ -188,11 +202,17 @@ __all__ = [
     "CODEX_WRITE_TOOLS",
     "HookAgent",
     "HookPayload",
+    "NormalizedRuleFailure",
+    "RuleFailure",
+    "RulesVerdict",
     "Verdict",
     "build_hook_prompt",
+    "build_rules_hook_prompt",
     "extract_target_paths",
     "hook_child_args",
+    "normalize_rules_verdict",
     "parse_hook_payload",
+    "parse_rules_verdict",
     "parse_verdict",
     "path_matches_any",
 ]

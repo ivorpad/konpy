@@ -2,23 +2,29 @@ from __future__ import annotations
 
 import os
 import sys
-from collections.abc import Mapping
-from datetime import UTC, datetime
+from collections.abc import Mapping, Sequence
 
 from konpy.cli._hook_findings import HookFinding, append_hook_finding
+from konpy.cli._hook_prompt_run import run_prompt_verifications
+from konpy.cli._hook_rules_run import run_rules_verifications
 from konpy.cli._hook_support import (
     CLAUDE_WRITE_TOOLS,
     CODEX_WRITE_TOOLS,
     HookAgent,
     HookPayload,
+    RuleFailure,
+    RulesVerdict,
     Verdict,
     build_hook_prompt,
+    build_rules_hook_prompt,
     extract_target_paths,
     hook_child_args,
     parse_hook_payload,
+    parse_rules_verdict,
     parse_verdict,
     path_matches_any,
 )
+from konpy.cli._semantic_rules import SemanticRuleV1, read_semantic_rules
 from konpy.cli.agent_runner import (
     DEFAULT_MODEL,
     AgentInvocation,
@@ -45,119 +51,108 @@ def run_hook_command(
     stdin_text: str | None = None,
     runner: AgentRunner | None = None,
     env: Mapping[str, str] | None = None,
+    rules_path: str | None = None,
 ) -> int:
-    """Run the `konpy hook` PostToolUse verification flow.
-
-    Reads the hook JSON payload from stdin (or `stdin_text`), skips fast for
-    non-matching tools/paths or an active recursion sentinel, and otherwise
-    invokes a read-only verifier agent per matched file, translating its
-    verdict into the hook exit-code contract: 0 pass/skip, 2 fail, 1 infra
-    fail-open.
-    """
+    """Run single-prompt or semantic-rules PostToolUse verification."""
     active_env = env if env is not None else os.environ
     if active_env.get(SENTINEL_ENV):
         return 0
 
-    # `--prompt`/`--agent` are logically required, but that requiredness is
-    # enforced here (exit 1) rather than via Click's own required/choice
-    # validation, which would exit 2 -- a code reserved exclusively for a
-    # verified fail verdict. This must happen before anything else so that a
-    # misconfigured hook command fails open uniformly, on every invocation.
-    if not prompt:
-        _write_error("Missing required --prompt for konpy hook.")
+    if prompt and rules_path:
+        _write_error("--prompt and --rules are mutually exclusive for konpy hook.")
+        return 1
+    if not prompt and not rules_path:
+        _write_error(
+            "Exactly one of --prompt or --rules is required for konpy hook."
+        )
         return 1
 
-    agent_value_result = _normalize_hook_agent(agent)
-    if isinstance(agent_value_result, Err):
-        _write_error(agent_value_result.error)
+    agent_result = _normalize_hook_agent(agent)
+    if isinstance(agent_result, Err):
+        _write_error(agent_result.error)
         return 1
-    agent_value = agent_value_result.value
+    agent_value = agent_result.value
+
+    rules_package = None
+    if rules_path:
+        rules_result = read_semantic_rules(rules_path)
+        if isinstance(rules_result, Err):
+            _write_error(rules_result.error)
+            return 1
+        rules_package = rules_result.value
 
     raw_stdin = stdin_text if stdin_text is not None else sys.stdin.read()
-    payload = _parse_payload(raw_stdin)
+    payload = parse_hook_payload(raw_stdin)
     if payload is None:
         return 0
-
     if payload.tool_name not in (CLAUDE_WRITE_TOOLS | CODEX_WRITE_TOOLS):
         return 0
 
     target_paths = extract_target_paths(payload)
-    if not target_paths:
-        return 0
-
-    matched_paths = [path for path in target_paths if path_matches_any(path, match)]
+    matched_paths = [
+        path for path in target_paths if path_matches_any(path, match)
+    ]
     if not matched_paths:
         return 0
+
+    batches: list[tuple[str, list[SemanticRuleV1]]] = []
+    if rules_package is not None:
+        for path in _dedupe_paths(matched_paths):
+            applicable = [
+                rule
+                for rule in rules_package.rules
+                if path_matches_any(path, rule.match)
+            ]
+            if applicable:
+                batches.append((path, applicable))
+        if not batches:
+            return 0
 
     invocation_result: Result[AgentInvocation]
     if runner is None:
         invocation_result = select_agent_invocation(agent_value)
     else:
         invocation_result = _test_invocation_for_runner(agent_value)
-
     if isinstance(invocation_result, Err):
         _write_error(invocation_result.error)
         return 1
     invocation = invocation_result.value
 
-    for path in matched_paths:
-        hook_prompt = build_hook_prompt(
-            file_path=path,
-            cwd=payload.cwd or "",
-            user_prompt=prompt,
-        )
-        run_result = _run_hook_agent(
+    def run_verifier(verifier_prompt: str) -> AgentRunResult:
+        return _run_hook_agent(
             invocation=invocation,
-            prompt=hook_prompt,
+            prompt=verifier_prompt,
             runner=runner,
             model=model,
             timeout=timeout,
             agent_value=agent_value,
         )
 
-        if run_result.returncode != 0:
-            _write_error(
-                f'Agent CLI "{invocation.agent}" exited with code {run_result.returncode}.'
-            )
-            if run_result.stderr.strip():
-                _write_error(run_result.stderr.strip())
-            elif run_result.stdout.strip():
-                _write_error(run_result.stdout.strip())
-            return 1
+    if rules_package is None:
+        return run_prompt_verifications(
+            paths=matched_paths,
+            prompt=prompt or "",
+            payload=payload,
+            invocation=invocation,
+            agent_value=agent_value,
+            model=model,
+            log_path=log_path,
+            run_verifier=run_verifier,
+            append_finding=append_hook_finding,
+            write_error=_write_error,
+        )
 
-        verdict = parse_verdict(run_result.stdout)
-        if verdict is None:
-            _write_error(
-                f'Agent CLI "{invocation.agent}" did not return a valid verdict.'
-            )
-            return 1
-
-        if verdict["verdict"] == "fail":
-            reasons = verdict["reasons"] or [f"Verification failed for {path}."]
-            for reason in reasons:
-                _write_error(reason)
-            if log_path is not None:
-                append_result = append_hook_finding(
-                    log_path,
-                    HookFinding(
-                        loggedAt=datetime.now(UTC).isoformat(),
-                        sessionId=payload.session_id,
-                        cwd=payload.cwd,
-                        toolName=payload.tool_name,
-                        filePath=path,
-                        prompt=prompt,
-                        agent=agent_value,
-                        model=model,
-                        reasons=reasons,
-                    ),
-                )
-                if isinstance(append_result, Err):
-                    _write_error(
-                        f"konpy hook: --log warning: {append_result.error}"
-                    )
-            return 2
-
-    return 0
+    return run_rules_verifications(
+        batches=batches,
+        payload=payload,
+        invocation=invocation,
+        agent_value=agent_value,
+        model=model,
+        log_path=log_path,
+        run_verifier=run_verifier,
+        append_finding=append_hook_finding,
+        write_error=_write_error,
+    )
 
 
 def _run_hook_agent(
@@ -175,19 +170,14 @@ def _run_hook_agent(
             return result
         return AgentRunResult(returncode=0, stdout=result, stderr="")
 
-    child_env = {**os.environ, SENTINEL_ENV: "1"}
     return run_agent_subprocess(
         invocation=invocation,
         prompt=prompt,
         timeout=timeout,
-        env=child_env,
+        env={**os.environ, SENTINEL_ENV: "1"},
         extra_args=hook_child_args(agent_value),
         model=model,
     )
-
-
-def _parse_payload(raw: str) -> HookPayload | None:
-    return parse_hook_payload(raw)
 
 
 def _normalize_hook_agent(agent: HookAgent | str | None) -> Result[str]:
@@ -197,8 +187,11 @@ def _normalize_hook_agent(agent: HookAgent | str | None) -> Result[str]:
     value = agent.value if isinstance(agent, HookAgent) else str(agent)
     if value in {HookAgent.CLAUDE.value, HookAgent.CODEX.value}:
         return Ok(value)
-
     return Err(f'Invalid agent "{value}". Expected one of: claude, codex.')
+
+
+def _dedupe_paths(paths: Sequence[str]) -> list[str]:
+    return list(dict.fromkeys(paths))
 
 
 def _write_error(message: str) -> None:
@@ -213,10 +206,14 @@ __all__ = [
     "HookAgent",
     "HookFinding",
     "HookPayload",
+    "RuleFailure",
+    "RulesVerdict",
     "Verdict",
     "build_hook_prompt",
+    "build_rules_hook_prompt",
     "extract_target_paths",
     "hook_child_args",
+    "parse_rules_verdict",
     "parse_verdict",
     "path_matches_any",
     "run_hook_command",

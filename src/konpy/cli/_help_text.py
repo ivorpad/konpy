@@ -18,12 +18,12 @@ Usage:
 Commands:
   check          Check structural conventions (default)
   validate       Validate configuration
-  extract-rules  Extract reusable convention proposals from prose rules
+  extract-rules  Extract structural and semantic rule proposals from prose
   infer          Mine the codebase for candidate structural conventions
-  explain        Render resolved conventions as agent guidance (markdown/text)
+  explain        Render resolved conventions as agent guidance
   gate           Run a deterministic PreToolUse convention gate
   hook           Run an agentic PostToolUse verification hook
-  hook-propose   Promote logged hook findings into reusable convention proposals
+  hook-propose   Promote logged hook findings into rule proposals
   version        Print the version number
   help           Show this help message
 
@@ -38,8 +38,8 @@ Check options:
   --diagnostic-level <level> Minimum severity to evaluate: warning or error
   --placeholder <name:value> Inject a placeholder value; may be repeated
   --show-suppressed          List diagnostics suppressed by source comments
-  --files <path...>          Restrict checking to these files; repeatable or space-separated
-  --changed                  Restrict checking to files changed since HEAD (git diff + untracked)
+  --files <path...>          Restrict checking to files; repeatable or space-separated
+  --changed                  Restrict checking to files changed since HEAD
 
 Validate options:
   --config-path <path>       Path to konpy.json config file
@@ -48,25 +48,24 @@ Validate options:
 
 Extract-rules options:
   -o, --output <path>        Path for generated reusable convention pack proposal
+  --rules-output <path>      Path for generated semantic-rules package
   --agent <agent>            Agent CLI to use: auto, claude, or codex
-  --report <path>            Write unmapped-rules report to this path
+  --report <path>            Write the rule-routing report to this path
   --model <model>            Model passed through to the agent CLI (default: sonnet)
+  --timeout <seconds>        Timeout for the extraction agent subprocess
+  --verbose                  Stream the agent CLI's own output to stderr
 
 Infer options:
   --include <glob>           Glob(s) of files to scan; repeatable (default: **/*.py)
   --exclude <glob>           Glob(s) to exclude from scanning; repeatable
   --test-glob <glob>         Glob(s) identifying test files; repeatable
-  --min-confidence <n>       Minimum support/total ratio required to propose (default: 0.9)
-  --min-support <n>          Minimum sample size required to consider a signal (default: 3)
-  --max-violators <n>        Maximum violator paths listed per proposal (default: 10)
-  --heuristic <name>         Restrict to heuristics; repeatable: export-suffix,
-                             paired-test-file, docstring-coverage,
-                             annotate-functions-coverage, barrel-usage,
-                             import-dominance, repeated-literals,
-                             duplicate-functions
+  --min-confidence <n>       Minimum support/total ratio (default: 0.9)
+  --min-support <n>          Minimum sample size (default: 3)
+  --max-violators <n>        Maximum listed violator paths (default: 10)
+  --heuristic <name>         Restrict to named heuristics; repeatable
   --format <format>          Report format: text, markdown, json
-  -o, --output <path>        Write the proposed reusable convention pack here instead of stdout
-  -r, --report <path>        Write the confidence/violators report here instead of stderr
+  -o, --output <path>        Write proposed pack here instead of stdout
+  -r, --report <path>        Write report here instead of stderr
 
 Explain options:
   --config-path <path>       Path to konpy.json config file
@@ -75,42 +74,43 @@ Explain options:
   --placeholder <name:value> Inject a placeholder value; may be repeated
 
 Gate options:
-  --match <glob>             Glob pattern to filter proposed write paths; may be repeated
-                             If omitted, every target path is gated
+  --match <glob>             Glob filtering proposed write paths; repeatable
   --config-path <path>       Path to konpy.json config file
   --config-package <pkg>     Unsupported in the Python port
   --diagnostic-level <level> Minimum severity to evaluate: warning or error
-  --error-on-warnings        Block proposed writes on warnings as well as errors
+  --error-on-warnings        Block proposed writes on warnings
   --placeholder <name:value> Inject a placeholder value; may be repeated
-  --max-diagnostics <n>      Maximum diagnostics to report when blocking
+  --max-diagnostics <n>      Maximum blocking diagnostics to report
 
 Hook options:
-  --match <glob>             Glob pattern to filter written/edited files; may be repeated
-  --prompt <text>            Natural-language verification instruction (required)
-  --agent <agent>            Verifier agent CLI to use: claude or codex (required)
+  --match <glob>             Glob filtering written/edited files; repeatable
+  --prompt <text>            One natural-language verification instruction
+  --rules <path>             Semantic-rules package for batched verification
+                             Exactly one of --prompt or --rules is required
+  --agent <agent>            Verifier agent CLI: claude or codex (required)
   --model <model>            Model passed through to the agent CLI (default: sonnet)
-  --timeout <seconds>        Timeout for the verifier agent subprocess (default: 300.0)
-  --log <path>               Append verified fail verdicts as JSONL for hook-propose
+  --timeout <seconds>        Verifier subprocess timeout (default: 300.0)
+  --log <path>               Append per-rule fail findings as JSONL
 
 Hook-propose options:
-  [findings-path]            JSONL hook findings log (default: .konpy/hook-findings.jsonl)
+  [findings-path]            JSONL log (default: .konpy/hook-findings.jsonl)
   -o, --output <path>        Path for generated reusable convention pack proposal
+  --rules-output <path>      Path for generated semantic-rules package
   --agent <agent>            Agent CLI to use: auto, claude, or codex
-  --report <path>            Write unmapped-rules report to this path
+  --report <path>            Write the rule-routing report to this path
   --model <model>            Model passed through to the agent CLI (default: sonnet)
   --timeout <seconds>        Timeout for the proposal agent subprocess
+  --verbose                  Stream the agent CLI's own output to stderr
 
 Exit codes (gate):
   0  allow, skipped, unreconstructable, or fail-open config/runtime warning
   1  unrecognized gate arguments only; non-blocking misconfiguration
-  2  verified convention violation in proposed content; JSON diagnostics on stderr
+  2  verified convention violation in proposed content
 
 Exit codes (hook):
-  0  pass, or skipped (no match, non-write tool, sentinel active, unparseable payload)
-  1  infra fail-open (missing/invalid --prompt or --agent, unrecognized options,
-     agent missing, subprocess error, unparseable agent output) -- never a CLI
-     usage error
-  2  verdict is fail; reasons are written to stderr
+  0  pass, or skipped because no tool, path, or semantic rule applies
+  1  fail-open configuration or infrastructure error, including invalid rules
+  2  verified failure only; reasons are written to stderr
 
 Global options:
   --help, -h                 Show help
