@@ -7,3 +7,7 @@ __pycache__/
 .ruff_cache/
 dist/
 *.egg-info/
+
+# Internal working docs — never commit or ship
+CLAUDE.md
+docs/plans/

@@ -29,7 +29,6 @@ dev = [
 only-include = [
     ".github",
     ".gitignore",
-    "CLAUDE.md",
     "README.md",
     "docs",
     "konpy.json",
@@ -42,6 +41,8 @@ only-include = [
     "tests",
     "uv.lock",
 ]
+# Internal working docs never ship (they are also gitignored).
+exclude = ["docs/plans"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/konpy"]
