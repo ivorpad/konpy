@@ -36,7 +36,6 @@ only-include = [
     "konpy.strict.json",
     "packs",
     "scripts",
-    "skills-lock.json",
     "src",
     "tests",
     "uv.lock",

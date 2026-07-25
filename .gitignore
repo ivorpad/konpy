@@ -11,3 +11,6 @@ dist/
 # Internal working docs — never commit or ship
 CLAUDE.md
 docs/plans/
+.agents/
+.claude/
+skills-lock.json
