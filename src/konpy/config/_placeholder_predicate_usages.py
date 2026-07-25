@@ -52,6 +52,7 @@ _BUILTIN_PREDICATE_KEYS = {
     "matchContent",
     "restrictAnnotations",
     "restrictDuplicateFunctions",
+    "restrictFileLength",
     "restrictRepeatedLiterals",
     "useDeclarationOrder",
 }

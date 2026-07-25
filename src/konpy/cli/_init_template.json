@@ -1,0 +1,229 @@
+{
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "project-root-uses-src-layout",
+      "description": "The project root places importable code under src/ and keeps pyproject.toml at the top level.",
+      "hint": "Move importable code into a src/ directory and keep pyproject.toml at the project root.",
+      "paths": ".",
+      "must": {
+        "haveType": "directory",
+        "haveFiles": [
+          "pyproject.toml",
+          "src"
+        ]
+      }
+    },
+    {
+      "name": "top-level-src-packages-have-init",
+      "description": "Each top-level package under src/ is a real package with an __init__.py.",
+      "hint": "Add an __init__.py to this directory so it's importable as a package.",
+      "paths": "src/{name}",
+      "must": {
+        "haveType": "directory",
+        "haveFiles": [
+          "__init__.py"
+        ]
+      }
+    },
+    {
+      "name": "init-files-are-barrels",
+      "description": "Package __init__.py files never contain business logic; only docstrings, imports, __all__, and re-export aliases.",
+      "hint": "Move non-barrel logic (functions, classes, business logic) out of this __init__.py into a dedicated module and re-export it here instead.",
+      "paths": "src/**/__init__.py",
+      "must": {
+        "areBarrelFiles": true
+      }
+    },
+    {
+      "name": "package-inits-have-docstrings",
+      "description": "Package __init__.py files document the package with a module docstring.",
+      "hint": "Add a module docstring to this __init__.py summarizing what the package exposes and why.",
+      "paths": "src/**/__init__.py",
+      "must": {
+        "haveDocstrings": {
+          "modules": true,
+          "classes": false,
+          "functions": false,
+          "publicOnly": true
+        }
+      }
+    },
+    {
+      "name": "max-module-length",
+      "description": "Modules longer than 300 lines should be split.",
+      "hint": "Split this module into smaller single-purpose modules behind the same import surface.",
+      "paths": "src/**/*.py",
+      "must": {
+        "restrictFileLength": {
+          "maxLines": 300
+        }
+      }
+    },
+    {
+      "name": "absolute-imports-only",
+      "description": "Non-barrel modules use absolute imports instead of relative imports.",
+      "hint": "Rewrite relative imports (from . import x, from .. import y) as absolute imports rooted at the top-level package.",
+      "paths": [
+        "src/**/*.py",
+        "!src/**/__init__.py"
+      ],
+      "mustNot": {
+        "importFromCurrentDir": true,
+        "importFromParents": true
+      }
+    },
+    {
+      "name": "no-typing-any",
+      "description": "typing.Any defeats the type checker; annotate precisely.",
+      "hint": "Replace Any with a precise type, a TypeVar, or object if the value is genuinely opaque.",
+      "paths": "src/**/*.py",
+      "mustNot": {
+        "matchContent": [
+          ": Any\\b",
+          "-> Any\\b",
+          "\\[Any\\]"
+        ]
+      }
+    },
+    {
+      "name": "annotated-public-functions",
+      "description": "Public functions and methods annotate parameters and return values.",
+      "hint": "Add type annotations to this public function's parameters and return value.",
+      "paths": "src/**/*.py",
+      "must": {
+        "annotateFunctions": {
+          "returns": true,
+          "params": true,
+          "publicOnly": true
+        }
+      }
+    },
+    {
+      "name": "no-anonymous-record-annotations",
+      "description": "Annotations use named record types instead of identity-less string-keyed mappings with broad or union value types.",
+      "hint": "Define a named type for the record shape, such as a pydantic model, TypedDict, or dataclass, and use that name in the annotation.",
+      "paths": "src/**/*.py",
+      "must": {
+        "restrictAnnotations": true
+      }
+    },
+    {
+      "name": "docstrings-on-public-api",
+      "description": "Public classes and functions have docstrings.",
+      "hint": "Add a docstring explaining what this public class or function does, its parameters, and what it returns.",
+      "paths": "src/**/*.py",
+      "must": {
+        "haveDocstrings": {
+          "modules": false,
+          "classes": true,
+          "functions": true,
+          "publicOnly": true
+        }
+      }
+    },
+    {
+      "name": "public-api-modules-declare-all",
+      "description": "Public (non-underscore) modules declare their export surface with an explicit __all__.",
+      "hint": "Add an explicit __all__ list naming the names this module intends to expose publicly.",
+      "paths": [
+        "src/**/*.py",
+        "!src/**/__init__.py",
+        "!src/**/_*.py"
+      ],
+      "must": {
+        "matchContent": [
+          "^__all__\\s*="
+        ]
+      }
+    },
+    {
+      "name": "no-underscore-exports",
+      "description": "Modules never list underscore-prefixed names in __all__.",
+      "hint": "Drop the underscore-prefixed name from __all__, or rename it without the leading underscore if it's meant to be public.",
+      "paths": "src/**/*.py",
+      "mustNot": {
+        "matchContent": [
+          "^__all__\\s*=\\s*(?:\\[[\\s\\S]*?[\"'](?!__[A-Za-z0-9_]+__[\"'])_[A-Za-z0-9_]+[\"']|\\([\\s\\S]*?[\"'](?!__[A-Za-z0-9_]+__[\"'])_[A-Za-z0-9_]+[\"'])"
+        ]
+      }
+    },
+    {
+      "name": "tests-mirror-top-level-modules",
+      "description": "Every top-level src/ module has a matching tests/test_<module>.py file.",
+      "hint": "Add a tests/test_<module>.py covering this module's public behavior.",
+      "paths": [
+        "src/{name}.py",
+        "!src/__init__.py"
+      ],
+      "must": {
+        "havePairedFile": "tests/test_${name}.py"
+      }
+    },
+    {
+      "name": "tests-mirror-package-modules",
+      "description": "Every public module inside a src/ package has a matching tests/<package>/test_<module>.py file.",
+      "hint": "Add a tests/<package>/test_<module>.py mirroring this module's location under src/; underscore-private modules are tested through their public facade.",
+      "paths": [
+        "src/{package}/{name}.py",
+        "!src/*/__init__.py",
+        "!src/*/_*.py"
+      ],
+      "must": {
+        "havePairedFile": "tests/${package}/test_${name}.py"
+      }
+    },
+    {
+      "name": "no-print-statements",
+      "description": "Library code never uses bare print(); reserve stdout for CLI entry points.",
+      "hint": "Use logging (or the CLI layer) instead of print() in library code.",
+      "paths": [
+        "src/**/*.py",
+        "!src/**/cli/**",
+        "!src/**/__main__.py"
+      ],
+      "mustNot": {
+        "matchContent": [
+          "^\\s*print\\("
+        ]
+      }
+    },
+    {
+      "name": "no-todo-comments",
+      "description": "Source modules do not accumulate TODO/FIXME/XXX markers; work lives in the issue tracker.",
+      "hint": "Remove the marker and file a tracked issue for the remaining work instead of leaving it in a comment.",
+      "severity": "warning",
+      "paths": "src/**/*.py",
+      "mustNot": {
+        "matchContent": [
+          "(?i)\\b(?:TODO|FIXME|XXX)\\b"
+        ]
+      }
+    },
+    {
+      "name": "no-repeated-string-literals",
+      "description": "Source does not repeat the same non-trivial string literal across the codebase.",
+      "hint": "Extract repeated string values into a named constant and reference that name instead.",
+      "severity": "warning",
+      "paths": "src/**/*.py",
+      "must": {
+        "restrictRepeatedLiterals": true
+      }
+    },
+    {
+      "name": "no-duplicate-functions",
+      "description": "Functions and methods do not duplicate another normalized implementation.",
+      "hint": "Extract shared implementation into one helper, or make the duplicate implementations meaningfully different.",
+      "severity": "warning",
+      "paths": "src/**/*.py",
+      "must": {
+        "restrictDuplicateFunctions": true
+      }
+    }
+  ],
+  "unusedCode": {
+    "include": [
+      "src/**/*.py"
+    ]
+  }
+}

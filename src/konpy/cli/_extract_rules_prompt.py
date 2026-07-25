@@ -7,10 +7,8 @@ under its own `__all__` so the public import path is unchanged.
 
 from __future__ import annotations
 
-from importlib import resources
-from pathlib import Path
-
-from konpy.config.errors import Err, Ok, Result
+from konpy.cli._packaged_docs import read_reference_doc
+from konpy.config.errors import Err, Result
 
 
 def pack_contract_and_rubric() -> str:
@@ -113,27 +111,11 @@ Source file: {source_label}
 
 def read_predicates_reference() -> Result[str]:
     """Read `docs/reference/predicates.md` from the source tree or package data."""
-    source_tree_path = (
-        Path(__file__).resolve().parents[3] / "docs/reference/predicates.md"
-    )
-    try:
-        if source_tree_path.is_file():
-            return Ok(source_tree_path.read_text(encoding="utf-8"))
-    except OSError:
-        pass
+    doc = read_reference_doc("predicates")
+    if isinstance(doc, Err):
+        return Err("Could not read predicates reference docs/reference/predicates.md.")
 
-    try:
-        text = (
-            resources.files("konpy")
-            .joinpath("_docs/reference/predicates.md")
-            .read_text(encoding="utf-8")
-        )
-    except (FileNotFoundError, ModuleNotFoundError, OSError):
-        return Err(
-            "Could not read predicates reference docs/reference/predicates.md."
-        )
-
-    return Ok(text)
+    return doc
 
 
 __all__ = [

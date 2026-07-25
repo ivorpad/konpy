@@ -94,7 +94,7 @@ class TestExplainCommand:
         result = runner.invoke(app, ["explain", "--config-path", str(config_path)])
 
         assert result.exit_code == 1
-        assert "Invalid config:" in result.output
+        assert "Invalid config (" in result.output
         assert "version" in result.output
 
     def test_config_package_option_exits_one_with_unsupported_error(self) -> None:

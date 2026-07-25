@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --frozen
-      - run: uv run konpy
+      - run: uv run konpy check
 ```
 
 Violations appear inline on the PR diff as `::error` or `::warning` annotations. Errors fail the job; warnings do not (unless [`--error-on-warnings`](../reference/cli.md#flags) is set).
@@ -71,7 +71,7 @@ See [`validate`](../reference/cli.md#validate) for the success/failure semantics
 - run: uv run mypy .
 - run: uv run pytest
 - run: uv run ruff check      # lint + format
-- run: uv run konpy
+- run: uv run konpy check
 ```
 
 Run `konpy` after the lighter checks so structural failures surface against a known-good baseline. For custom reports, gating, or agent workflows, use [`--format=json`](../reference/cli.md#json) and group results by `conventionName` — see [fixing-violations.md](./fixing-violations.md).

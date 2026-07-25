@@ -57,8 +57,21 @@ class TestEmptyConfigFixture:
         assert SUMMARY_RE.search(stdout) is not None
         assert "No violations found." in stdout
 
-    def test_default_command_no_args_runs_check(self, fixtures_dir: Path, run_cli) -> None:
+    def test_no_args_runs_report_while_options_still_imply_check(
+        self, fixtures_dir: Path, run_cli
+    ) -> None:
         exit_code, stdout, stderr = run_cli(_fixture(fixtures_dir, "empty-config"))
+
+        assert exit_code == 0
+        assert stderr == ""
+        assert "konpy report" in stdout
+        assert SUMMARY_RE.search(stdout) is None
+
+        exit_code, stdout, stderr = run_cli(
+            _fixture(fixtures_dir, "empty-config"),
+            "--max-diagnostics",
+            "5",
+        )
 
         assert exit_code == 0
         assert stderr == ""
@@ -75,7 +88,7 @@ class TestInvalidConfigFixture:
         output = _combined(stdout, stderr)
 
         assert exit_code == 1
-        assert "Invalid config:" in output
+        assert "Invalid config (" in output
         assert "version" in output
         assert "Configuration is valid." not in output
 
@@ -91,7 +104,7 @@ class TestInvalidConfigFixture:
         output = _combined(stdout, stderr)
 
         assert exit_code == 1
-        assert "Invalid config:" in output
+        assert "Invalid config (" in output
         assert "version" in output
         assert "Checked" not in stdout
         assert "Found" not in stdout

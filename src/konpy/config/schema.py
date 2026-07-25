@@ -41,6 +41,7 @@ from konpy.config._schema_predicates import (
     MustPredicatesV1,
     RestrictAnnotationsOptionsV1,
     RestrictDuplicateFunctionsOptionsV1,
+    RestrictFileLengthOptionsV1,
     RestrictRepeatedLiteralsOptionsV1,
 )
 from konpy.config._schema_types import (
@@ -97,6 +98,7 @@ __all__ = [
     "RawHandWrittenConventionV1",
     "RestrictAnnotationsOptionsV1",
     "RestrictDuplicateFunctionsOptionsV1",
+    "RestrictFileLengthOptionsV1",
     "RestrictRepeatedLiteralsOptionsV1",
     "ReusableConventionV1",
     "ReusableConventionsPackageV1",

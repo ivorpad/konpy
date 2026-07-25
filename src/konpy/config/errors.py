@@ -72,7 +72,10 @@ def format_validation_error(error: ValidationError) -> str:
     seen: set[str] = set()
     for issue in error.errors():
         path = format_error_path(tuple(issue["loc"]))
-        line = f"  - {path}: {issue['msg']}"
+        message = issue["msg"]
+        if path == "version" and message == "Field required":
+            message = 'Field required (expected "v1")'
+        line = f"  - {path}: {message}"
         if line not in seen:
             seen.add(line)
             lines.append(line)

@@ -15,6 +15,9 @@ _KNOWN_SUBCOMMANDS = {
     "gate",
     "hook",
     "hook-propose",
+    "init",
+    "docs",
+    "report",
     "version",
     "help",
 }
@@ -66,7 +69,15 @@ def _expand_multi_value_options(argv: list[str]) -> list[str]:
 
 
 def _preprocess_argv(argv: list[str]) -> list[str]:
-    """Expand `--files` and inject the default `check` subcommand if omitted."""
+    """Expand `--files`, route bare invocations to `report`, and default to `check`.
+
+    A truly-bare `konpy` runs the zero-config codebase report (fallow-style:
+    unused code, duplication, coverage — no konpy.json required); options
+    without a subcommand (e.g. `konpy --files a.py`) still imply `check`.
+    """
+    if not argv:
+        return ["report"]
+
     if argv == ["--version"]:
         return ["version"]
 

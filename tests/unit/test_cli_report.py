@@ -1,0 +1,300 @@
+"""Tests for `konpy report` (the zero-config codebase report)."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+from typer.testing import CliRunner
+
+from konpy.cli.app import app
+
+runner = CliRunner()
+
+_DUPLICATE_FUNCTION = (
+    "def {name}(values: list[int]) -> int:\n"
+    '    """Sum positives."""\n'
+    "    total = 0\n"
+    "    for value in values:\n"
+    "        if value > 0:\n"
+    "            total += value\n"
+    "    return total\n"
+)
+
+
+class TestReportCommand:
+    def test_empty_directory_reports_and_points_at_init(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(app, ["report"])
+
+        assert result.exit_code == 0
+        assert "konpy report" in result.output
+        assert "no konpy.json found" in result.output
+
+    def test_report_surfaces_duplication_and_unused_code(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        src = tmp_path / "src"
+        src.mkdir()
+        shared = 'SHARED = "a very repeatable literal"\n'
+        (src / "alpha.py").write_text(
+            shared + _DUPLICATE_FUNCTION.format(name="sum_alpha"), encoding="utf-8"
+        )
+        (src / "beta.py").write_text(
+            shared + _DUPLICATE_FUNCTION.format(name="sum_beta"), encoding="utf-8"
+        )
+        (src / "gamma.py").write_text(shared + "dead = 1\n", encoding="utf-8")
+
+        result = runner.invoke(app, ["report"])
+
+        assert result.exit_code == 0
+        assert "a very repeatable literal" in result.output
+        assert "Duplicate function implementations (1 groups)" in result.output
+        assert "sum_alpha" in result.output
+        assert 'Unused definition "dead"' in result.output
+
+    def test_unused_lane_excludes_build_artifacts_and_they_cannot_mask(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "mod.py").write_text(
+            "def dead_helper() -> int:\n    return 1\n", encoding="utf-8"
+        )
+        stale = tmp_path / "build" / "lib"
+        stale.mkdir(parents=True)
+        (stale / "mod.py").write_text(
+            "def stale_orphan() -> int:\n    return 2\n\n\nvalue = dead_helper()\n",
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(app, ["report"])
+
+        assert result.exit_code == 0
+        assert 'Unused definition "dead_helper"' in result.output
+        assert "build/lib" not in result.output
+
+    def test_mapping_key_literals_are_labeled_and_ranked_last(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        src = tmp_path / "src"
+        src.mkdir()
+        # "serialization_key" appears only in mapping-key positions (dict
+        # display, subscript, .get()); the shorter "copy paste text" sits in
+        # expression position, so count x length alone would rank the key
+        # first.
+        key_usages = (
+            'PAYLOAD = {"serialization_key_long_enough": 1}\n'
+            'value = PAYLOAD["serialization_key_long_enough"]\n'
+            'other = PAYLOAD.get("serialization_key_long_enough")\n'
+        )
+        plain_usage = 'MESSAGE = "copy paste text"\n'
+        (src / "a.py").write_text(key_usages + plain_usage, encoding="utf-8")
+        (src / "b.py").write_text(key_usages + plain_usage, encoding="utf-8")
+        (src / "c.py").write_text(key_usages + plain_usage, encoding="utf-8")
+
+        result = runner.invoke(app, ["report"])
+
+        assert result.exit_code == 0
+        assert '"serialization_key_long_enough"' in result.output
+        assert "[mapping keys]" in result.output
+        assert result.output.index('"copy paste text"') < result.output.index(
+            '"serialization_key_long_enough"'
+        )
+
+    def test_renamed_duplicate_shows_name_variants(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "a.py").write_text(
+            _DUPLICATE_FUNCTION.format(name="iter_error_chain"), encoding="utf-8"
+        )
+        (src / "b.py").write_text(
+            _DUPLICATE_FUNCTION.format(name="iter_retry_error_chain"), encoding="utf-8"
+        )
+
+        result = runner.invoke(app, ["report"])
+
+        assert result.exit_code == 0
+        assert "iter_error_chain a.k.a. iter_retry_error_chain" in result.output
+
+    def test_generated_files_are_counted_exempted_and_labeled(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        src = tmp_path / "src"
+        src.mkdir()
+        fern_banner = "# This file was auto-generated by Fern from our API Definition.\n"
+        # Generated pair: identical functions + a dead def, and a reference
+        # into hand-written code that must keep it alive.
+        (src / "gen_a.py").write_text(
+            fern_banner
+            + _DUPLICATE_FUNCTION.format(name="sum_gen_a")
+            + "def gen_orphan():\n    return 1\n",
+            encoding="utf-8",
+        )
+        (src / "gen_b.py").write_text(
+            fern_banner
+            + _DUPLICATE_FUNCTION.format(name="sum_gen_b")
+            + "from src.helpers import hand_written\n\nhand_written()\n",
+            encoding="utf-8",
+        )
+        (src / "helpers.py").write_text(
+            "def hand_written() -> int:\n    return 1\n", encoding="utf-8"
+        )
+
+        result = runner.invoke(app, ["report"])
+
+        assert result.exit_code == 0
+        assert "(2 generated)" in result.output
+        assert "2 generated files (auto-generated banner) feed references only" in result.output
+        # Generated defs never reach the unused lane; the hand-written def
+        # referenced only from generated code stays used.
+        assert "gen_orphan" not in result.output
+        assert 'Unused definition "hand_written"' not in result.output
+        assert "[generator template]" in result.output
+
+    def test_duplicates_confined_to_example_paths_are_labeled(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        docs_src = tmp_path / "docs_src" / "tutorial001"
+        docs_src.mkdir(parents=True)
+        (docs_src / "app_a.py").write_text(
+            _DUPLICATE_FUNCTION.format(name="tutorial_a"), encoding="utf-8"
+        )
+        (docs_src / "app_b.py").write_text(
+            _DUPLICATE_FUNCTION.format(name="tutorial_b"), encoding="utf-8"
+        )
+
+        result = runner.invoke(app, ["report"])
+
+        assert result.exit_code == 0
+        assert "[example/docs code]" in result.output
+
+    def test_nested_docs_directory_is_not_example_labeled(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # An SDK's client/docs/ resource modules are production code; only a
+        # repo-root docs/ tree reads as documentation.
+        monkeypatch.chdir(tmp_path)
+        nested = tmp_path / "client" / "docs"
+        nested.mkdir(parents=True)
+        (nested / "api.py").write_text(
+            _DUPLICATE_FUNCTION.format(name="sum_api"), encoding="utf-8"
+        )
+        (nested / "utils.py").write_text(
+            _DUPLICATE_FUNCTION.format(name="sum_utils"), encoding="utf-8"
+        )
+
+        result = runner.invoke(app, ["report"])
+
+        assert result.exit_code == 0
+        assert "sum_api" in result.output
+        assert "[example/docs code]" not in result.output
+
+    def test_url_passed_to_get_is_not_a_mapping_key(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # requests.get("https://…") passes a URL — the most actionable kind
+        # of repeated literal — and must not be demoted as a mapping key.
+        monkeypatch.chdir(tmp_path)
+        src = tmp_path / "src"
+        src.mkdir()
+        usage = 'DATA = fetch.get("https://api.example.com/v1/widgets")\n'
+        for name in ("a.py", "b.py", "c.py"):
+            (src / name).write_text(usage, encoding="utf-8")
+
+        result = runner.invoke(app, ["report"])
+
+        assert result.exit_code == 0
+        assert "api.example.com" in result.output
+        assert "[mapping keys]" not in result.output
+
+    def test_duplicate_spanning_example_and_src_is_not_labeled(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        examples = tmp_path / "examples"
+        examples.mkdir()
+        src = tmp_path / "src"
+        src.mkdir()
+        (examples / "snippet.py").write_text(
+            _DUPLICATE_FUNCTION.format(name="sum_example"), encoding="utf-8"
+        )
+        (src / "real.py").write_text(
+            _DUPLICATE_FUNCTION.format(name="sum_real"), encoding="utf-8"
+        )
+
+        result = runner.invoke(app, ["report"])
+
+        assert result.exit_code == 0
+        assert "sum_example" in result.output or "sum_real" in result.output
+        assert "[example/docs code]" not in result.output
+
+    def test_fernignore_listed_file_is_still_analyzed(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        src = tmp_path / "src"
+        src.mkdir()
+        (tmp_path / ".fernignore").write_text("src/custom.py\n", encoding="utf-8")
+        # Hand-maintained despite the stale banner: its dead def must surface.
+        (src / "custom.py").write_text(
+            "# This file was auto-generated by Fern from our API Definition.\n"
+            "def dead_custom():\n    return 1\n",
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(app, ["report"])
+
+        assert result.exit_code == 0
+        assert 'Unused definition "dead_custom"' in result.output
+        assert "generated" not in result.output.split("■")[1].splitlines()[0]
+
+    def test_convention_errors_flow_into_the_report_and_exit_code(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "konpy.json").write_text(
+            json.dumps(
+                {
+                    "version": "v1",
+                    "conventions": [
+                        {
+                            "name": "must-have-missing-file",
+                            "paths": ".",
+                            "must": {"haveFiles": ["MISSING.md"]},
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(app, ["report"])
+
+        assert result.exit_code == 1
+        assert "must-have-missing-file" in result.output
+        assert "1 errors" in result.output
+
+    def test_invalid_config_is_reported_without_killing_the_analysis(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "konpy.json").write_text('{"conventions": []}', encoding="utf-8")
+
+        result = runner.invoke(app, ["report"])
+
+        assert result.exit_code == 0
+        assert "konpy.json is invalid" in result.output
+        assert "Coverage" in result.output

@@ -1240,6 +1240,22 @@
           "default": null,
           "title": "Restrictannotations"
         },
+        "restrictFileLength": {
+          "anyOf": [
+            {
+              "const": true,
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/$defs/RestrictFileLengthOptionsV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Restrictfilelength"
+        },
         "restrictRepeatedLiterals": {
           "anyOf": [
             {
@@ -1545,6 +1561,21 @@
         }
       },
       "title": "RestrictDuplicateFunctionsOptionsV1",
+      "type": "object"
+    },
+    "RestrictFileLengthOptionsV1": {
+      "additionalProperties": false,
+      "description": "Options for the ``restrictFileLength`` predicate.",
+      "properties": {
+        "maxLines": {
+          "default": 300,
+          "description": "Maximum allowed physical line count for a matched file.",
+          "minimum": 1,
+          "title": "Maxlines",
+          "type": "integer"
+        }
+      },
+      "title": "RestrictFileLengthOptionsV1",
       "type": "object"
     },
     "RestrictRepeatedLiteralsOptionsV1": {

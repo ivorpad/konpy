@@ -735,6 +735,32 @@ For `publicOnly: true`, top-level symbols use normal export publicness (`__all__
 restrictAnnotations is only supported in "must", not "mustNot"; it already reports restricted annotations directly.
 ```
 
+### `restrictFileLength`
+
+Flag files whose physical line count exceeds a cap.
+
+```json
+"must": { "restrictFileLength": true }
+```
+
+The bare `true` form uses the default cap:
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `maxLines` | integer | `300` | Maximum allowed physical line count for a matched file. |
+
+Object form:
+
+```json
+"must": { "restrictFileLength": { "maxLines": 500 } }
+```
+
+The count is physical lines; a trailing newline does not add a phantom line. The diagnostic anchors at line `maxLines + 1` (the first offending line) and carries the actual count in `found`. Content-based rather than AST-based, so it works on any text file the convention's `paths` match, not just `.py`.
+
+This predicate replaces the `"mustNot": { "matchContent": ["\\A(?:[^\\n]*\\n){301}"] }` regex recipe older configs used for a line cap — prefer it: the diagnostic names the real line count and the limit instead of echoing a regex.
+
+`restrictFileLength` is only supported under `must`. Putting it under `mustNot` is rejected during config validation.
+
 ### `restrictRepeatedLiterals`
 
 Flag repeated eligible string literals across the current matched scope.

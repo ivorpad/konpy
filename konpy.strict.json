@@ -46,7 +46,7 @@
       "name": "max-module-length",
       "description": "Modules longer than 300 lines should be split.",
       "paths": "src/konpy/**/*.py",
-      "mustNot": { "matchContent": ["\\A(?:[^\\n]*\\n){301}"] }
+      "must": { "restrictFileLength": { "maxLines": 300 } }
     }
   ],
   "unusedCode": {

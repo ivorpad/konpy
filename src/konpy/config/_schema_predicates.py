@@ -115,6 +115,16 @@ class RestrictAnnotationsOptionsV1(_StrictModel):
         return self
 
 
+class RestrictFileLengthOptionsV1(_StrictModel):
+    """Options for the ``restrictFileLength`` predicate."""
+
+    maxLines: int = Field(
+        default=300,
+        ge=1,
+        description="Maximum allowed physical line count for a matched file.",
+    )
+
+
 class RestrictRepeatedLiteralsOptionsV1(_StrictModel):
     """Options for the ``restrictRepeatedLiterals`` predicate."""
 
@@ -191,6 +201,7 @@ class MustPredicatesV1(_StrictModel):
     haveDocstrings: Literal[True] | HaveDocstringsOptionsV1 | None = None
     annotateFunctions: Literal[True] | AnnotateFunctionsOptionsV1 | None = None
     restrictAnnotations: Literal[True] | RestrictAnnotationsOptionsV1 | None = None
+    restrictFileLength: Literal[True] | RestrictFileLengthOptionsV1 | None = None
     restrictRepeatedLiterals: Literal[True] | RestrictRepeatedLiteralsOptionsV1 | None = None
     restrictDuplicateFunctions: (
         Literal[True] | RestrictDuplicateFunctionsOptionsV1 | None

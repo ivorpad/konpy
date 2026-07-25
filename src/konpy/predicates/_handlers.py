@@ -29,6 +29,7 @@ from konpy.predicates.import_types import check_import_types
 from konpy.predicates.match_content import check_match_content
 from konpy.predicates.restrict_annotations import check_restrict_annotations
 from konpy.predicates.restrict_duplicate_functions import check_restrict_duplicate_functions
+from konpy.predicates.restrict_file_length import check_restrict_file_length
 from konpy.predicates.restrict_repeated_literals import check_restrict_repeated_literals
 from konpy.predicates.use_declaration_order import check_use_declaration_order
 from konpy.python_ast.structure import PyFileStructure
@@ -181,6 +182,23 @@ def _match_content(
     )
 
 
+def _restrict_file_length(
+    value: object,
+    context: PredicateContext,
+    file_system: FileSystem,
+    structure: PyFileStructure | None,
+    convention_name: str | None,
+    severity: DiagnosticSeverity | None,
+) -> list[Diagnostic]:
+    return check_restrict_file_length(
+        expected=value,
+        context=context,
+        file_system=file_system,
+        convention_name=convention_name,
+        severity=severity,
+    )
+
+
 def _have_paired_file(
     value: object,
     context: PredicateContext,
@@ -260,6 +278,7 @@ PREDICATE_HANDLERS: dict[str, PredicateHandler] = {
     "haveDocstrings": _ast(check_have_docstrings),
     "annotateFunctions": _ast(check_annotate_functions),
     "restrictAnnotations": _ast(check_restrict_annotations),
+    "restrictFileLength": _restrict_file_length,
     "restrictRepeatedLiterals": _ast(check_restrict_repeated_literals),
     "restrictDuplicateFunctions": _ast(check_restrict_duplicate_functions),
 }

@@ -10,11 +10,11 @@ uv add --dev konpy      # add to a uv project
 pip install konpy       # install with pip
 ```
 
-You can then run it with `uv run konpy`, or `uvx konpy` to run without installing it into the project.
+Bare `uv run konpy` (or `uvx konpy`) runs a zero-config codebase report — unused code, duplication, and coverage, no config needed (see [cli.md#report](../reference/cli.md#report)). The reference docs ship in the package, so `konpy docs` works offline without this repo.
 
 ## 2. Create `konpy.json`
 
-Create `konpy.json` at the project root with at least the `version` field and one convention. The simplest possible config has a single rule:
+The fastest start is `konpy init`, which writes a strict starter config: src layout, barrel-only `__init__.py` files, typing and docstring coverage, a 300-line module cap, mirrored test files, duplication ratchets, and unused-code detection (see [cli.md#init](../reference/cli.md#init) for the full list — delete any convention you disagree with; it's your file now). Or create `konpy.json` at the project root by hand, with at least the `version` field and one convention. The simplest possible config has a single rule:
 
 ```json
 {
@@ -39,7 +39,7 @@ The `$schema` line gives you autocomplete in editors that respect the JSON schem
 ## 3. Run the CLI
 
 ```bash
-uv run konpy
+uv run konpy check
 ```
 
 When everything passes:
@@ -86,7 +86,7 @@ After every edit, validate the config:
 uv run konpy validate
 ```
 
-The validator catches schema errors (typos, wrong types, unknown fields). If validation passes, run `uv run konpy` to apply the rules to the codebase.
+The validator catches schema errors (typos, wrong types, unknown fields). If validation passes, run `uv run konpy check` to apply the rules to the codebase.
 
 ## What to put in your config
 

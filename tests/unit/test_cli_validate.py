@@ -61,8 +61,8 @@ class TestValidateCommand:
         result = runner.invoke(app, ["validate", "--config-path", str(config_path)])
 
         assert result.exit_code == 1
-        assert "Invalid config:" in result.output
-        assert "version" in result.output
+        assert f"Invalid config ({config_path}):" in result.output
+        assert 'version: Field required (expected "v1")' in result.output
 
     def test_bad_placeholder_exits_one_before_loading_config(self, tmp_path: Path) -> None:
         config_path = tmp_path / "konpy.json"

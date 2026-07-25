@@ -16,14 +16,14 @@ ExplainFormat = Literal["md", "text"]
 _SUPPRESSION_NOTE_MARKDOWN = (
     "Suppression comments (`konpy: ignore[rule]`) are for approved "
     "exceptions only. Never add one without explicit human approval -- see "
-    "`docs/reference/suppressions.md`. Fix the violation, or ask a human to "
+    "`konpy docs suppressions`. Fix the violation, or ask a human to "
     "approve a suppression with a reason."
 )
 
 _SUPPRESSION_NOTE_TEXT = (
     "Suppression comments (konpy: ignore[rule]) are for approved "
     "exceptions only. Never add one without explicit human approval -- see "
-    "docs/reference/suppressions.md. Fix the violation, or ask a human to "
+    "'konpy docs suppressions'. Fix the violation, or ask a human to "
     "approve a suppression with a reason."
 )
 

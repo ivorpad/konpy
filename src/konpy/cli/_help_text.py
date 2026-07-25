@@ -7,6 +7,31 @@ import typer
 from konpy._version import __version__
 from konpy.cli._app_instance import app
 
+_GETTING_STARTED = r"""Getting started:
+  konpy               Zero-config codebase report (also: konpy report)
+  konpy init          Write a strict starter konpy.json (src layout, barrel-only
+                      __init__.py, typing/docstring coverage, size caps,
+                      duplication ratchets, unused-code detection)
+  konpy check         Check the codebase against konpy.json
+  konpy docs [topic]  Print bundled reference docs (no topic lists the topics)
+  konpy explain       Render active conventions as guidance for a code-writing agent
+
+Config: conventions live in konpy.json at the repo root; "version": "v1" is
+required. Minimal example:
+  {
+    "version": "v1",
+    "conventions": [
+      {
+        "name": "max-module-length",
+        "description": "Modules longer than 300 lines should be split.",
+        "paths": "src/**/*.py",
+        "must": { "restrictFileLength": { "maxLines": 300 } }
+      }
+    ]
+  }
+Need a custom check? Try must/mustNot with matchContent (regex) before writing
+a plugin — see `konpy docs predicates`, then `konpy docs plugins`."""
+
 
 def render_help_text() -> str:
     """Render the full `konpy help` usage text."""
@@ -15,9 +40,18 @@ def render_help_text() -> str:
 Usage:
   konpy [command] [options]
 
+  Bare `konpy` runs the zero-config codebase report (unused code, duplication,
+  coverage — no konpy.json required); options without a command imply `check`
+  (e.g. `konpy --files a.py`). This help lives on `konpy help`.
+
+{_GETTING_STARTED}
+
 Commands:
-  check          Check structural conventions (default)
+  report         Zero-config codebase report (default for bare `konpy`)
+  check          Check structural conventions (default when options are passed)
   validate       Validate configuration
+  init           Write a strict starter konpy.json into the current directory
+  docs           Print bundled reference docs (`konpy docs [topic]`)
   extract-rules  Extract structural and semantic rule proposals from prose
   infer          Mine the codebase for candidate structural conventions
   explain        Render resolved conventions as agent guidance

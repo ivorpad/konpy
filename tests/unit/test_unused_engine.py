@@ -81,6 +81,56 @@ class TestTestOnly:
         assert "only referenced by tests" in diagnostics[0].message
 
 
+class TestRecursiveDefaults:
+    def test_nested_test_dir_functions_never_flagged(self) -> None:
+        # claude-agent-sdk keeps tests in e2e-tests/; before the recursive
+        # defaults its pytest functions leaked into the production lane.
+        diagnostics = run(
+            {
+                "src/mod.py": "def only_tested():\n    return 1",
+                "e2e-tests/test_mod.py": """
+                from src.mod import only_tested
+
+                def test_it():
+                    only_tested()
+                """,
+            }
+        )
+
+        assert len(diagnostics) == 1
+        assert diagnostics[0].predicate_name == "unusedCode.testOnly"
+        assert diagnostics[0].file_path == "src/mod.py"
+
+    def test_nested_tests_directory_matches_default_globs(self) -> None:
+        result = run_unused_code_with_metadata(
+            config=UnusedCodeV1(),
+            file_system=fs(
+                {
+                    "pkg/mod.py": "def used():\n    return 1",
+                    "pkg/tests/helper.py": "from pkg.mod import used\n\nused()",
+                }
+            ),
+        )
+
+        assert result.files_scanned == {"pkg/mod.py"}
+        assert [d.predicate_name for d in result.diagnostics] == ["unusedCode.testOnly"]
+
+    def test_nested_pyproject_console_script_is_entrypoint(self) -> None:
+        # Console scripts in examples/*/pyproject.toml were invisible before
+        # entrypoint scanning went recursive.
+        diagnostics = run(
+            {
+                "examples/app/main.py": "def run():\n    return 1",
+                "examples/app/pyproject.toml": """
+                [project.scripts]
+                cli = "examples.app.main:run"
+                """,
+            }
+        )
+
+        assert diagnostics == []
+
+
 class TestSilentClasses:
     def test_registry_decorated_function_is_silent(self) -> None:
         diagnostics = run(
@@ -209,6 +259,151 @@ class TestSeverity:
         diagnostics = run({"src/mod.py": "def dead():\n    return 1"}, severity="error")
 
         assert diagnostics[0].severity == "error"
+
+
+class TestVendoredDirsAreAlwaysExcluded:
+    def test_vendored_setup_py_cannot_mask_dead_code(self) -> None:
+        # Recursive entrypoint globs must not tokenize vendored trees: a
+        # dependency's setup.py containing the word "process" would silently
+        # flip the dead verdict to the silent entrypoint verdict.
+        diagnostics = run(
+            {
+                "mypkg/app.py": "def process():\n    return 1",
+                "node_modules/some_dep/setup.py": "# helpers to process modules\n",
+            }
+        )
+
+        assert [d.message for d in diagnostics] == [
+            'Unused definition "process" is never referenced'
+        ]
+
+    def test_vendored_python_files_are_not_scanned(self) -> None:
+        result = run_unused_code_with_metadata(
+            config=UnusedCodeV1(),
+            file_system=fs(
+                {
+                    "src/mod.py": "def used():\n    return 1\n\nused()",
+                    "build/lib/stale.py": "def stale_orphan():\n    return 2",
+                }
+            ),
+        )
+
+        assert result.diagnostics == []
+        assert result.files_scanned == {"src/mod.py"}
+
+
+class TestProtocolOverrideExemption:
+    def test_public_method_on_imported_library_base_is_silent(self) -> None:
+        # hermes shape: acp.Agent JSON-RPC dispatch methods are invoked by the
+        # library, never referenced in-repo.
+        diagnostics = run(
+            {
+                "src/agent.py": """
+                import acp
+
+                class MyAgent(acp.Agent):
+                    def on_message(self):
+                        return 1
+
+                    def _private_helper(self):
+                        return 2
+
+                use(MyAgent)
+                """
+            }
+        )
+
+        assert [d.message for d in diagnostics] == [
+            'Unused definition "MyAgent._private_helper" is never referenced'
+        ]
+
+    def test_method_on_repo_local_base_is_still_reported(self) -> None:
+        diagnostics = run(
+            {
+                "src/base.py": "class Base:\n    pass",
+                "src/impl.py": """
+                from src.base import Base
+
+                class Impl(Base):
+                    def dead_method(self):
+                        return 1
+
+                use(Impl)
+                """,
+            }
+        )
+
+        assert any("Impl.dead_method" in d.message for d in diagnostics)
+
+    def test_non_src_layout_local_base_is_still_reported(self) -> None:
+        # A `source/` (or any non-src/lib) layout root: the topmost package
+        # directory carrying an __init__.py identifies "pkg" as repo-local,
+        # so its subclass methods stay reportable.
+        diagnostics = run(
+            {
+                "source/pkg/__init__.py": "",
+                "source/pkg/base.py": "class Agent:\n    pass",
+                "source/pkg/impl.py": """
+                from pkg.base import Agent
+
+                class Impl(Agent):
+                    def dead_method(self):
+                        return 1
+
+                use(Impl)
+                """,
+            }
+        )
+
+        assert any("Impl.dead_method" in d.message for d in diagnostics)
+
+    def test_star_imported_base_still_gets_the_exemption(self) -> None:
+        # `from framework import *` hides the base's origin; the exemption
+        # must still fire rather than flagging a framework-dispatched method.
+        diagnostics = run(
+            {
+                "src/agent.py": """
+                from thirdparty_framework import *
+
+                class Impl(Agent):
+                    def on_message(self):
+                        return 1
+
+                use(Impl)
+                """
+            }
+        )
+
+        assert diagnostics == []
+
+
+class TestReferenceOnly:
+    def test_reference_only_files_never_carry_diagnostics(self) -> None:
+        result = run_unused_code_with_metadata(
+            config=UnusedCodeV1(),
+            file_system=fs({"gen/client.py": "def orphan_stub():\n    return 1"}),
+            reference_only=["gen/client.py"],
+        )
+
+        assert result.diagnostics == []
+        assert result.files_scanned == set()
+
+    def test_reference_from_reference_only_file_keeps_definition_used(self) -> None:
+        # Unlike an exclude, a reference-only file still feeds the index:
+        # hand-written code called only from generated code stays used.
+        result = run_unused_code_with_metadata(
+            config=UnusedCodeV1(),
+            file_system=fs(
+                {
+                    "src/helpers.py": "def hand_written():\n    return 1",
+                    "gen/client.py": "from src.helpers import hand_written\n\nhand_written()",
+                }
+            ),
+            reference_only=["gen/client.py"],
+        )
+
+        assert result.diagnostics == []
+        assert result.files_scanned == {"src/helpers.py"}
 
 
 class TestMetadataApi:

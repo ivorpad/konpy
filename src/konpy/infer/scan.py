@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 from collections.abc import Sequence
 
+from konpy.core.count_lines import count_physical_lines
 from konpy.core.filesystem import FileSystem
 from konpy.infer.models import InferFileRecord
 from konpy.python_ast import parse_file_structure
@@ -58,6 +59,7 @@ def collect_file_records(
         is_test = path in test_matched
         is_init = basename == "__init__.py"
 
+        line_count = count_physical_lines(source)
         records.append(
             InferFileRecord(
                 path=path,
@@ -66,6 +68,7 @@ def collect_file_records(
                 is_test=is_test,
                 is_init=is_init,
                 structure=structure,
+                line_count=line_count,
             )
         )
 

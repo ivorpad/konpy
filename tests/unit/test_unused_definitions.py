@@ -156,3 +156,87 @@ class TestDecorators:
         )
 
         assert definitions["fixture_fn"].decorators == ("pytest.fixture",)
+
+
+class TestClassBaseRoots:
+    def test_module_import_base_resolves_to_root(self) -> None:
+        definitions = by_qualname(
+            collect(
+                """
+                import acp.rpc
+
+                class Agent(acp.rpc.Agent):
+                    def on_message(self):
+                        pass
+                """
+            )
+        )
+
+        assert definitions["Agent.on_message"].class_base_roots == ("acp",)
+
+    def test_from_import_and_alias_resolve_to_root(self) -> None:
+        definitions = by_qualname(
+            collect(
+                """
+                from pydantic import BaseModel
+                import numpy as np
+
+                class Model(BaseModel, np.SomeBase):
+                    def helper(self):
+                        pass
+                """
+            )
+        )
+
+        assert definitions["Model.helper"].class_base_roots == ("numpy", "pydantic")
+
+    def test_star_import_attributes_unresolved_bases(self) -> None:
+        definitions = by_qualname(
+            collect(
+                """
+                from thirdparty_framework import *
+
+                class Impl(Agent):
+                    def run(self):
+                        pass
+                """
+            )
+        )
+
+        assert definitions["Impl.run"].class_base_roots == ("thirdparty_framework",)
+
+    def test_function_local_import_does_not_shadow_module_scope(self) -> None:
+        definitions = by_qualname(
+            collect(
+                """
+                from external_framework import Agent
+
+                def helper():
+                    import pkg as Agent  # noqa: F811 - deliberate shadow
+
+                class Impl(Agent):
+                    def run(self):
+                        pass
+                """
+            )
+        )
+
+        assert definitions["Impl.run"].class_base_roots == ("external_framework",)
+
+    def test_relative_import_and_local_bases_have_no_roots(self) -> None:
+        definitions = by_qualname(
+            collect(
+                """
+                from .base import RelativeBase
+
+                class LocalBase:
+                    pass
+
+                class Impl(RelativeBase, LocalBase):
+                    def dead_method(self):
+                        pass
+                """
+            )
+        )
+
+        assert definitions["Impl.dead_method"].class_base_roots == ()

@@ -70,7 +70,7 @@ class TestExplainGuidanceFixture:
         assert exit_code == 0
         assert stderr == ""
         assert "## Suppressions" in stdout
-        assert "docs/reference/suppressions.md" in stdout
+        assert "konpy docs suppressions" in stdout
         assert "without explicit human approval" in stdout
 
     def test_text_format_has_no_markdown_syntax(

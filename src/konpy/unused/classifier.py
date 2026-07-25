@@ -2,7 +2,8 @@
 
 Only ``dead`` and ``test-only`` are reported; every other verdict is silent.
 Priority order (first match wins): ``allowed`` -> ``hook`` -> ``registered`` ->
-``model-field`` -> ``entrypoint`` -> reference-count verdicts.
+``model-field`` -> ``protocol-override`` -> ``entrypoint`` -> reference-count
+verdicts.
 
 Reference lookup is by bare ``name`` (not ``qualname``): a method call appears
 in the index as the attribute ``name``, never ``Class.name``. Two definitions
@@ -12,6 +13,7 @@ positives direction), documented.
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 from fnmatch import fnmatchcase
 from typing import Literal
@@ -28,9 +30,12 @@ Verdict = Literal[
     "hook",
     "registered",
     "model-field",
+    "protocol-override",
     "entrypoint",
     "used",
 ]
+
+_STDLIB_MODULES = frozenset(sys.stdlib_module_names)
 
 REPORTED_VERDICTS: frozenset[Verdict] = frozenset({"dead", "test-only"})
 
@@ -64,8 +69,14 @@ def classify(
     definition: Definition,
     index: ReferenceIndex,
     config: ResolvedUnusedConfig,
+    local_module_roots: frozenset[str] = frozenset(),
 ) -> Classification:
-    """Classify `definition` into a verdict using reference counts and config rules."""
+    """Classify `definition` into a verdict using reference counts and config rules.
+
+    `local_module_roots` are import roots that resolve inside the scanned repo;
+    they keep the protocol-override exemption from firing on subclasses of the
+    repo's own base classes (whose usage the reference index already sees).
+    """
     if definition.name in config.allow or definition.qualname in config.allow:
         return _classification(definition, "allowed", "allow-listed")
 
@@ -77,6 +88,11 @@ def classify(
 
     if definition.kind == "attribute" and _is_model_field(definition, config):
         return _classification(definition, "model-field", "model field")
+
+    if definition.kind == "method" and _is_protocol_override(definition, local_module_roots):
+        return _classification(
+            definition, "protocol-override", "public method on an imported non-stdlib base"
+        )
 
     stats = index.get(definition.name, EMPTY_REF_STATS)
 
@@ -111,6 +127,22 @@ def _is_model_field(definition: Definition, config: ResolvedUnusedConfig) -> boo
         return True
     return any(
         decorator in config.dataclass_decorators for decorator in definition.class_decorators
+    )
+
+
+def _is_protocol_override(definition: Definition, local_roots: frozenset[str]) -> bool:
+    """Public method on a class subclassing an imported third-party base.
+
+    The library dispatches to such methods by name (an `acp.Agent` subclass's
+    JSON-RPC handlers, an ABC implementation), so a zero reference count says
+    nothing. Private (`_`-prefixed) methods stay eligible for reporting —
+    libraries do not dispatch to private names.
+    """
+    if definition.name.startswith("_"):
+        return False
+    return any(
+        root not in _STDLIB_MODULES and root not in local_roots
+        for root in definition.class_base_roots
     )
 
 

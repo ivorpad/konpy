@@ -42,6 +42,7 @@ level of class-body methods and attributes) is classified in priority order:
 | `hook` | dunder (`__x__`) or a framework lifecycle name (`model_post_init`, `setUp`, `main`, …) | silent |
 | `registered` | bears a registry decorator (`@app.*`, `@field_validator`, `@pytest.fixture`, …) | silent |
 | `model-field` | class attribute on a model base (`BaseModel`, `BaseSettings`, `TypedDict`, `Enum`, …) or `@dataclass` class | silent |
+| `protocol-override` | public method on a class whose base is imported from a third-party (non-stdlib, non-repo) module — the library dispatches to it by name, so a zero reference count says nothing; private `_`-methods stay reportable | silent |
 | `entrypoint` | name appears as a string token in a declared entrypoint file (Dockerfile `CMD`, SAM/serverless templates, `pyproject.toml`, …) | silent |
 | `dead` | no reference anywhere (code, tests, entrypoint files, strings) | **report** (`unusedCode.dead`) |
 | `test-only` | referenced only under test globs | **report** (`unusedCode.testOnly`) |
@@ -61,8 +62,8 @@ All keys are optional. User values **extend** (union with) the presets, except
 | Key | Type | Default | Purpose |
 |---|---|---|---|
 | `include` | `string[]` | `["**/*.py"]` (minus `testGlobs`) | Production Python files that define symbols and contribute references. |
-| `testGlobs` | `string[]` | `["tests/**", "test_*.py", "*_test.py", "conftest.py"]` | Files whose references count as *test* references. |
-| `entrypointFiles` | `string[]` | `Dockerfile*`, `docker-compose*.{yml,yaml}`, `template*.{yml,yaml}`, `serverless*.yml`, `pyproject.toml`, `setup.py`, `setup.cfg`, `Makefile` | Non-Python files tokenized for entrypoint references. |
+| `testGlobs` | `string[]` | `["**/tests/**", "**/test_*.py", "**/*_test.py", "**/conftest.py"]` | Files whose references count as *test* references. Defaults are recursive: nested test dirs (`e2e-tests/`, `pkg/tests/`) count too. |
+| `entrypointFiles` | `string[]` | `**/Dockerfile*`, `**/docker-compose*.{yml,yaml}`, `**/template*.{yml,yaml}`, `**/serverless*.yml`, `**/pyproject.toml`, `**/setup.py`, `**/setup.cfg`, `**/Makefile` | Non-Python files tokenized for entrypoint references, at any depth (console scripts in `examples/*/pyproject.toml` count). |
 | `registryDecorators` | `string[]` | framework presets | fnmatch-style patterns matched against a decorator's dotted name (call parens stripped): `app.*` matches `app.get`. |
 | `hookNames` | `string[]` | framework presets | Method/attribute names treated as lifecycle hooks. Dunders are always hooks. |
 | `modelBases` | `string[]` | framework presets | Base-class names whose attributes are model fields. A dataclass decorator listed here is also honored. |

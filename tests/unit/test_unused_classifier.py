@@ -19,6 +19,7 @@ def make_definition(
     decorators: tuple[str, ...] = (),
     class_bases: tuple[str, ...] = (),
     class_decorators: tuple[str, ...] = (),
+    class_base_roots: tuple[str, ...] = (),
 ) -> Definition:
     return Definition(
         module_path="src/mod.py",
@@ -30,6 +31,7 @@ def make_definition(
         class_decorators=class_decorators,
         lineno=1,
         col=1,
+        class_base_roots=class_base_roots,
     )
 
 
@@ -73,6 +75,63 @@ class TestReferenceVerdicts:
         )
 
         assert result.verdict == "entrypoint"
+
+
+class TestProtocolOverride:
+    def make_method(self, name: str, roots: tuple[str, ...]) -> Definition:
+        return make_definition(
+            name=name,
+            kind="method",
+            qualname=f"MyAgent.{name}",
+            class_bases=("acp.Agent",),
+            class_base_roots=roots,
+        )
+
+    def test_public_method_on_imported_third_party_base_is_silent(self) -> None:
+        result = classify(
+            definition=self.make_method("on_message", ("acp",)),
+            index=index(),
+            config=config(),
+        )
+
+        assert result.verdict == "protocol-override"
+
+    def test_private_method_on_third_party_base_is_still_dead(self) -> None:
+        result = classify(
+            definition=self.make_method("_helper", ("acp",)),
+            index=index(),
+            config=config(),
+        )
+
+        assert result.verdict == "dead"
+
+    def test_repo_local_base_root_does_not_exempt(self) -> None:
+        result = classify(
+            definition=self.make_method("dead_method", ("src",)),
+            index=index(),
+            config=config(),
+            local_module_roots=frozenset({"src"}),
+        )
+
+        assert result.verdict == "dead"
+
+    def test_stdlib_base_root_does_not_exempt(self) -> None:
+        result = classify(
+            definition=self.make_method("dead_method", ("abc",)),
+            index=index(),
+            config=config(),
+        )
+
+        assert result.verdict == "dead"
+
+    def test_locally_defined_base_has_no_roots_and_does_not_exempt(self) -> None:
+        result = classify(
+            definition=self.make_method("dead_method", ()),
+            index=index(),
+            config=config(),
+        )
+
+        assert result.verdict == "dead"
 
 
 class TestSilencingRules:

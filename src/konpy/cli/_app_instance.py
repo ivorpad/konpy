@@ -11,6 +11,10 @@ import typer
 
 app = typer.Typer(
     help="Enforce structural conventions in Python codebases.",
+    epilog=(
+        "Run 'konpy help' for the full option reference, 'konpy init' to create "
+        "a starter konpy.json, and 'konpy docs' for the bundled reference docs."
+    ),
     add_completion=False,
 )
 

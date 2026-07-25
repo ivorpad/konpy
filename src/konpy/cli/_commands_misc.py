@@ -82,7 +82,7 @@ def infer(
             "--test-glob",
             help=(
                 "Glob(s) identifying test files. May be repeated. Default: "
-                "tests/**, test_*.py, *_test.py, conftest.py"
+                "**/tests/**, **/test_*.py, **/*_test.py, **/conftest.py"
             ),
         ),
     ] = None,

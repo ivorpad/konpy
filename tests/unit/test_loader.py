@@ -130,8 +130,9 @@ class TestLoadConfig:
         result = load_config(config_path=config_path)
 
         assert isinstance(result, Err)
-        assert result.error.startswith("Invalid config:\n")
+        assert result.error.startswith(f"Invalid config ({config_path}):\n")
         assert "version" in result.error
+        assert '(expected "v1")' in result.error
 
     def test_returns_error_when_config_file_does_not_exist(self, tmp_path: Path) -> None:
         config_path = tmp_path / "missing.json"
@@ -139,7 +140,11 @@ class TestLoadConfig:
         result = load_config(config_path=config_path)
 
         assert isinstance(result, Err)
-        assert result.error == f"Could not read config file: {config_path}"
+        assert result.error == (
+            f"Could not read config file: {config_path}\n"
+            "Run 'konpy init' to create one, or 'konpy docs configuration' "
+            "for the config reference."
+        )
 
     def test_returns_error_for_invalid_json(self, tmp_path: Path) -> None:
         config_path = tmp_path / CONFIG_FILENAME

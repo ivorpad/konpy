@@ -96,7 +96,11 @@ def load_config_runtime(
     try:
         raw = file_path.read_text(encoding="utf-8")
     except OSError:
-        return Err(f"Could not read config file: {file_path}")
+        return Err(
+            f"Could not read config file: {file_path}\n"
+            "Run 'konpy init' to create one, or 'konpy docs configuration' "
+            "for the config reference."
+        )
 
     try:
         json_value = json.loads(raw)
@@ -104,7 +108,7 @@ def load_config_runtime(
         return Err(f"Invalid JSON in config file: {file_path}")
 
     if not isinstance(json_value, Mapping):
-        return Err("Invalid config:\n  - : Input should be an object")
+        return Err(f"Invalid config ({file_path}):\n  - : Input should be an object")
 
     plugins_result = collect_config_plugins(raw=json_value, config_path=file_path)
     if isinstance(plugins_result, Err):
@@ -130,7 +134,7 @@ def load_config_runtime(
             context=predicate_registry.validation_context(),
         )
     except ValidationError as error:
-        return Err(f"Invalid config:\n{format_validation_error(error)}")
+        return Err(f"Invalid config ({file_path}):\n{format_validation_error(error)}")
 
     sources_result = resolve_sources(
         convention_sources=parsed.conventionSources or {},
@@ -176,7 +180,7 @@ def load_config_runtime(
             context=predicate_registry.validation_context(),
         )
     except ValidationError as error:
-        return Err(f"Invalid config:\n{format_validation_error(error)}")
+        return Err(f"Invalid config ({file_path}):\n{format_validation_error(error)}")
 
     return Ok(LoadedConfig(config=config, predicate_registry=predicate_registry))
 

@@ -5,6 +5,7 @@ import re
 import subprocess
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from konpy.cli.app import _preprocess_argv, app
@@ -690,8 +691,18 @@ class TestCheckCommand:
 
 
 class TestBareInvocationShim:
-    def test_inserts_check_for_no_arguments(self) -> None:
-        assert _preprocess_argv([]) == ["check"]
+    def test_routes_bare_invocation_to_report(self) -> None:
+        assert _preprocess_argv([]) == ["report"]
+
+    def test_bare_invocation_prints_report_and_exits_zero(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(app, _preprocess_argv([]))
+
+        assert result.exit_code == 0
+        assert "konpy report" in result.output
+        assert "no konpy.json found" in result.output
 
     def test_inserts_check_before_root_check_options(self) -> None:
         assert _preprocess_argv(["--format", "json"]) == [

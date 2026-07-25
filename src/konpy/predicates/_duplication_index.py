@@ -15,6 +15,7 @@ class _StringLiteralOccurrence:
     file_path: str
     value: str
     pos: SourcePosition
+    is_mapping_key: bool = False
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -54,6 +55,7 @@ def _build_repeated_literal_index(
                     file_path=file_path,
                     value=literal.value,
                     pos=literal.pos,
+                    is_mapping_key=literal.is_mapping_key,
                 )
             )
 

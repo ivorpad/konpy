@@ -201,6 +201,12 @@ class StringLiteralInfo:
 
     value: str
     pos: SourcePosition
+    # Literal sits in a mapping-key position: a dict-display key
+    # (`{"page_token": ...}`), a subscript index (`row["page_token"]`), or the
+    # key argument of `.get()`/`.pop()`/`.setdefault()`. Serialization
+    # boundaries repeat such keys by protocol necessity, so the report ranks
+    # mapping-key-dominated groups last.
+    is_mapping_key: bool = False
 
 
 @dataclass(frozen=True, kw_only=True)

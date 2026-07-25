@@ -20,6 +20,7 @@ from konpy.infer.heuristics import (
     docstring_coverage,
     duplicate_functions,
     export_suffix,
+    file_length,
     import_dominance,
     paired_test_file,
     repeated_literals,
@@ -38,6 +39,7 @@ HEURISTIC_NAMES: tuple[str, ...] = (
     "import-dominance",
     "repeated-literals",
     "duplicate-functions",
+    "file-length",
 )
 
 DEFAULT_MIN_CONFIDENCE = 0.9
@@ -53,6 +55,7 @@ _MINERS = {
     "import-dominance": import_dominance.mine,
     "repeated-literals": repeated_literals.mine,
     "duplicate-functions": duplicate_functions.mine,
+    "file-length": file_length.mine,
 }
 
 

@@ -94,7 +94,7 @@ def check(
                 "Restrict checking to these files. Repeatable "
                 "(--files a.py --files b.py) or a single space-separated "
                 "occurrence (--files a.py b.py). Mutually exclusive with "
-                "--changed. See docs/reference/cli.md for scoping semantics."
+                "--changed. Run 'konpy docs cli' for scoping semantics."
             ),
         ),
     ] = None,

@@ -310,7 +310,7 @@ It is read-only: no filesystem scan, no diagnostics, no `--fix`. Every render en
 
 ## Mining a codebase for conventions
 
-`konpy infer` scans an existing codebase for statistical regularities — "94% of modules under `adapters/` export `*Adapter`; here are the 3 violators" — and proposes a reviewable `ReusableConventionsPackageV1`-shaped pack (the same output contract as `extract-rules`: `{"conventionSpecVersion": "v1", "conventions": [...]}`, never a `konpy.json`-shaped document) plus a confidence/violators report, using eight deterministic heuristics (no agent call). The two duplication heuristics are clean-only ratchets: they propose `restrictRepeatedLiterals`/`restrictDuplicateFunctions` only for scopes that already pass at the defaults, and otherwise skip with an `existing-violations` reason instead of proposing a rule that would immediately fail:
+`konpy infer` scans an existing codebase for statistical regularities — "94% of modules under `adapters/` export `*Adapter`; here are the 3 violators" — and proposes a reviewable `ReusableConventionsPackageV1`-shaped pack (the same output contract as `extract-rules`: `{"conventionSpecVersion": "v1", "conventions": [...]}`, never a `konpy.json`-shaped document) plus a confidence/violators report, using nine deterministic heuristics (no agent call). The duplication and file-length heuristics are clean-only ratchets: they propose `restrictRepeatedLiterals`/`restrictDuplicateFunctions`/`restrictFileLength` only for scopes that already pass at the defaults, and otherwise skip with an `existing-violations` reason instead of proposing a rule that would immediately fail:
 
 ```bash
 konpy infer > konpy.infer.pack.json
@@ -425,7 +425,7 @@ The comparison reports files checked, total diagnostics, errors/warnings/suppres
 ```bash
 uv run pytest          # full suite
 uv run ruff check .
-uv run konpy            # the repo lints itself
+uv run konpy check      # the repo lints itself (bare `konpy` runs the zero-config report)
 uv run python scripts/generate_schema.py   # regenerate konpy.schema.json after schema changes
 ```
 

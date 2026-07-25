@@ -7,6 +7,7 @@ import typer
 from konpy._version import __version__
 from konpy.cli import _commands_agentic as _commands_agentic
 from konpy.cli import _commands_check as _commands_check
+from konpy.cli import _commands_discover as _commands_discover
 from konpy.cli import _commands_gate as _commands_gate
 from konpy.cli import _commands_misc as _commands_misc
 from konpy.cli import _help_text as _help_text

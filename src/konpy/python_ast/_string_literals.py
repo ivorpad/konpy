@@ -25,7 +25,13 @@ def _collect_string_literals(module: ast.Module, collector: _Collector) -> None:
         if _has_joined_string_ancestor(node, parent_map):
             continue
 
-        literals.append(StringLiteralInfo(value=node.value, pos=_position(node)))
+        literals.append(
+            StringLiteralInfo(
+                value=node.value,
+                pos=_position(node),
+                is_mapping_key=_is_mapping_key(node, parent_map),
+            )
+        )
 
     collector.string_literals.extend(
         sorted(literals, key=lambda item: (item.pos.line, item.pos.column, item.value))
@@ -125,6 +131,31 @@ def _is_bare_string_expression(
 ) -> bool:
     parent = parent_map.get(node)
     return isinstance(parent, ast.Expr) and parent.value is node
+
+
+_MAPPING_ACCESSORS = frozenset({"get", "pop", "setdefault"})
+
+
+def _is_mapping_key(node: ast.Constant, parent_map: dict[ast.AST, ast.AST]) -> bool:
+    """Literal used as a mapping key: dict-display key, subscript index, or
+    the key argument of a `.get()`-style accessor."""
+    parent = parent_map.get(node)
+    if isinstance(parent, ast.Dict):
+        return any(key is node for key in parent.keys)
+    if isinstance(parent, ast.Subscript):
+        return parent.slice is node
+    if isinstance(parent, ast.Call):
+        return (
+            isinstance(parent.func, ast.Attribute)
+            and parent.func.attr in _MAPPING_ACCESSORS
+            and bool(parent.args)
+            and parent.args[0] is node
+            # Any receiver has a `.get` — requests.get("https://…") passes a
+            # URL, not a key. Keys have no whitespace and no scheme.
+            and "://" not in node.value
+            and not any(char.isspace() for char in node.value)
+        )
+    return False
 
 
 def _has_joined_string_ancestor(

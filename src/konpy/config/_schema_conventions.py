@@ -35,6 +35,10 @@ _MUST_ONLY_PREDICATE_MESSAGES = {
         'restrictAnnotations is only supported in "must", not "mustNot"; '
         "it already reports restricted annotations directly."
     ),
+    "restrictFileLength": (
+        'restrictFileLength is only supported in "must", not "mustNot"; '
+        "it already reports over-long files directly."
+    ),
     "restrictRepeatedLiterals": (
         'restrictRepeatedLiterals is only supported in "must", not "mustNot"; '
         "it already reports repeated literals directly."

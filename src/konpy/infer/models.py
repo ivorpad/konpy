@@ -25,6 +25,8 @@ class InferFileRecord:
     is_test: bool
     is_init: bool
     structure: PyFileStructure
+    # Physical line count, for the file-length ratchet heuristic.
+    line_count: int = 0
 
 
 @dataclass(frozen=True, kw_only=True)

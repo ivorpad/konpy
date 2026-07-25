@@ -148,7 +148,7 @@ def _validate_raw_config(
     except ValidationError as error:
         issues = format_validation_error(error)
         if is_root:
-            return Err(f"Invalid config:\n{issues}")
+            return Err(f"Invalid config ({origin.label}):\n{issues}")
 
         including_label = including_origin.label if including_origin is not None else "<unknown>"
         return Err(

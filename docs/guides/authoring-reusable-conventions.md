@@ -56,7 +56,7 @@ Drop the JSON file somewhere in (or alongside) the consuming project, then bind 
 }
 ```
 
-The path is resolved against the config file's directory. Run `uv run konpy` in the consumer; the convention runs as if it had been written inline.
+The path is resolved against the config file's directory. Run `uv run konpy check` in the consumer; the convention runs as if it had been written inline.
 
 For a convention without `paths`, the consumer must use the `use` form and supply `paths`:
 

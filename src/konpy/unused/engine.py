@@ -15,6 +15,12 @@ from dataclasses import dataclass
 from konpy.config.schema import UnusedCodeV1
 from konpy.core.diagnostics import Diagnostic, DiagnosticSeverity, create_diagnostic
 from konpy.core.filesystem import FileSystem
+from konpy.unused._engine_files import (
+    _entrypoint_texts,
+    _local_module_roots,
+    _parse,
+    _python_files,
+)
 from konpy.unused.classifier import Classification, ResolvedUnusedConfig, classify
 from konpy.unused.definitions import collect_definitions
 from konpy.unused.presets import (
@@ -26,25 +32,42 @@ from konpy.unused.presets import (
 from konpy.unused.references import PythonRefSource, build_reference_index
 
 DEFAULT_INCLUDE: tuple[str, ...] = ("**/*.py",)
+# Recursive (`**/` matches zero directories, so root-level files still match):
+# repos keep tests in nested dirs (e2e-tests/, pkg/tests/) and ship console
+# scripts from nested pyproject.toml files (examples/*/pyproject.toml).
 DEFAULT_TEST_GLOBS: tuple[str, ...] = (
-    "tests/**",
-    "test_*.py",
-    "*_test.py",
-    "conftest.py",
+    "**/tests/**",
+    "**/test_*.py",
+    "**/*_test.py",
+    "**/conftest.py",
 )
 DEFAULT_ENTRYPOINT_FILES: tuple[str, ...] = (
-    "Dockerfile*",
-    "docker-compose*.yml",
-    "docker-compose*.yaml",
-    "template*.yml",
-    "template*.yaml",
-    "serverless*.yml",
-    "pyproject.toml",
-    "setup.py",
-    "setup.cfg",
-    "Makefile",
+    "**/Dockerfile*",
+    "**/docker-compose*.yml",
+    "**/docker-compose*.yaml",
+    "**/template*.yml",
+    "**/template*.yaml",
+    "**/serverless*.yml",
+    "**/pyproject.toml",
+    "**/setup.py",
+    "**/setup.cfg",
+    "**/Makefile",
 )
 DEFAULT_SEVERITY: DiagnosticSeverity = "warning"
+# Vendored/build trees are never scanned and never feed references: a stale
+# copy of production code (or a dependency's setup.py whose text happens to
+# contain a matching token) would otherwise silently mask real dead code.
+# Dot-directories (.venv, .git) are already skipped by GLOBSTAR-without-
+# DOTGLOB; these are the non-dot equivalents.
+DEFAULT_EXCLUDE: tuple[str, ...] = (
+    "**/node_modules/**",
+    "**/venv/**",
+    "**/build/**",
+    "**/dist/**",
+    "**/__pycache__/**",
+    "**/*.egg-info/**",
+    "**/site-packages/**",
+)
 
 CONVENTION_NAME = "unused-code"
 
@@ -89,17 +112,40 @@ def run_unused_code_with_metadata(
     config: UnusedCodeV1,
     file_system: FileSystem,
     source_cache: dict[str, str] | None = None,
+    exclude: Sequence[str] | None = None,
+    reference_only: Sequence[str] | None = None,
 ) -> UnusedRunResult:
-    """Run unused-code detection, returning diagnostics plus scanned production files."""
-    resolved = resolve_config(config)
+    """Run unused-code detection, returning diagnostics plus scanned production files.
 
-    test_files = set(_python_files(file_system, resolved.test_globs))
-    include_files = _python_files(file_system, resolved.include)
-    prod_files = [path for path in include_files if path not in test_files]
-    # Test-glob files feed the reference index only -- they can never carry
-    # an unused-code diagnostic, so they are excluded from `files_scanned`
-    # (which drives suppression-hygiene candidacy in the runner).
-    reference_sources = set(prod_files) | test_files
+    `exclude` glob patterns (additive, caller-supplied) remove matching paths
+    from the include, test, and entrypoint sets on top of the always-applied
+    `DEFAULT_EXCLUDE` vendored/build globs. `reference_only` paths (e.g. the
+    report's generator-banner files) feed the reference index as production
+    references but never carry diagnostics themselves — unlike excludes, so
+    hand-written code referenced only from generated code stays used.
+    """
+    resolved = resolve_config(config)
+    # Dedupe so a caller passing DEFAULT_EXCLUDE back reuses the file
+    # system's cached glob for the identical pattern set instead of paying a
+    # second full-tree walk.
+    exclude_patterns = list(dict.fromkeys((*DEFAULT_EXCLUDE, *(exclude or ()))))
+    excluded = set(file_system.glob(exclude_patterns))
+
+    test_files = set(_python_files(file_system, resolved.test_globs)) - excluded
+    reference_only_files = (set(reference_only or ()) - excluded) - test_files
+    include_files = [
+        path for path in _python_files(file_system, resolved.include) if path not in excluded
+    ]
+    prod_files = [
+        path
+        for path in include_files
+        if path not in test_files and path not in reference_only_files
+    ]
+    # Test-glob and reference-only files feed the reference index only -- they
+    # can never carry an unused-code diagnostic, so they are excluded from
+    # `files_scanned` (which drives suppression-hygiene candidacy in the
+    # runner).
+    reference_sources = set(prod_files) | test_files | reference_only_files
 
     python_sources: list[PythonRefSource] = []
     prod_trees: dict[str, ast.Module] = {}
@@ -112,23 +158,30 @@ def run_unused_code_with_metadata(
         python_sources.append(
             PythonRefSource(module_path=path, tree=tree, is_test=is_test)
         )
-        if not is_test:
+        if not is_test and path not in reference_only_files:
             prod_trees[path] = tree
 
     entrypoint_texts = _entrypoint_texts(
         file_system,
         resolved.entrypoint_files,
         source_cache=source_cache,
+        excluded=excluded,
     )
     index = build_reference_index(
         python_sources=python_sources,
         entrypoint_texts=entrypoint_texts,
     )
+    local_roots = _local_module_roots(reference_sources)
 
     diagnostics: list[Diagnostic] = []
     for path in sorted(prod_trees):
         for definition in collect_definitions(module=prod_trees[path], module_path=path):
-            classification = classify(definition=definition, index=index, config=resolved)
+            classification = classify(
+                definition=definition,
+                index=index,
+                config=resolved,
+                local_module_roots=local_roots,
+            )
             diagnostic = _diagnostic_for(classification, resolved.severity)
             if diagnostic is not None:
                 diagnostics.append(diagnostic)
@@ -138,69 +191,6 @@ def run_unused_code_with_metadata(
         diagnostics=diagnostics,
         files_scanned=set(prod_files),
     )
-
-
-def _python_files(file_system: FileSystem, patterns: Sequence[str]) -> list[str]:
-    if not patterns:
-        return []
-    results: list[str] = []
-    for path in file_system.glob(list(patterns)):
-        if path.endswith(".py") and not file_system.is_directory(path):
-            results.append(path)
-    return results
-
-
-def _entrypoint_texts(
-    file_system: FileSystem,
-    patterns: Sequence[str],
-    *,
-    source_cache: dict[str, str] | None = None,
-) -> list[str]:
-    if not patterns:
-        return []
-    texts: list[str] = []
-    for path in sorted(set(file_system.glob(list(patterns)))):
-        if file_system.is_directory(path):
-            continue
-        try:
-            texts.append(_read_source(file_system, path, source_cache=source_cache))
-        except OSError:
-            continue
-    return texts
-
-
-def _parse(
-    file_system: FileSystem,
-    path: str,
-    *,
-    source_cache: dict[str, str] | None = None,
-) -> ast.Module | None:
-    try:
-        source = _read_source(file_system, path, source_cache=source_cache)
-    except OSError:
-        return None
-    try:
-        return ast.parse(source, filename=path)
-    except SyntaxError:
-        return None
-
-
-def _read_source(
-    file_system: FileSystem,
-    path: str,
-    *,
-    source_cache: dict[str, str] | None,
-) -> str:
-    if source_cache is None:
-        return file_system.read_file(path)
-
-    cached = source_cache.get(path)
-    if cached is not None:
-        return cached
-
-    source = file_system.read_file(path)
-    source_cache[path] = source
-    return source
 
 
 def _diagnostic_for(
@@ -237,6 +227,7 @@ def _diagnostic_for(
 __all__ = [
     "CONVENTION_NAME",
     "DEFAULT_ENTRYPOINT_FILES",
+    "DEFAULT_EXCLUDE",
     "DEFAULT_INCLUDE",
     "DEFAULT_SEVERITY",
     "DEFAULT_TEST_GLOBS",
