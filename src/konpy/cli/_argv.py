@@ -24,6 +24,11 @@ _KNOWN_SUBCOMMANDS = {
 
 _MULTI_VALUE_OPTIONS = ("--files", "--exclude")
 
+# Options that only `report` accepts. Flags-only argv normally implies `check`,
+# but `konpy --exclude vendor/**` clearly means the report, so route it there
+# instead of failing with "No such option" on `check`.
+_REPORT_ONLY_OPTIONS = ("--exclude",)
+
 
 def _expand_multi_value_options(argv: list[str]) -> list[str]:
     """Expand a single `--files a.py b.py` occurrence into repeated
@@ -73,7 +78,8 @@ def _preprocess_argv(argv: list[str]) -> list[str]:
 
     A truly-bare `konpy` runs the zero-config codebase report (fallow-style:
     unused code, duplication, coverage — no konpy.json required); options
-    without a subcommand (e.g. `konpy --files a.py`) still imply `check`.
+    without a subcommand (e.g. `konpy --files a.py`) still imply `check`, except
+    for report-only options like `--exclude`, which route to `report`.
     """
     if not argv:
         return ["report"]
@@ -90,5 +96,12 @@ def _preprocess_argv(argv: list[str]) -> list[str]:
 
     if has_subcommand or has_help_flag:
         return expanded
+
+    if any(
+        arg == option or arg.startswith(f"{option}=")
+        for arg in expanded
+        for option in _REPORT_ONLY_OPTIONS
+    ):
+        return ["report", *expanded]
 
     return ["check", *expanded]

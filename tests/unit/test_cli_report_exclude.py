@@ -30,10 +30,94 @@ class TestSplitExcludeValues:
         assert split_exclude_values(["a/**,,b/**", "a/**"]) == ["a/**", "b/**"]
 
     def test_unbalanced_closing_brace_does_not_underflow(self) -> None:
-        assert split_exclude_values(["}a,b"]) == ["}a", "b"]
+        # A stray `}` must not drive depth negative, which would stop the
+        # following comma from splitting. Glob metacharacters keep prefix
+        # expansion out of the assertion.
+        assert split_exclude_values(["}a/**,b/**"]) == ["}a/**", "b/**"]
+
+
+class TestBareDirectoryPrefixes:
+    def test_metacharacter_free_pattern_also_matches_beneath(self) -> None:
+        assert split_exclude_values(["vendor"]) == ["vendor", "vendor/**"]
+
+    def test_trailing_slash_does_not_double_up(self) -> None:
+        assert split_exclude_values(["vendor/"]) == ["vendor/", "vendor/**"]
+
+    def test_glob_patterns_are_left_alone(self) -> None:
+        assert split_exclude_values(["vendor/**"]) == ["vendor/**"]
+        assert split_exclude_values(["**/{a,b}/**"]) == ["**/{a,b}/**"]
+
+    def test_bare_directory_excludes_its_contents(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "mod.py").write_text(
+            "def kept() -> int:\n    return 1\n", encoding="utf-8"
+        )
+        vendored = tmp_path / "vendor" / "pkg"
+        vendored.mkdir(parents=True)
+        (vendored / "mod.py").write_text(
+            "def dropped() -> int:\n    return 2\n", encoding="utf-8"
+        )
+
+        result = runner.invoke(app, ["report", "--exclude", "vendor"])
+
+        assert result.exit_code == 0
+        assert "1 file" in result.output
+        assert "dropped" not in result.output
+        assert "kept" in result.output
+
+
+class TestUnmatchedExcludeWarning:
+    def test_pattern_matching_nothing_warns_once(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "mod.py").write_text("x = 1\n", encoding="utf-8")
+
+        result = runner.invoke(
+            app, ["report", "--exclude", "vendr"], catch_exceptions=False
+        )
+
+        # One typo yields one warning, not one per prefix-expanded companion.
+        assert result.output.count("matched nothing: vendr") == 1
+        assert "matched nothing: vendr/**" not in result.output
+
+    def test_matching_pattern_does_not_warn(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        vendored = tmp_path / "vendor"
+        vendored.mkdir()
+        (vendored / "mod.py").write_text("x = 1\n", encoding="utf-8")
+
+        result = runner.invoke(app, ["report", "--exclude", "vendor"])
+
+        assert "matched nothing" not in result.output
 
 
 class TestPreprocessArgvExpandsExclude:
+    def test_exclude_without_a_subcommand_routes_to_report(self) -> None:
+        assert _preprocess_argv(["--exclude", "vendor"]) == [
+            "report",
+            "--exclude",
+            "vendor",
+        ]
+
+    def test_equals_form_without_a_subcommand_routes_to_report(self) -> None:
+        assert _preprocess_argv(["--exclude=vendor"]) == ["report", "--exclude=vendor"]
+
+    def test_other_flags_still_imply_check(self) -> None:
+        assert _preprocess_argv(["--files", "a.py"]) == ["check", "--files", "a.py"]
+
+    def test_explicit_subcommand_is_never_overridden(self) -> None:
+        assert _preprocess_argv(["report", "--exclude", "vendor"]) == [
+            "report",
+            "--exclude",
+            "vendor",
+        ]
+
     def test_expands_space_separated_before_next_flag(self) -> None:
         assert _preprocess_argv(["report", "--exclude", "a/**", "b/**"]) == [
             "report",

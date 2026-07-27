@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import ast
 from collections.abc import Sequence
 
 from konpy.core.count_lines import count_physical_lines
 from konpy.core.filesystem import FileSystem
 from konpy.infer.models import InferFileRecord
 from konpy.python_ast import parse_file_structure
+from konpy.python_ast.quiet_parse import quiet_parse
 
 
 def collect_file_records(
@@ -46,7 +46,7 @@ def collect_file_records(
             continue
 
         try:
-            ast.parse(source, filename=path)
+            quiet_parse(source, filename=path)
         except SyntaxError:
             files_skipped_unparsable += 1
             continue

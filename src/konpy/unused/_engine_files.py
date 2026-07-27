@@ -10,6 +10,7 @@ import ast
 from collections.abc import Sequence
 
 from konpy.core.filesystem import FileSystem
+from konpy.python_ast.quiet_parse import quiet_parse
 
 
 def _local_module_roots(paths: set[str]) -> frozenset[str]:
@@ -77,7 +78,7 @@ def _parse(
     except OSError:
         return None
     try:
-        return ast.parse(source, filename=path)
+        return quiet_parse(source, filename=path)
     except SyntaxError:
         return None
 

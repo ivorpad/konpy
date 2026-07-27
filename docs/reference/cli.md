@@ -118,6 +118,8 @@ Exits `0` and prints `Configuration is valid.` on success. Exits `1` with a vali
 
 The zero-config analysis that bare `konpy` runs — no `konpy.json` required. Lanes, all at engine defaults over `**/*.py` (dot-directories like `.venv` are never traversed; `node_modules`, `venv`, `build`, `dist`, `__pycache__`, `*.egg-info`, and `site-packages` are excluded):
 
+Parse-time interpreter warnings from analyzed source (`SyntaxWarning` for an invalid escape sequence, for instance) are suppressed: konpy reports parse problems its own way, via the `N unreadable/unparsable files skipped` note, rather than interleaving CPython's warnings — about code you may not own — with its report.
+
 - **Conventions** — only when `konpy.json` exists: the standard check runs and its errors/warnings summarize into the report (an invalid config is reported without killing the other lanes).
 - **Unused code** — the [unused-code engine](unused-code.md) at defaults; test files feed the reference index but never carry findings.
 - **Duplication** — repeated string literals (≥8 chars, more than 2 occurrences) and duplicate function implementations (≥4 statements, alpha-renamed fingerprints), tests excluded.
@@ -145,6 +147,7 @@ Exit `0` unless the conventions lane reports error-severity violations (exit `1`
 Use it when the tree contains vendored templates, downloaded reference material, or a second checkout that would otherwise dominate the analysis lanes:
 
 ```bash
+konpy --exclude vendor,downloads                     # bare dir names, no subcommand
 konpy report --exclude 'vendor/**,downloads/**'      # comma-separated
 konpy report --exclude 'vendor/**' 'downloads/**'    # space-separated
 konpy report --exclude 'vendor/**' --exclude 'docs/**'  # repeatable
@@ -152,8 +155,11 @@ konpy report --exclude 'vendor/**' --exclude 'docs/**'  # repeatable
 
 Notes:
 
+- `--exclude` without a subcommand routes to `report` rather than `check`, so `konpy --exclude vendor` works as typed. Every other flags-only invocation still implies `check`.
+- A pattern with **no glob metacharacters** is treated as a path prefix and also matches everything beneath it, so `--exclude vendor` behaves like `--exclude 'vendor/**'`. Pass a glob when you want exact matching.
+- A pattern that matches **nothing** prints a warning to stderr (`--exclude pattern matched nothing: ...`). A misspelled exclude is otherwise indistinguishable from a correct one, since the report just comes back unscoped.
 - Patterns are **additive** on top of the always-applied vendored/build excludes; `--exclude` never widens the default scope.
-- Commas and whitespace inside `{...}` alternation are preserved, so `--exclude '**/{tests,docs}/**'` stays one pattern. Quote your patterns so the shell does not glob-expand them first.
+- Commas and whitespace inside `{...}` alternation are preserved, so `--exclude '**/{tests,docs}/**'` stays one pattern. Quote globs so the shell does not expand them first.
 - Every lane is scoped consistently, so the header count, duplication, coverage, and unused-code findings all describe the same file set. This matters for the unused lane in particular: excluding a tree also removes its *references*, so dead code a vendored copy was masking becomes visible.
 - The **conventions lane is not affected**. It is scoped by `konpy.json` (`paths`, `excludeFiles`, `unusedCode.include`), so `konpy report --exclude ...` and `konpy check` continue to agree on conventions.
 - This is a flag rather than a config key, so bare `konpy` keeps reporting the whole tree. `konpy --exclude ...` without the subcommand implies `check`, which has no `--exclude`; write `konpy report --exclude ...`.

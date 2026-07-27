@@ -8,7 +8,6 @@ Rendering lives in `konpy.core._report_render`.
 
 from __future__ import annotations
 
-import ast
 import time
 from collections.abc import Sequence
 from pathlib import Path
@@ -29,6 +28,7 @@ from konpy.core.count_lines import count_physical_lines
 from konpy.core.filesystem import FileSystem
 from konpy.core.runner import run
 from konpy.python_ast import parse_file_structure
+from konpy.python_ast.quiet_parse import quiet_parse
 from konpy.python_ast.structure import PyFileStructure
 from konpy.unused._engine_files import _python_files
 from konpy.unused.engine import (
@@ -67,7 +67,7 @@ def _collect_structures(
     for path in sorted(included - excluded):
         try:
             source = file_system.read_file(path)
-            ast.parse(source, filename=path)
+            quiet_parse(source, filename=path)
         except (OSError, UnicodeDecodeError, SyntaxError):
             skipped += 1
             continue

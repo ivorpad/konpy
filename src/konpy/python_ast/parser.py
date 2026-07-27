@@ -20,13 +20,14 @@ from konpy.python_ast._imports import (
     _process_type_checking_if,
 )
 from konpy.python_ast._string_literals import _collect_string_literals
+from konpy.python_ast.quiet_parse import quiet_parse
 from konpy.python_ast.structure import PyFileStructure
 
 
 def parse_file_structure(source: str, file_path: str = "<unknown>") -> PyFileStructure:
     """Parse Python source into a structural summary, or an empty one on a syntax error."""
     try:
-        module = ast.parse(source, filename=file_path, type_comments=True)
+        module = quiet_parse(source, filename=file_path, type_comments=True)
     except SyntaxError:
         return _empty_file_structure()
 
