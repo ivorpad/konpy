@@ -213,6 +213,23 @@ Three tiers, cheapest first:
 
    Plugin keys work under `mustNot` too, get strict value validation from the plugin's own pydantic model, and collide loudly with builtins. Full contract (AST access via `uses_ast`, item-level mustNot, placeholder validation): [docs/reference/plugins.md](docs/reference/plugins.md).
 
+## Scoping a rule to fewer files
+
+Two ways to carve exceptions out of a convention, both using the same glob syntax as `paths`:
+
+```json
+{
+  "name": "annotate-public-surface",
+  "paths": ["*/src/**/*.py", "!*/src/generated/**"],
+  "excludeFiles": ["**/conftest.py", "settings.py"],
+  "must": { "annotateFunctions": true }
+}
+```
+
+A `!` pattern inside `paths` drops everything it matches, including whole subtrees. `excludeFiles` skips files without touching the path pattern, and a bare filename is shorthand for that name at any depth. Reach for negation when the exception is a directory, `excludeFiles` when it is a named file or two.
+
+Scoping a rule is not the same as weakening it. Prefer an exception narrow enough to name over a rule broad enough to be meaningless: if the excluded set keeps growing, the rule is probably wrong rather than the files. `excludeFiles` honours wildcards from 0.6.2 onward; earlier versions matched only literal paths and bare filenames, silently ignoring anything else. Grammar: [docs/reference/path-patterns.md](docs/reference/path-patterns.md); config key: [docs/reference/configuration.md](docs/reference/configuration.md).
+
 ## Using konpy with Claude Code (the agent loop)
 
 konpy was built for exactly one workflow: encode your conventions once in `konpy.json`, then wire them into every stage of a coding agent's loop — before it writes, after each edit, and in CI — so the agent hears one consistent voice everywhere. The pieces below each have their own section; this is the order they compose in:

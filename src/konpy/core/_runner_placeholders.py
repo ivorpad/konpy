@@ -5,7 +5,10 @@ from __future__ import annotations
 import posixpath
 from collections.abc import Mapping
 
+from wcmatch import glob as wcglob
+
 from konpy.config.schema import MustBlockV1
+from konpy.core._filesystem_base import _GLOB_FLAGS
 from konpy.core._runner_types import CaseMaps
 from konpy.core.constraints import (
     parse_placeholder_constraint,
@@ -49,6 +52,8 @@ def _is_file_excluded(
     for pattern in exclude_files:
         resolved = context.resolve_template(pattern)
         if file_path == resolved or posixpath.basename(file_path) == resolved:
+            return True
+        if wcglob.globmatch(file_path, resolved, flags=_GLOB_FLAGS):
             return True
 
     return False

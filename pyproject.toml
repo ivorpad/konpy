@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "konpy"
-version = "0.6.1"
+version = "0.6.2"
 description = "Enforce structural conventions in Python codebases"
 readme = "README.md"
 license = "Apache-2.0"

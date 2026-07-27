@@ -495,6 +495,49 @@ class TestForBlocks:
 
 
 class TestExcludeFiles:
+    def test_exclude_files_matches_wildcard_patterns(self) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "exclude-glob",
+                        "paths": "*/src/**/*.py",
+                        "excludeFiles": ["*/src/domain/genai/*/__init__.py"],
+                        "must": {"haveType": "directory"},
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(
+                files=[
+                    "svc/src/domain/genai/llm/__init__.py",
+                    "svc/src/domain/knowledge/models.py",
+                ],
+            ),
+        )
+
+        reported = [diagnostic.file_path for diagnostic in result.diagnostics]
+        assert reported == ["svc/src/domain/knowledge/models.py"]
+
+    def test_exclude_files_matches_globstar_subtree(self) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "exclude-subtree",
+                        "paths": "src/**/*.py",
+                        "excludeFiles": ["src/internal/**"],
+                        "must": {"haveType": "directory"},
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(
+                files=["src/internal/deep/helper.py", "src/public/api.py"],
+            ),
+        )
+
+        reported = [diagnostic.file_path for diagnostic in result.diagnostics]
+        assert reported == ["src/public/api.py"]
+
     def test_convention_level_exclude_files_skips_matching_file(self) -> None:
         result = run(
             config=config(
@@ -552,6 +595,28 @@ class TestExcludeFiles:
         )
 
         assert result.diagnostics == []
+
+    def test_block_level_exclude_files_matches_wildcard_patterns(self) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "block-exclude-glob",
+                        "paths": "src/**/*.py",
+                        "must": [
+                            {
+                                "excludeFiles": ["src/**/_*.py"],
+                                "must": {"haveType": "directory"},
+                            }
+                        ],
+                    }
+                ]
+            ),
+            file_system=FakeFileSystem(files=["src/pkg/_private.py", "src/pkg/api.py"]),
+        )
+
+        reported = [diagnostic.file_path for diagnostic in result.diagnostics]
+        assert reported == ["src/pkg/api.py"]
 
     def test_block_level_exclude_files_with_for_skips_matching_child(self) -> None:
         result = run(
