@@ -21,9 +21,24 @@ def init() -> None:
 
 
 @app.command()
-def report() -> None:
+def report(
+    exclude: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--exclude",
+            help=(
+                "Additional glob patterns to drop from every report lane and "
+                "from the file/LOC header. Repeatable (--exclude a/** "
+                "--exclude b/**), space-separated, or comma-separated "
+                "(--exclude 'a/**,b/**'). Commas inside {...} alternation are "
+                "preserved. Additive on top of the built-in vendored/build "
+                "excludes; does not affect the konpy.json conventions lane."
+            ),
+        ),
+    ] = None,
+) -> None:
     """Run the zero-config codebase report (what bare `konpy` runs)."""
-    exit_code = run_report_command()
+    exit_code = run_report_command(exclude=exclude)
     if exit_code != 0:
         raise typer.Exit(exit_code)
 

@@ -22,7 +22,7 @@ _KNOWN_SUBCOMMANDS = {
     "help",
 }
 
-_MULTI_VALUE_OPTIONS = ("--files",)
+_MULTI_VALUE_OPTIONS = ("--files", "--exclude")
 
 
 def _expand_multi_value_options(argv: list[str]) -> list[str]:

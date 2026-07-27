@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ast
 import time
+from collections.abc import Sequence
 from pathlib import Path
 
 from konpy.config.errors import Err
@@ -46,13 +47,17 @@ DEFAULT_REPORT_EXCLUDE: tuple[str, ...] = DEFAULT_EXCLUDE
 def _collect_structures(
     file_system: FileSystem,
     source_cache: dict[str, str],
+    exclude: Sequence[str] = (),
 ) -> tuple[dict[str, PyFileStructure], set[str], set[str], int, int]:
     """Parse every non-excluded Python file, filling `source_cache` as it reads.
+
+    `exclude` globs are additive on top of `DEFAULT_REPORT_EXCLUDE`, matching
+    how the unused engine composes caller excludes over its own defaults.
 
     Returns (structures, test paths, generated paths, loc, skipped).
     """
     included = set(_python_files(file_system, DEFAULT_REPORT_INCLUDE))
-    excluded = set(file_system.glob(list(DEFAULT_REPORT_EXCLUDE)))
+    excluded = set(file_system.glob([*DEFAULT_REPORT_EXCLUDE, *exclude]))
     test_paths = set(_python_files(file_system, DEFAULT_TEST_GLOBS))
 
     structures: dict[str, PyFileStructure] = {}
@@ -150,13 +155,24 @@ def _conventions(file_system: FileSystem, config_path: Path) -> ReportConvention
     )
 
 
-def assemble_report(*, file_system: FileSystem, config_path: Path) -> ReportData:
-    """Run every zero-config analysis lane and return the assembled report data."""
+def assemble_report(
+    *,
+    file_system: FileSystem,
+    config_path: Path,
+    exclude: Sequence[str] = (),
+) -> ReportData:
+    """Run every zero-config analysis lane and return the assembled report data.
+
+    `exclude` globs drop matching paths from every analysis lane and from the
+    file/LOC header, so a report scoped past vendored or generated trees stays
+    internally consistent. The conventions lane is scoped by `konpy.json`
+    instead and is unaffected.
+    """
     start = time.perf_counter()
 
     source_cache: dict[str, str] = {}
     structures, test_paths, generated, loc, skipped = _collect_structures(
-        file_system, source_cache
+        file_system, source_cache, exclude
     )
     coverage = _coverage(structures, test_paths | generated)
     literal_groups, function_groups = _duplication(structures, test_paths, generated)
@@ -166,6 +182,7 @@ def assemble_report(*, file_system: FileSystem, config_path: Path) -> ReportData
         config=UnusedCodeV1(),
         file_system=file_system,
         source_cache=source_cache,
+        exclude=list(exclude) or None,
         reference_only=sorted(generated),
     )
     conventions = _conventions(file_system, config_path)

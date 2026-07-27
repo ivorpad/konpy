@@ -136,6 +136,28 @@ konpy report     # explicit
 
 Exit `0` unless the conventions lane reports error-severity violations (exit `1`). The analysis lanes are advisory and never affect the exit code.
 
+### Scoping the report (`--exclude`)
+
+| Flag | Type | Default | Description |
+| --- | --- | --- | --- |
+| `--exclude <glob> [<glob> ...]` | string (repeatable, space- or comma-separated) | — | Extra globs dropped from every analysis lane **and** from the file/LOC header. |
+
+Use it when the tree contains vendored templates, downloaded reference material, or a second checkout that would otherwise dominate the analysis lanes:
+
+```bash
+konpy report --exclude 'vendor/**,downloads/**'      # comma-separated
+konpy report --exclude 'vendor/**' 'downloads/**'    # space-separated
+konpy report --exclude 'vendor/**' --exclude 'docs/**'  # repeatable
+```
+
+Notes:
+
+- Patterns are **additive** on top of the always-applied vendored/build excludes; `--exclude` never widens the default scope.
+- Commas and whitespace inside `{...}` alternation are preserved, so `--exclude '**/{tests,docs}/**'` stays one pattern. Quote your patterns so the shell does not glob-expand them first.
+- Every lane is scoped consistently, so the header count, duplication, coverage, and unused-code findings all describe the same file set. This matters for the unused lane in particular: excluding a tree also removes its *references*, so dead code a vendored copy was masking becomes visible.
+- The **conventions lane is not affected**. It is scoped by `konpy.json` (`paths`, `excludeFiles`, `unusedCode.include`), so `konpy report --exclude ...` and `konpy check` continue to agree on conventions.
+- This is a flag rather than a config key, so bare `konpy` keeps reporting the whole tree. `konpy --exclude ...` without the subcommand implies `check`, which has no `--exclude`; write `konpy report --exclude ...`.
+
 ## `init`
 
 Writes a strict starter `konpy.json` into the current directory. The template is opinionated about what a best-in-class Python codebase looks like — 17 conventions plus `unusedCode`:
