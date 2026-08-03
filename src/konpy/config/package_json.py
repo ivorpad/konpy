@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from importlib import metadata, resources
+from pathlib import Path
 from typing import Literal
 
 PackageJsonLookupFailureKind = Literal[
@@ -167,7 +168,10 @@ def _read_dist_info_file(
 
         location_path = package_path.as_posix()
         try:
-            raw = distribution.locate_file(package_path).read_text(encoding="utf-8")
+            # Concrete Path, not the SimplePath protocol `locate_file` is
+            # typed to return: SimplePath.read_text has no `encoding`
+            # parameter under some Python versions' stubs.
+            raw = Path(str(distribution.locate_file(package_path))).read_text(encoding="utf-8")
         except OSError as error:
             return PackageJsonLookupFailure(
                 kind="read-error",
