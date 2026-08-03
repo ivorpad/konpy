@@ -211,6 +211,32 @@ class TestRunRelease:
         assert not any(argv[:2] == ["uv", "build"] for argv in calls)
         assert not any(argv[:1] == ["twine"] for argv in calls)
 
+    def test_twine_check_gets_only_wheel_and_sdist(
+        self, verify: ModuleType, tmp_path: Path
+    ) -> None:
+        # `uv build` drops a `.gitignore` into a dist/ it creates; twine
+        # rejects any non-distribution file, so the glob must skip it.
+        calls: list[list[str]] = []
+
+        def fake_runner(argv: list[str], **kwargs: Any) -> _FakeCompleted:
+            calls.append(argv)
+            if argv[:2] == ["uv", "build"]:
+                dist = tmp_path / "dist"
+                dist.mkdir()
+                (dist / "pkg-0.7.0-py3-none-any.whl").write_bytes(b"")
+                (dist / "pkg-0.7.0.tar.gz").write_bytes(b"")
+                (dist / ".gitignore").write_text("*\n", encoding="utf-8")
+            return _FakeCompleted(0)
+
+        exit_code = verify._run_release(tmp_path, env={}, runner=fake_runner)
+
+        assert exit_code == 0
+        twine_call = next(argv for argv in calls if argv[:1] == ["twine"])
+        checked = twine_call[2:]
+        assert any(path.endswith(".whl") for path in checked)
+        assert any(path.endswith(".tar.gz") for path in checked)
+        assert not any(path.endswith(".gitignore") for path in checked)
+
 
 class TestSourceHygiene:
     def test_no_shell_true(self) -> None:

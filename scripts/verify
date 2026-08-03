@@ -426,7 +426,13 @@ def _run_release(
         _print_summary([build_result.name])
         return 1
 
-    dist_files = sorted(str(path) for path in (repo_root / "dist").glob("*"))
+    # Only the actual artifacts: `uv build` also drops a `.gitignore` into a
+    # dist/ it creates, and twine rejects any non-distribution file.
+    dist_files = sorted(
+        str(path)
+        for pattern in ("*.whl", "*.tar.gz")
+        for path in (repo_root / "dist").glob(pattern)
+    )
     twine_result = _execute_step(
         Step("twine-check", ("twine", "check", *dist_files)),
         cwd=repo_root,
