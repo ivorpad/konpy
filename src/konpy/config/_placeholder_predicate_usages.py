@@ -7,7 +7,7 @@ ${name} placeholder usages that aren't declared by the convention.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING
 
 from konpy.config._placeholder_definition_usages import (
@@ -51,8 +51,12 @@ _BUILTIN_PREDICATE_KEYS = {
     "importTypesFromParents",
     "matchContent",
     "restrictAnnotations",
+    "restrictBaseClasses",
+    "restrictCalls",
+    "restrictDecorators",
     "restrictDuplicateFunctions",
     "restrictFileLength",
+    "restrictImports",
     "restrictRepeatedLiterals",
     "useDeclarationOrder",
 }
@@ -66,7 +70,8 @@ def _collect_usages_in_predicates(
     usages: list[_Usage],
     predicate_registry: PredicateRegistry | None,
 ) -> None:
-    for file_entry in predicates.get("haveFiles", []):
+    have_files = predicates.get("haveFiles", [])
+    for file_entry in have_files if isinstance(have_files, Sequence) else []:
         _push_string_usages(
             value=file_entry,
             key=f"{prefix}.haveFiles",
@@ -122,7 +127,8 @@ def _collect_usages_in_predicates(
         usages=usages,
     )
 
-    for name in predicates.get("useDeclarationOrder", []):
+    declaration_order = predicates.get("useDeclarationOrder", [])
+    for name in declaration_order if isinstance(declaration_order, Sequence) else []:
         _push_string_usages(
             value=name,
             key=f"{prefix}.useDeclarationOrder",

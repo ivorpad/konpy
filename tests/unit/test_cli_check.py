@@ -702,7 +702,7 @@ class TestBareInvocationShim:
 
         assert result.exit_code == 0
         assert "konpy report" in result.output
-        assert "no konpy.json found" in result.output
+        assert "no konpy.json — built-in defaults" in result.output
 
     def test_inserts_check_before_root_check_options(self) -> None:
         assert _preprocess_argv(["--format", "json"]) == [

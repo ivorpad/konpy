@@ -110,6 +110,36 @@ def check(
             ),
         ),
     ] = False,
+    baseline: Annotated[
+        str | None,
+        typer.Option(
+            "--baseline",
+            help=(
+                "Path to the baseline file. Defaults to konpy.baseline.json next "
+                "to the resolved config file. Used for both reading (auto-discovery "
+                "when the default path exists) and --write-baseline."
+            ),
+        ),
+    ] = None,
+    write_baseline: Annotated[
+        bool,
+        typer.Option(
+            "--write-baseline",
+            help=(
+                "Record every current violation into the baseline file and exit 0 "
+                "(recording mode). Ignores any existing baseline when computing "
+                "violations, so the recorded counts always reflect the current "
+                "codebase, not the prior baseline."
+            ),
+        ),
+    ] = False,
+    show_baselined: Annotated[
+        bool,
+        typer.Option(
+            "--show-baselined",
+            help="List diagnostics hidden by the baseline in human-readable output.",
+        ),
+    ] = False,
 ) -> None:
     """Check structural conventions."""
     exit_code = run_check_command(
@@ -125,6 +155,9 @@ def check(
         show_suppressed=show_suppressed,
         files=files,
         changed=changed,
+        baseline=baseline,
+        write_baseline=write_baseline,
+        show_baselined=show_baselined,
     )
     if exit_code != 0:
         raise typer.Exit(exit_code)

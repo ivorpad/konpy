@@ -34,7 +34,7 @@ def _max_lines(expected: Literal[True] | RestrictFileLengthOptionsV1) -> int:
     if expected is True:
         return DEFAULT_MAX_LINES
     value = _get_value(expected, "maxLines")
-    return DEFAULT_MAX_LINES if value is None else int(value)
+    return DEFAULT_MAX_LINES if not isinstance(value, int | str) else int(value)
 
 
 def check_restrict_file_length(

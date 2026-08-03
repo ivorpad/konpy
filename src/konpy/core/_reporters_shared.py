@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from konpy.core.baseline import BaselinedDiagnostic, BaselineStaleEntry
 from konpy.core.diagnostics import Diagnostic
 from konpy.core.format_time import format_time
 from konpy.core.suppressions import SuppressedDiagnostic
@@ -104,6 +105,20 @@ def _format_suppressed_by(item: SuppressedDiagnostic) -> str:
     return text
 
 
+def _baselined_as_diagnostics(baselined: list[BaselinedDiagnostic]) -> list[Diagnostic]:
+    """Unwrap baselined diagnostics back to plain `Diagnostic`s for grouped rendering."""
+    return [item.diagnostic for item in baselined]
+
+
+def _format_stale_baseline_message(entry: BaselineStaleEntry) -> str:
+    """Render the ratchet-down nudge for one stale `(file, convention)` baseline entry."""
+    return (
+        f'Stale baseline entry for "{entry.convention_name}" in {entry.file_path}: '
+        f"recorded {entry.recorded_count}, found {entry.found_count}. "
+        "Run konpy check --write-baseline to ratchet down."
+    )
+
+
 def count_severities(diagnostics: list[Diagnostic]) -> tuple[int, int]:
     """Count error- and warning-severity diagnostics.
 
@@ -121,15 +136,17 @@ def _format_summary(
     warning_count: int,
     suppressed_count: int,
     duration_ms: float | None,
+    baselined_count: int = 0,
 ) -> str:
     file_word = "file" if files_checked == 1 else "files"
     checked = f"Checked {files_checked} {file_word} in {format_time(duration_ms or 0)}."
+    baselined_suffix = f", {baselined_count} baselined" if baselined_count > 0 else ""
 
     if error_count == 0 and warning_count == 0:
         if suppressed_count == 0:
-            return f"{checked} No violations found."
+            return f"{checked} No violations found{baselined_suffix}."
         suppressed_note = _format_suppressed_count(suppressed_count)
-        return f"{checked} No unsuppressed violations found. {suppressed_note}."
+        return f"{checked} No unsuppressed violations found{baselined_suffix}. {suppressed_note}."
 
     parts: list[str] = []
     if error_count > 0:
@@ -139,7 +156,7 @@ def _format_summary(
         warning_word = "warning" if warning_count == 1 else "warnings"
         parts.append(f"{warning_count} {warning_word}")
 
-    summary = f"{checked} Found {' and '.join(parts)}."
+    summary = f"{checked} Found {' and '.join(parts)}{baselined_suffix}."
     if suppressed_count > 0:
         summary += f" {_format_suppressed_count(suppressed_count)}."
     return summary

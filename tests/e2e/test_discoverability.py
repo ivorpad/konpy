@@ -11,7 +11,7 @@ class TestBareInvocation:
 
         assert exit_code == 0
         assert "konpy report" in stdout
-        assert "no konpy.json found" in stdout
+        assert "no konpy.json — built-in defaults" in stdout
         assert "Coverage" in stdout
 
     def test_help_command_still_prints_the_full_help(self, tmp_path: Path, run_cli) -> None:
@@ -97,6 +97,39 @@ class TestInitToCheckRoundTrip:
 
         assert exit_code == 1
         assert "already exists" in stderr
+
+
+class TestInitAgents:
+    def test_agents_scaffold_validates_and_still_demands_src_layout(
+        self, tmp_path: Path, run_cli
+    ) -> None:
+        init_exit, init_stdout, _ = run_cli(tmp_path, "init", "--agents")
+
+        assert init_exit == 0
+        assert (tmp_path / "konpy.json").is_file()
+        assert (tmp_path / "AGENTS.md").is_file()
+        assert (tmp_path / ".claude" / "settings.json").is_file()
+        assert "Wrote konpy.json" in init_stdout
+        assert "Wrote AGENTS.md" in init_stdout
+        assert "Wrote .claude/settings.json" in init_stdout
+
+        validate_exit, validate_stdout, _ = run_cli(tmp_path, "validate")
+        assert validate_exit == 0
+        assert "Configuration is valid." in validate_stdout
+
+        # The scaffolded config is the same strict starter, so it still
+        # demands the src layout on an otherwise-empty directory.
+        check_exit, check_stdout, _ = run_cli(tmp_path, "check")
+        assert check_exit == 1
+        assert "project-root-uses-src-layout" in check_stdout
+
+    def test_agents_flag_is_required_to_scaffold_hooks(
+        self, tmp_path: Path, run_cli
+    ) -> None:
+        run_cli(tmp_path, "init")
+
+        assert not (tmp_path / "AGENTS.md").exists()
+        assert not (tmp_path / ".claude").exists()
 
 
 class TestDocsCommand:

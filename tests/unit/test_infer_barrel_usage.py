@@ -28,6 +28,10 @@ def make_structure(non_barrel: tuple[NonBarrelStatementInfo, ...] = ()) -> PyFil
         "non_barrel_statements": non_barrel,
         "string_literals": (),
         "type_aliases": (),
+        "decorators": (),
+        "call_sites": (),
+        "base_class_refs": (),
+        "scoped_imports": (),
         "all_names": None,
         "all_is_dynamic": False,
     }

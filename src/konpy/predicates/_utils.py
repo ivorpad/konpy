@@ -6,7 +6,6 @@ from konpy.config.schema import (
     ClassDefinitionV1,
     DeclarationDefinitionV1,
     ExportDefinitionV1,
-    ExtendDefinitionV1,
     FunctionDefinitionV1,
     ImportDefinitionV1,
     InterfaceDefinitionV1,
@@ -39,7 +38,7 @@ def get_from_value(obj: object) -> str | None:
     value = get_value(obj, "from_", None)
     if value is None:
         value = get_value(obj, "from", None)
-    return value
+    return value if isinstance(value, str) else None
 
 
 def definition_name(entry: DefinitionEntry, context: PredicateContext) -> str:
@@ -57,9 +56,7 @@ def definition_from(entry: DefinitionEntry, context: PredicateContext) -> str | 
     return context.resolve_template(value)
 
 
-def resolve_extend_type(
-    extend: ExtendDefinitionV1 | None, context: PredicateContext
-) -> str | None:
+def resolve_extend_type(extend: object, context: PredicateContext) -> str | None:
     """Resolve an `extend` clause (string or object) to its templated type name."""
     if extend is None:
         return None
@@ -68,11 +65,9 @@ def resolve_extend_type(
     return context.resolve_template(str(get_value(extend, "type", "")))
 
 
-def resolve_implement_types(
-    implement: list[ExtendDefinitionV1] | None, context: PredicateContext
-) -> list[str]:
+def resolve_implement_types(implement: object, context: PredicateContext) -> list[str]:
     """Resolve an `implement` list to its templated type names."""
-    if implement is None:
+    if not isinstance(implement, list):
         return []
     values: list[str] = []
     for entry in implement:
@@ -108,8 +103,10 @@ def check_function_signature(
         resolved_param = context.resolve_template(receive_param)
 
     resolved_params = None
-    if receive_params:
-        resolved_params = [context.resolve_template(item) for item in receive_params]
+    if isinstance(receive_params, list) and receive_params:
+        resolved_params = [
+            context.resolve_template(item) for item in receive_params if isinstance(item, str)
+        ]
 
     resolved_return = None
     if isinstance(return_type, str):

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
@@ -26,12 +27,18 @@ from konpy.config.package_json import PackageJsonLookupFailure, find_package_kon
 from konpy.config.schema import RawConfigV1
 from konpy.config.source_resolver import classify_source
 
+if TYPE_CHECKING:
+    # konpy.predicates.registry imports konpy.config.schema at module
+    # level, so importing it unconditionally here would cycle back through
+    # this package's __init__; PredicateRegistry is only used in annotations.
+    from konpy.predicates.registry import PredicateRegistry
+
 
 def resolve_config_inheritance(
     *,
     raw: Mapping[str, object],
     config_path: Path,
-    predicate_registry: object | None = None,
+    predicate_registry: PredicateRegistry | None = None,
 ) -> Result[dict[str, object]]:
     """Resolve a config's ``extends`` chain into a single merged raw config document."""
     root_path = config_path.resolve()
@@ -64,7 +71,7 @@ def _resolve_raw_config(
     is_root: bool,
     extends_value: str | None,
     including_origin: _ConfigOrigin | None,
-    predicate_registry: object | None,
+    predicate_registry: PredicateRegistry | None,
 ) -> Result[_MergedRawConfig]:
     parsed_result = _validate_raw_config(
         raw=raw,
@@ -136,7 +143,7 @@ def _validate_raw_config(
     is_root: bool,
     extends_value: str | None,
     including_origin: _ConfigOrigin | None,
-    predicate_registry: object | None,
+    predicate_registry: PredicateRegistry | None,
 ) -> Result[RawConfigV1]:
     try:
         return Ok(
@@ -162,7 +169,7 @@ def _load_extended_config(
     value: str,
     including_origin: _ConfigOrigin,
     stack: tuple[_ConfigOrigin, ...],
-    predicate_registry: object | None,
+    predicate_registry: PredicateRegistry | None,
 ) -> Result[_MergedRawConfig]:
     kind = classify_source(value)
 
@@ -190,7 +197,7 @@ def _load_path_extended_config(
     value: str,
     including_origin: _ConfigOrigin,
     stack: tuple[_ConfigOrigin, ...],
-    predicate_registry: object | None,
+    predicate_registry: PredicateRegistry | None,
 ) -> Result[_MergedRawConfig]:
     value_path = Path(value)
 
@@ -240,7 +247,7 @@ def _load_package_extended_config(
     value: str,
     including_origin: _ConfigOrigin,
     stack: tuple[_ConfigOrigin, ...],
-    predicate_registry: object | None,
+    predicate_registry: PredicateRegistry | None,
 ) -> Result[_MergedRawConfig]:
     lookup = find_package_konpy_json(value)
     if isinstance(lookup, PackageJsonLookupFailure):
@@ -276,7 +283,9 @@ def _load_package_extended_config(
     )
 
 
-def _validation_context(predicate_registry: object | None) -> dict[str, object] | None:
+def _validation_context(
+    predicate_registry: PredicateRegistry | None,
+) -> dict[str, PredicateRegistry] | None:
     if predicate_registry is None:
         return None
     return predicate_registry.validation_context()

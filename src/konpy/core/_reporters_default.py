@@ -4,8 +4,10 @@ import sys
 from collections.abc import Callable
 
 from konpy.core._reporters_shared import (
+    _baselined_as_diagnostics,
     _display_file_path,
     _format_diagnostic_extra,
+    _format_stale_baseline_message,
     _format_summary,
     _format_suppressed_by,
     _group_by_file,
@@ -15,6 +17,7 @@ from konpy.core._reporters_shared import (
     _sort_diagnostics,
     count_severities,
 )
+from konpy.core.baseline import BaselinedDiagnostic, BaselineStaleEntry
 from konpy.core.diagnostics import Diagnostic
 from konpy.core.runner import RunResult
 from konpy.core.suppressions import SuppressedDiagnostic
@@ -138,11 +141,50 @@ def _format_suppressed_default_section(
     return lines
 
 
+def _format_baselined_default_section(
+    *,
+    baselined: list[BaselinedDiagnostic],
+    bold: ColorFn,
+    red: ColorFn,
+    yellow: ColorFn,
+    dim: ColorFn,
+) -> list[str]:
+    lines = ["Baselined diagnostics:"]
+
+    grouped = _group_by_file(_baselined_as_diagnostics(baselined))
+    for file_path, file_diagnostics in grouped.items():
+        lines.extend(
+            _format_file_group(
+                file_path=file_path,
+                diagnostics=file_diagnostics,
+                bold=bold,
+                red=red,
+                yellow=yellow,
+                dim=dim,
+            )
+        )
+
+    return lines
+
+
+def _format_stale_baseline_default_section(
+    *,
+    stale_entries: list[BaselineStaleEntry],
+    yellow: ColorFn,
+) -> list[str]:
+    lines = ["Stale baseline entries:"]
+    for entry in stale_entries:
+        lines.append(f"  {yellow(_format_stale_baseline_message(entry))}")
+    lines.append("")
+    return lines
+
+
 def format_default(
     result: RunResult,
     *,
     colors: bool | None = None,
     show_suppressed: bool = False,
+    show_baselined: bool = False,
 ) -> str:
     """Render a run result as the human-readable terminal report."""
     use_colors = sys.stdout.isatty() if colors is None else colors
@@ -164,12 +206,31 @@ def format_default(
                 )
             )
 
+    if show_baselined and result.baselined_diagnostics:
+        lines.extend(
+            _format_baselined_default_section(
+                baselined=result.baselined_diagnostics,
+                bold=palette["bold"],
+                red=palette["red"],
+                yellow=palette["yellow"],
+                dim=palette["dim"],
+            )
+        )
+
     if show_suppressed and result.suppressed_diagnostics:
         lines.extend(
             _format_suppressed_default_section(
                 suppressed=result.suppressed_diagnostics,
                 bold=palette["bold"],
                 dim=palette["dim"],
+            )
+        )
+
+    if result.baseline_stale_entries:
+        lines.extend(
+            _format_stale_baseline_default_section(
+                stale_entries=result.baseline_stale_entries,
+                yellow=palette["yellow"],
             )
         )
 
@@ -181,6 +242,7 @@ def format_default(
             warning_count=warning_count,
             suppressed_count=len(result.suppressed_diagnostics),
             duration_ms=result.duration_ms,
+            baselined_count=len(result.baselined_diagnostics),
         )
     )
 

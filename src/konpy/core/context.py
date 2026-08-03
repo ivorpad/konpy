@@ -17,7 +17,10 @@ _IndexT = TypeVar("_IndexT")
 class CrossFileScope(Protocol):
     """Run-scoped access to structures and derived indexes for a block's file set."""
 
-    paths: tuple[str, ...]
+    @property
+    def paths(self) -> tuple[str, ...]:
+        """The scope's effective file set, as a sorted tuple."""
+        ...
 
     def get_or_build_index(
         self,

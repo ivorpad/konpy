@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
@@ -15,6 +16,12 @@ from konpy.config.errors import Err, Ok, Result
 from konpy.config.schema import MustBlockV1
 from konpy.config.source_resolver import SourceMap
 
+if TYPE_CHECKING:
+    # konpy.predicates.registry imports konpy.config.schema at module
+    # level, so importing it unconditionally here would cycle back through
+    # this package's __init__; PredicateRegistry is only used in annotations.
+    from konpy.predicates.registry import PredicateRegistry
+
 
 def expand_must_block_reference(
     *,
@@ -23,7 +30,7 @@ def expand_must_block_reference(
     convention_index: int,
     block_index: int,
     source_map: SourceMap,
-    predicate_registry: object | None = None,
+    predicate_registry: PredicateRegistry | None = None,
 ) -> Result[MustBlockV1]:
     """Expand a string or ``use``-form reference inside a convention's ``must``/``mustNot`` list."""
     location = f"conventions[{convention_index}].must[{block_index}]"

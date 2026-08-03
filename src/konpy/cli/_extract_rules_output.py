@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from pathlib import Path
 
+from konpy.cli._extract_rules_contract import CoveredElsewhereEntry, UnmappedEntry
 from konpy.cli._extract_rules_report import format_unmapped_report
 from konpy.cli._rule_artifacts import (
     derive_rules_output_path,
@@ -26,8 +27,8 @@ def write_extraction_artifacts(
     destination: Path,
     rules_output_path: str | None,
     report_path: str | None,
-    covered_elsewhere: Sequence[Mapping[str, str]],
-    unmapped: Sequence[Mapping[str, str]],
+    covered_elsewhere: Sequence[CoveredElsewhereEntry],
+    unmapped: Sequence[UnmappedEntry],
 ) -> Result[WrittenExtractionArtifacts]:
     """Write the pack, optional rules package, and optional routing report."""
     rules_destination = _rules_destination(

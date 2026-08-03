@@ -4,6 +4,7 @@ from pathlib import Path
 
 from konpy.config.errors import Err, Ok
 from konpy.config.plugin_loader import load_plugin_registry
+from konpy.predicates.registry import builtin_predicate_registry
 from tests.fake_distribution import install_fake_distribution
 
 
@@ -366,3 +367,56 @@ def build_plugin():
 
         assert isinstance(result, Ok)
         assert "requireMarker" in result.value.handlers
+
+    def test_no_plugins_preserves_builtin_cross_file_predicates(self) -> None:
+        result = load_plugin_registry(plugins=[])
+
+        assert isinstance(result, Ok)
+        assert result.value.cross_file_predicates
+        assert (
+            result.value.cross_file_predicates
+            == builtin_predicate_registry().cross_file_predicates
+        )
+
+    def test_loaded_plugin_preserves_builtin_cross_file_predicates(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ) -> None:
+        install_plugin(
+            tmp_path=tmp_path,
+            monkeypatch=monkeypatch,
+            distribution_name="konpy-test-cross-file-plugin",
+            import_package="konpy_test_cross_file_plugin",
+        )
+
+        result = load_plugin_registry(plugins=["konpy-test-cross-file-plugin"])
+
+        assert isinstance(result, Ok)
+        assert (
+            result.value.cross_file_predicates
+            == builtin_predicate_registry().cross_file_predicates
+        )
+
+    def test_loaded_plugin_preserves_all_builtin_registry_metadata(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ) -> None:
+        install_plugin(
+            tmp_path=tmp_path,
+            monkeypatch=monkeypatch,
+            distribution_name="konpy-test-metadata-plugin",
+            import_package="konpy_test_metadata_plugin",
+        )
+        builtins = builtin_predicate_registry()
+
+        result = load_plugin_registry(plugins=["konpy-test-metadata-plugin"])
+
+        assert isinstance(result, Ok)
+        assert builtins.ast_predicates <= result.value.ast_predicates
+        assert (
+            builtins.item_level_must_not_predicates
+            <= result.value.item_level_must_not_predicates
+        )
+        assert builtins.handlers.keys() <= result.value.handlers.keys()

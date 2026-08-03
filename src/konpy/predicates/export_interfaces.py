@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from konpy.config.schema import ExtendDefinitionV1, InterfaceDefinitionV1
+from konpy.config.schema import InterfaceDefinitionV1
 from konpy.core.context import PredicateContext
 from konpy.core.diagnostics import Diagnostic, DiagnosticSeverity, create_diagnostic
 from konpy.predicates._utils import definition_name, get_value, resolve_extend_type
 from konpy.python_ast.structure import ExtendsClauseInfo, PyFileStructure
 
 
-def _allow_omissions(extend: ExtendDefinitionV1 | None) -> bool:
+def _allow_omissions(extend: object) -> bool:
     if isinstance(extend, str):
         return False
     return bool(get_value(extend, "allowOmissions", False))

@@ -1,0 +1,522 @@
+#!/usr/bin/env python3
+"""The sole verification entry point for konpy.
+
+CI and docs invoke this script exclusively, never `pytest`/`ruff` directly and
+never a bespoke CI script. It always operates on the repo root resolved from
+its own file location, independent of the caller's working directory.
+
+Profiles:
+
+- ``full`` (default): delegates to ``konpy verify --config-path konpy.json``.
+  The roster itself -- schema freshness, guidance freshness, ruff,
+  basedpyright, import-linter, config validation (baseline and strict), a
+  strict-config check, and the full test suite -- lives in konpy.json's
+  ``verify`` section instead of a step table here. Every step still runs
+  even after an earlier one fails, and ``konpy verify`` prints the summary
+  of every failure itself; this profile just forwards its output and exit
+  code verbatim.
+- ``fast``: ruff (only over changed ``.py`` files) plus a diff-scoped
+  ``konpy check --changed``. No test suite — meant for tight local feedback.
+- ``hook-pre``: reads a Claude Code PreToolUse payload from stdin and
+  delegates straight to ``konpy gate --fail-closed --ruff`` against the
+  strict config (the repo's full policy plus ruff on the proposed content),
+  passing through stderr and the child's exit code verbatim. Infrastructure
+  failures block (exit 2): a hard gate must never report "did not run" as
+  "passed".
+- ``release``: runs ``full`` first and stops (without building) if anything
+  failed, then cleans ``dist/``, runs ``uv build``, and runs
+  ``twine check`` against the built artifacts.
+- ``guidance``: not a step-table profile. Takes exactly one of ``--check`` or
+  ``--update`` and keeps the generated block in ``AGENTS.md`` (between the
+  ``konpy:generated-guidance`` markers) in sync with ``konpy explain
+  --config-path konpy.strict.json``. ``--update`` regenerates the block in
+  place; ``--check`` (run as the ``full`` profile's ``guidance-freshness``
+  step) fails without writing anything if the block is stale or the markers
+  are missing.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import shutil
+import subprocess
+import sys
+import time
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+_PROFILES = ("full", "fast", "hook-pre", "release", "guidance")
+_TIMEOUT_SECONDS = 1800
+
+Runner = Callable[..., subprocess.CompletedProcess[str]]
+Generator = Callable[[], str]
+
+AGENTS_MD_PATH = REPO_ROOT / "AGENTS.md"
+GUIDANCE_CONFIG_PATH = "konpy.strict.json"
+GUIDANCE_START_MARKER = "<!-- konpy:generated-guidance:start -->"
+GUIDANCE_END_MARKER = "<!-- konpy:generated-guidance:end -->"
+GUIDANCE_STALE_MESSAGE = (
+    "AGENTS.md guidance is stale; run: uv run scripts/verify guidance --update"
+)
+
+
+class GuidanceMarkerError(ValueError):
+    """Raised when AGENTS.md's guidance markers are missing or duplicated."""
+
+
+@dataclass(frozen=True)
+class Step:
+    """A single verification step: a name and the argv that runs it."""
+
+    name: str
+    argv: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class StepResult:
+    """The outcome of running one `Step`."""
+
+    name: str
+    ok: bool
+    duration: float
+    message: str | None = None
+
+
+_HOOK_PRE_STEP = Step(
+    "hook-pre",
+    (
+        sys.executable,
+        "-m",
+        "konpy",
+        "gate",
+        "--fail-closed",
+        "--ruff",
+        "--config-path",
+        "konpy.strict.json",
+    ),
+)
+
+
+def _run_full(
+    repo_root: Path, *, env: Mapping[str, str], runner: Runner = subprocess.run
+) -> int:
+    """Delegate the `full` profile to `konpy verify`, relaying its output and exit code.
+
+    The roster (schema freshness, guidance freshness, ruff, basedpyright,
+    import-linter, config validation, the strict check, and the test suite)
+    lives in konpy.json's `verify` section instead of a step table here.
+    Nothing is captured or reprinted: the child inherits this process's
+    stdout/stderr directly, the same way `_execute_step` runs every other
+    step, so its `[verify] <name> ... ok|FAILED` lines and summary stream
+    through verbatim.
+    """
+    completed = runner(
+        [sys.executable, "-m", "konpy", "verify", "--config-path", "konpy.json"],
+        cwd=repo_root,
+        env=dict(env),
+        check=False,
+    )
+    return completed.returncode
+
+
+def _discover_changed_python_files(repo_root: Path) -> list[str]:
+    """Return existing tracked-or-untracked `.py` paths changed vs HEAD."""
+    changed: set[str] = set()
+    for argv in (
+        ("git", "diff", "--name-only", "HEAD"),
+        ("git", "ls-files", "--others", "--exclude-standard"),
+    ):
+        result = subprocess.run(
+            argv, cwd=repo_root, capture_output=True, text=True, check=False
+        )
+        if result.returncode == 0:
+            changed.update(line.strip() for line in result.stdout.splitlines() if line.strip())
+
+    return sorted(
+        path
+        for path in changed
+        if path.endswith(".py") and (repo_root / path).is_file()
+    )
+
+
+def _fast_steps(repo_root: Path) -> list[Step]:
+    """The `fast` profile's step table: changed-file feedback, no pytest."""
+    changed = _discover_changed_python_files(repo_root)
+    steps: list[Step] = []
+    if changed:
+        steps.append(Step("ruff", ("ruff", "check", *changed)))
+    steps.append(
+        Step("konpy-check-changed", (sys.executable, "-m", "konpy", "check", "--changed"))
+    )
+    return steps
+
+
+def _run_konpy_explain(
+    repo_root: Path, config_path: str, *, runner: Runner = subprocess.run
+) -> str:
+    """Run `konpy explain --config-path <config_path>` and return its stdout."""
+    argv = (sys.executable, "-m", "konpy", "explain", "--config-path", config_path)
+    completed = runner(
+        list(argv), cwd=repo_root, capture_output=True, text=True, check=False
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(
+            f"konpy explain --config-path {config_path} failed "
+            f"(exit {completed.returncode}): {completed.stderr}"
+        )
+    return completed.stdout
+
+
+def _build_guidance_block(explain_output: str, *, config_path: str) -> str:
+    """Wrap `explain_output` in the marked, machine-generated guidance block."""
+    body = explain_output.rstrip("\n")
+    comment = (
+        f"<!-- Generated from {config_path} by scripts/verify guidance --update. "
+        "Do not edit by hand. -->"
+    )
+    return f"{GUIDANCE_START_MARKER}\n{comment}\n{body}\n{GUIDANCE_END_MARKER}"
+
+
+def _render_guidance_block(
+    *, repo_root: Path, config_path: str, generator: Generator | None = None
+) -> str:
+    """Generate the current guidance block, via `generator` if given, else `konpy explain`."""
+    explain_output = (
+        generator() if generator is not None else _run_konpy_explain(repo_root, config_path)
+    )
+    return _build_guidance_block(explain_output, config_path=config_path)
+
+
+def _find_marker_region(text: str) -> tuple[int, int]:
+    """Return the `(start, end)` char offsets spanning both markers, inclusive.
+
+    Raises `GuidanceMarkerError` if the markers are missing or duplicated.
+    """
+    start_count = text.count(GUIDANCE_START_MARKER)
+    end_count = text.count(GUIDANCE_END_MARKER)
+    if start_count == 0 or end_count == 0:
+        raise GuidanceMarkerError(
+            "AGENTS.md is missing the guidance markers "
+            f"({GUIDANCE_START_MARKER!r} / {GUIDANCE_END_MARKER!r})"
+        )
+    if start_count > 1 or end_count > 1:
+        raise GuidanceMarkerError(
+            "AGENTS.md has duplicated guidance markers "
+            f"(found {start_count} start / {end_count} end)"
+        )
+
+    start_index = text.index(GUIDANCE_START_MARKER)
+    end_index = text.index(GUIDANCE_END_MARKER) + len(GUIDANCE_END_MARKER)
+    if end_index <= start_index:
+        raise GuidanceMarkerError("AGENTS.md's guidance end marker precedes its start marker")
+    return start_index, end_index
+
+
+def replace_guidance_block(agents_md_text: str, new_block: str) -> str:
+    """Replace the marked region in `agents_md_text` with `new_block`.
+
+    Every byte outside the `[start marker, end marker]` span is preserved
+    unchanged. Raises `GuidanceMarkerError` if the markers are missing or
+    duplicated.
+    """
+    start_index, end_index = _find_marker_region(agents_md_text)
+    return agents_md_text[:start_index] + new_block + agents_md_text[end_index:]
+
+
+def update_guidance(
+    *,
+    agents_md_path: Path,
+    repo_root: Path,
+    config_path: str = GUIDANCE_CONFIG_PATH,
+    generator: Generator | None = None,
+) -> None:
+    """Regenerate and write the guidance block in `agents_md_path`, in place.
+
+    Raises `GuidanceMarkerError` (writing nothing) if the markers are missing
+    or duplicated.
+    """
+    block = _render_guidance_block(
+        repo_root=repo_root, config_path=config_path, generator=generator
+    )
+    current = agents_md_path.read_text(encoding="utf-8")
+    updated = replace_guidance_block(current, block)
+    agents_md_path.write_text(updated, encoding="utf-8")
+
+
+def check_guidance(
+    *,
+    agents_md_path: Path,
+    repo_root: Path,
+    config_path: str = GUIDANCE_CONFIG_PATH,
+    generator: Generator | None = None,
+) -> bool:
+    """Return whether `agents_md_path`'s guidance block matches a fresh render.
+
+    Writes nothing. Raises `GuidanceMarkerError` if the markers are missing or
+    duplicated.
+    """
+    block = _render_guidance_block(
+        repo_root=repo_root, config_path=config_path, generator=generator
+    )
+    current = agents_md_path.read_text(encoding="utf-8")
+    start_index, end_index = _find_marker_region(current)
+    return current[start_index:end_index] == block
+
+
+def _run_guidance(
+    repo_root: Path,
+    *,
+    check: bool,
+    agents_md_path: Path | None = None,
+    config_path: str = GUIDANCE_CONFIG_PATH,
+    generator: Generator | None = None,
+) -> int:
+    """Run the `guidance` profile: `--check` (read-only) or `--update` (in place).
+
+    `generator` is forwarded to `check_guidance`/`update_guidance` so callers
+    (tests) can avoid spawning a real `konpy explain` subprocess; the real CLI
+    entry point never passes it.
+    """
+    resolved_agents_md_path = agents_md_path if agents_md_path is not None else AGENTS_MD_PATH
+
+    if check:
+        try:
+            fresh = check_guidance(
+                agents_md_path=resolved_agents_md_path,
+                repo_root=repo_root,
+                config_path=config_path,
+                generator=generator,
+            )
+        except GuidanceMarkerError:
+            print(GUIDANCE_STALE_MESSAGE, file=sys.stderr)
+            return 1
+        if fresh:
+            print("[verify] guidance ... ok")
+            return 0
+        print(GUIDANCE_STALE_MESSAGE, file=sys.stderr)
+        return 1
+
+    try:
+        update_guidance(
+            agents_md_path=resolved_agents_md_path,
+            repo_root=repo_root,
+            config_path=config_path,
+            generator=generator,
+        )
+    except GuidanceMarkerError as error:
+        print(f"[verify] guidance: {error}", file=sys.stderr)
+        return 1
+    print(f"[verify] guidance ... updated {resolved_agents_md_path}")
+    return 0
+
+
+def build_steps(profile: str, repo_root: Path) -> list[Step]:
+    """Return the static step table for `profile`.
+
+    Only `fast` and `hook-pre` still have a local step table. `full`
+    delegates its conventions/tests/quality-gate steps to `konpy verify`
+    (see `_run_full`), whose roster lives in konpy.json instead of being
+    listed here; `release` runs that same delegation for its first phase,
+    then computes its `uv build`/`twine check` steps itself, since those
+    depend on runtime state (the built `dist/` contents).
+    """
+    if profile == "fast":
+        return _fast_steps(repo_root)
+    if profile == "hook-pre":
+        return [_HOOK_PRE_STEP]
+    raise ValueError(f"unknown profile: {profile}")
+
+
+def _execute_step(
+    step: Step,
+    *,
+    cwd: Path,
+    env: Mapping[str, str],
+    timeout: int = _TIMEOUT_SECONDS,
+    runner: Runner = subprocess.run,
+) -> StepResult:
+    """Run one step, translating a missing executable or a timeout into a failure."""
+    start = time.monotonic()
+    try:
+        completed = runner(list(step.argv), cwd=cwd, env=dict(env), timeout=timeout, check=False)
+    except FileNotFoundError as error:
+        return StepResult(
+            name=step.name,
+            ok=False,
+            duration=time.monotonic() - start,
+            message=f"executable not found: {error}",
+        )
+    except subprocess.TimeoutExpired:
+        return StepResult(
+            name=step.name,
+            ok=False,
+            duration=time.monotonic() - start,
+            message=f"timed out after {timeout}s",
+        )
+
+    ok = completed.returncode == 0
+    return StepResult(
+        name=step.name,
+        ok=ok,
+        duration=time.monotonic() - start,
+        message=None if ok else f"exit code {completed.returncode}",
+    )
+
+
+def _print_step_line(result: StepResult) -> None:
+    """Print the one-line `[verify] <name> ... ok|FAILED (Ns)` report for a step."""
+    status = "ok" if result.ok else "FAILED"
+    print(f"[verify] {result.name} ... {status} ({result.duration:.2f}s)")
+    if not result.ok and result.message:
+        print(f"[verify]   {result.message}")
+
+
+def _print_summary(failed_names: Sequence[str]) -> None:
+    """Print the end-of-run summary listing every failed step name."""
+    print(f"[verify] FAILED: {', '.join(failed_names)}")
+
+
+def _run_steps(
+    steps: Sequence[Step],
+    *,
+    cwd: Path,
+    env: Mapping[str, str],
+    runner: Runner = subprocess.run,
+) -> list[StepResult]:
+    """Run every step in order, printing a line each, never stopping early."""
+    results = []
+    for step in steps:
+        result = _execute_step(step, cwd=cwd, env=env, runner=runner)
+        _print_step_line(result)
+        results.append(result)
+    return results
+
+
+def _clean_dist(repo_root: Path) -> None:
+    """Remove a stale `dist/` directory before building, if one exists."""
+    dist_dir = repo_root / "dist"
+    if dist_dir.is_dir():
+        shutil.rmtree(dist_dir)
+
+
+def _run_release(
+    repo_root: Path, *, env: Mapping[str, str], runner: Runner = subprocess.run
+) -> int:
+    """Run `full` (delegated to `konpy verify`), then build and check the distribution.
+
+    Short-circuits before building if the delegated `full` run fails,
+    relaying its exit code -- `konpy verify` has already printed its own
+    per-step lines and failure summary, so nothing is reprinted here.
+    """
+    full_exit_code = _run_full(repo_root, env=env, runner=runner)
+    if full_exit_code != 0:
+        return full_exit_code
+
+    _clean_dist(repo_root)
+
+    build_result = _execute_step(
+        Step("uv-build", ("uv", "build")), cwd=repo_root, env=env, runner=runner
+    )
+    _print_step_line(build_result)
+    if not build_result.ok:
+        _print_summary([build_result.name])
+        return 1
+
+    dist_files = sorted(str(path) for path in (repo_root / "dist").glob("*"))
+    twine_result = _execute_step(
+        Step("twine-check", ("twine", "check", *dist_files)),
+        cwd=repo_root,
+        env=env,
+        runner=runner,
+    )
+    _print_step_line(twine_result)
+    if not twine_result.ok:
+        _print_summary([twine_result.name])
+        return 1
+
+    return 0
+
+
+def _run_hook_pre(
+    repo_root: Path, *, env: Mapping[str, str], runner: Runner = subprocess.run
+) -> int:
+    """Forward a piped PreToolUse payload straight to `konpy gate --fail-closed`."""
+    stdin_text = sys.stdin.read()
+    try:
+        completed = runner(
+            list(_HOOK_PRE_STEP.argv),
+            cwd=repo_root,
+            env=dict(env),
+            input=stdin_text,
+            text=True,
+            timeout=_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except FileNotFoundError as error:
+        message = f"executable not found: {error}"
+        print(f"[verify] {_HOOK_PRE_STEP.name} ... FAILED: {message}", file=sys.stderr)
+        return 2
+    except subprocess.TimeoutExpired:
+        message = f"timed out after {_TIMEOUT_SECONDS}s"
+        print(f"[verify] {_HOOK_PRE_STEP.name} ... FAILED: {message}", file=sys.stderr)
+        return 2
+
+    return completed.returncode
+
+
+def _parse_args(argv: list[str] | None) -> argparse.Namespace:
+    """Parse the profile argument, plus `--check`/`--update` for `guidance`."""
+    parser = argparse.ArgumentParser(prog="scripts/verify", description=__doc__)
+    parser.add_argument("profile", nargs="?", default="full", choices=_PROFILES)
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="guidance profile only: fail if AGENTS.md's generated block is stale",
+    )
+    parser.add_argument(
+        "--update",
+        action="store_true",
+        help="guidance profile only: regenerate AGENTS.md's generated block in place",
+    )
+    args = parser.parse_args(argv)
+
+    if args.profile == "guidance":
+        if args.check == args.update:
+            parser.error("guidance requires exactly one of --check or --update")
+    elif args.check or args.update:
+        parser.error("--check/--update are only valid with the guidance profile")
+
+    return args
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run the requested verification profile and return its exit code."""
+    args = _parse_args(argv)
+    env = {**os.environ, "KONPY_VERIFY_ACTIVE": "1"}
+
+    try:
+        if args.profile == "guidance":
+            return _run_guidance(REPO_ROOT, check=args.check)
+        if args.profile == "hook-pre":
+            return _run_hook_pre(REPO_ROOT, env=env)
+        if args.profile == "full":
+            return _run_full(REPO_ROOT, env=env)
+        if args.profile == "release":
+            return _run_release(REPO_ROOT, env=env)
+
+        results = _run_steps(build_steps(args.profile, REPO_ROOT), cwd=REPO_ROOT, env=env)
+        failed = [result.name for result in results if not result.ok]
+        if failed:
+            _print_summary(failed)
+            return 1
+        return 0
+    except KeyboardInterrupt:
+        return 130
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

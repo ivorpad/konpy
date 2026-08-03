@@ -14,7 +14,7 @@ from konpy.config.errors import Err, Ok, Result, format_validation_error
 
 
 class CoveredElsewhereEntry(TypedDict):
-    """A source rule already enforced by Ruff or mypy."""
+    """A source rule already enforced by Ruff, a type checker, or Import Linter."""
 
     rule: str
     tool: str

@@ -3,18 +3,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from konpy.python_ast._dotted_structure import (
+    BaseClassRefInfo,
+    CallSiteInfo,
+    DecoratorInfo,
+    ScopedImportInfo,
+)
+from konpy.python_ast._structure_shared import SourcePosition
+
 ExportKind = Literal["function", "class", "protocol", "const", "type", "re-export"]
 DeclarationSymbolKind = Literal["function", "class", "protocol", "type", "const"]
 NonBarrelStatementKind = Literal["declaration", "expression"]
 DocstringTargetKind = Literal["module", "class", "function"]
-
-
-@dataclass(frozen=True, kw_only=True)
-class SourcePosition:
-    """A 1-based line/column location in a source file."""
-
-    column: int
-    line: int
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -52,7 +52,7 @@ class ImportInfo:
 
 @dataclass(frozen=True, kw_only=True)
 class DeclarationSymbolInfo:
-    """A top-level function, class, type, or constant declaration."""
+    """A top-level function, class, protocol, type, or constant declaration."""
 
     is_default_export: bool
     is_exported: bool
@@ -250,17 +250,24 @@ class PyFileStructure:
     non_barrel_statements: tuple[NonBarrelStatementInfo, ...]
     string_literals: tuple[StringLiteralInfo, ...]
     type_aliases: tuple[TypeAliasInfo, ...]
+    decorators: tuple[DecoratorInfo, ...]
+    call_sites: tuple[CallSiteInfo, ...]
+    base_class_refs: tuple[BaseClassRefInfo, ...]
+    scoped_imports: tuple[ScopedImportInfo, ...]
     all_names: tuple[str, ...] | None
     all_is_dynamic: bool
 
 
 __all__ = [
     "AnnotationTextOccurrenceInfo",
+    "BaseClassRefInfo",
+    "CallSiteInfo",
     "ClassAttributeInfo",
     "ClassInfo",
     "ConstantInfo",
     "DeclarationSymbolInfo",
     "DeclarationSymbolKind",
+    "DecoratorInfo",
     "DefaultExportSymbolInfo",
     "DocstringTargetInfo",
     "DocstringTargetKind",
@@ -278,6 +285,7 @@ __all__ = [
     "NonBarrelStatementKind",
     "ParamInfo",
     "PyFileStructure",
+    "ScopedImportInfo",
     "SourcePosition",
     "StringLiteralInfo",
     "TypeAliasInfo",

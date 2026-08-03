@@ -11,7 +11,6 @@ a `RawConfigV1`/`konpy.json`-shaped document.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
 
 from konpy.core.filesystem import FileSystem
 from konpy.infer.heuristics import (
@@ -144,7 +143,7 @@ def run_infer(
     )
 
 
-def build_pack(report: InferReport) -> dict[str, Any]:
+def build_pack(report: InferReport) -> dict[str, object]:
     """Build the `ReusableConventionsPackageV1`-shaped proposed pack.
 
     Deliberately mirrors `extract-rules`' output contract (see

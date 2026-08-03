@@ -99,6 +99,7 @@ def _process_import(node: ast.Import, collector: _Collector, *, is_type: bool) -
             from_=alias.name,
             level=0,
             is_type=is_type,
+            is_module_import=True,
             pos=pos,
         )
         _maybe_add_import_reexport(collector, bound_name)
@@ -129,6 +130,7 @@ def _process_import_from(
             from_=from_,
             level=node.level,
             is_type=is_type,
+            is_module_import=False,
             pos=pos,
         )
         _maybe_add_import_reexport(collector, bound_name)
@@ -142,6 +144,7 @@ def _record_import_binding(
     from_: str,
     level: int,
     is_type: bool,
+    is_module_import: bool,
     pos: SourcePosition,
 ) -> None:
     collector.import_bindings[bound_name] = _ImportBinding(
@@ -150,6 +153,7 @@ def _record_import_binding(
         from_=from_,
         level=level,
         is_type=is_type,
+        is_module_import=is_module_import,
         pos=pos,
     )
 

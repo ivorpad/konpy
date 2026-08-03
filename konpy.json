@@ -36,14 +36,34 @@
       "must": {
         "export": ["check_${module}"]
       }
-    },
-    {
-      "name": "core-independent-of-cli",
-      "description": "Engine layers never import the CLI.",
-      "paths": ["src/konpy/core/*.py", "src/konpy/config/*.py", "src/konpy/python_ast/*.py"],
-      "mustNot": {
-        "importFrom": "konpy.cli"
-      }
     }
-  ]
+  ],
+  "verify": {
+    "steps": [
+      {
+        "name": "schema-freshness",
+        "run": ["python", "scripts/generate_schema.py", "--check"]
+      },
+      {
+        "name": "guidance-freshness",
+        "run": ["python", "scripts/verify", "guidance", "--check"]
+      },
+      { "name": "ruff", "run": ["ruff", "check"] },
+      { "name": "basedpyright", "run": ["basedpyright"] },
+      { "name": "import-linter", "run": ["lint-imports"] },
+      {
+        "name": "konpy-validate",
+        "run": ["python", "-m", "konpy", "validate", "--config-path", "konpy.json"]
+      },
+      {
+        "name": "konpy-validate-strict",
+        "run": ["python", "-m", "konpy", "validate", "--config-path", "konpy.strict.json"]
+      },
+      {
+        "name": "konpy-strict",
+        "run": ["python", "-m", "konpy", "check", "--config-path", "konpy.strict.json"]
+      },
+      { "name": "pytest", "run": ["python", "-m", "pytest", "-q"] }
+    ]
+  }
 }

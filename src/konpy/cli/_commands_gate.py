@@ -70,6 +70,40 @@ def gate(
             help="Maximum number of diagnostics to report when blocking.",
         ),
     ] = 100,
+    fail_closed: Annotated[
+        bool,
+        typer.Option(
+            "--fail-closed",
+            help=(
+                "Block the write when deterministic verification cannot run, "
+                "instead of failing open."
+            ),
+        ),
+    ] = False,
+    baseline: Annotated[
+        str | None,
+        typer.Option(
+            "--baseline",
+            help=(
+                "Path to the baseline file. Defaults to konpy.baseline.json next "
+                "to the resolved config file. Pre-existing baselined violations "
+                "never block a proposed write; new ones still do."
+            ),
+        ),
+    ] = None,
+    ruff: Annotated[
+        bool,
+        typer.Option(
+            "--ruff",
+            help=(
+                "Also run `ruff check` against every proposed .py write, using "
+                "the target repo's own ruff config. Findings block like any "
+                "other verified violation. A missing ruff executable follows "
+                "the same fail-open/--fail-closed contract as any other "
+                "verification-unavailable case."
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Run a deterministic Claude Code PreToolUse gate against proposed content."""
     if ctx.args:
@@ -86,6 +120,9 @@ def gate(
         error_on_warnings=error_on_warnings,
         placeholder=placeholder,
         max_diagnostics=max_diagnostics,
+        fail_closed=fail_closed,
+        baseline=baseline,
+        ruff=ruff,
     )
     if exit_code != 0:
         raise typer.Exit(exit_code)

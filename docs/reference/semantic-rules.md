@@ -1,6 +1,8 @@
 # Semantic rules
 
-Semantic rules are single-file checks that need judgment rather than a structural predicate. They are consumed by `konpy hook --rules FILE`.
+Semantic rules are single-file checks that need judgment rather than a structural predicate. They are consumed by `konpy review --rules FILE` (advisory) or the deprecated `konpy hook --rules FILE` (blocking).
+
+**The boundary:** semantic review can produce findings. Only a committed deterministic policy or test can produce a verification failure. A semantic rule is a model's opinion about one file; treat its output as review feedback, not as ground truth to gate a write on. If a semantic rule's finding recurs and turns out to matter every time, that's the signal to write a deterministic `konpy.json` convention or a test for it — see [The ratchet](../guides/ratchet.md).
 
 Examples include:
 
@@ -51,31 +53,31 @@ A rule prompt must be self-contained. It must not require the verifier to read t
 
 ## Four-lane routing
 
-`konpy extract-rules` and `konpy hook-propose` route each source rule into one lane:
+`konpy extract-rules` and `konpy hook-propose` route each source rule into one lane, checking tool ownership in order:
 
-1. **Covered elsewhere:** an established Ruff or mypy rule already checks it.
+1. **Covered elsewhere:** Ruff, the active type checker, Import Linter, or pytest already owns the check. See [Import boundaries](../guides/import-boundaries.md) for why a resolved-import-architecture rule routes to Import Linter rather than a konpy predicate.
 2. **Structural:** built-in konpy predicates and placeholders can express it.
 3. **Semantic:** a read-only agent can judge it by inspecting one changed file.
 4. **Unmapped:** it needs repository-wide, runtime, operational, or process knowledge.
 
-Each source rule belongs in one lane. Established Ruff or mypy checks should not be recreated as weak `matchContent` conventions.
+Each source rule belongs in one lane. A check already owned by an established tool should not be recreated as a weak `matchContent` convention.
 
 Structural rules are written as a [`ReusableConventionsPackageV1`](./reusable-conventions.md). Semantic rules are written as the package described on this page. Covered and unmapped rules appear in the routing report.
 
 ## Running semantic rules
 
-Run the hook with a semantic-rules package:
+Run `review` with a semantic-rules package:
 
 ```bash
-konpy hook \
+konpy review \
   --agent claude \
   --match 'src/**/*.py' \
   --rules packs/team-style.rules.json
 ```
 
-`--match` is the hook-level prefilter. After a target path passes that filter, konpy selects rules whose own `match` globs match the path.
+`konpy hook --rules` takes the identical flag and file format if you're on the deprecated blocking path. `--match` is the prefilter. After a target path passes that filter, konpy selects rules whose own `match` globs match the path.
 
-If no semantic rule applies, the hook exits `0` without resolving or spawning the agent.
+If no semantic rule applies, the command exits `0` without resolving or spawning the agent.
 
 ## Batched verification
 
@@ -120,19 +122,21 @@ Verification failed for src/service.py without a rule-specific reason.
 
 ## Output and exit codes
 
-Failed reasons are written to stderr:
+Finding reasons are written to stderr either way:
 
 ```text
 contextual-errors: The ValueError does not identify which account operation failed.
 ```
 
+`konpy review` also emits one `additionalContext` JSON object on stdout summarizing every finding — see [`review`](./cli.md#review).
+
 | Exit | Meaning |
 | --- | --- |
-| `0` | Pass, or skip because no tool, path, or semantic rule applies. |
-| `1` | Configuration or infrastructure failure, including an invalid rules file or invalid verifier response. |
-| `2` | Verified semantic-rule failure. |
+| `0` | `review`: pass, skip, a review finding, or an unavailable model. `hook`: pass, or skip because no tool, path, or semantic rule applies. |
+| `1` | Local misconfiguration or infrastructure failure, including an invalid rules file or invalid verifier response. |
+| `2` | `hook` only, never `review`: a rule failure. |
 
-Exit `2` is reserved for verified failures.
+A review finding is not a verification failure — it's the model's opinion on one file, reported for a human or the writing agent to act on. Only the deprecated `konpy hook` turns that opinion into exit `2`.
 
 ## Findings and promotion
 
@@ -159,7 +163,7 @@ The `rule` field is optional. Older single-prompt findings remain readable.
 
 ## Relationship to reusable conventions
 
-Reusable conventions are deterministic structural checks consumed through `konpy.json`. Semantic rules are agent instructions consumed only by `konpy hook --rules`.
+Reusable conventions are deterministic structural checks consumed through `konpy.json`. Semantic rules are agent instructions consumed only by `konpy review --rules` (or `konpy hook --rules`).
 
 Use reusable conventions when a predicate can express the check. Use semantic rules when one-file inspection is enough but judgment is required.
 
@@ -168,5 +172,6 @@ See also:
 - [Reusable conventions](./reusable-conventions.md)
 - [Reusable packs](./packs.md)
 - [Extracting rules from prose](../guides/extracting-rules.md)
+- [Import boundaries](../guides/import-boundaries.md)
 - [Agentic verification hooks](../guides/hooks.md)
 - [The ratchet](../guides/ratchet.md)

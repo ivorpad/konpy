@@ -9,8 +9,22 @@ import pytest
 from typer.testing import CliRunner
 
 from konpy.cli.app import app
+from konpy.core._report_tools import ReportToolLane
 
 runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _skip_external_tool_lanes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stub out the real ruff/basedpyright/import-linter subprocesses.
+
+    These tests exercise the report's assembly/rendering pipeline, not
+    external-tool integration -- that's covered directly, with fake runners,
+    in test_report_tools.py. Skipping the real subprocesses keeps this suite
+    fast and independent of what happens to be on PATH.
+    """
+    monkeypatch.setattr("konpy.core.report.collect_tool_lanes", lambda root, **_: ())
+
 
 _DUPLICATE_FUNCTION = (
     "def {name}(values: list[int]) -> int:\n"
@@ -33,7 +47,9 @@ class TestReportCommand:
 
         assert result.exit_code == 0
         assert "konpy report" in result.output
-        assert "no konpy.json found" in result.output
+        assert "no konpy.json — built-in defaults" in result.output
+        assert "defaults clean" in result.output
+        assert "konpy init" in result.output
 
     def test_report_surfaces_duplication_and_unused_code(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -54,7 +70,8 @@ class TestReportCommand:
 
         assert result.exit_code == 0
         assert "a very repeatable literal" in result.output
-        assert "Duplicate function implementations (1 groups)" in result.output
+        assert "Duplicate function implementations (1 group)" in result.output
+        assert "1 duplicate-function group\n" in result.output
         assert "sum_alpha" in result.output
         assert 'Unused definition "dead"' in result.output
 
@@ -298,3 +315,121 @@ class TestReportCommand:
         assert result.exit_code == 0
         assert "konpy.json is invalid" in result.output
         assert "Coverage" in result.output
+
+
+class TestExternalToolLanesWiring:
+    """End-to-end: `collect_tool_lanes`'s result reaches real CLI output.
+
+    The other tests in this module stub `collect_tool_lanes` to `()` for
+    speed (see `_skip_external_tool_lanes` above); this class overrides that
+    stub per-test to prove the full assemble_report -> render_report -> CLI
+    path actually surfaces what the tool lanes collect. Real subprocess
+    integration is covered by `uv run konpy` in practice and isn't
+    re-exercised here.
+    """
+
+    def test_tool_lane_findings_appear_in_report_output(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(
+            "konpy.core.report.collect_tool_lanes",
+            lambda root, **_: (
+                ReportToolLane(
+                    name="ruff",
+                    status="ok",
+                    findings=2,
+                    top_items=("E501 x2  line too long",),
+                    note=None,
+                    duration_ms=5.0,
+                ),
+                ReportToolLane(
+                    name="basedpyright",
+                    status="not-installed",
+                    findings=0,
+                    top_items=(),
+                    note='pip install "konpy[quality]"',
+                    duration_ms=0.0,
+                ),
+                ReportToolLane(
+                    name="import-linter",
+                    status="no-config",
+                    findings=0,
+                    top_items=(),
+                    note="no contracts configured -- see docs/guides/import-boundaries.md",
+                    duration_ms=0.0,
+                ),
+            ),
+        )
+
+        result = runner.invoke(app, ["report"])
+
+        assert result.exit_code == 0
+        assert "External tools" in result.output
+        assert "ruff: 2 findings" in result.output
+        assert "E501 x2  line too long" in result.output
+        assert 'basedpyright: not installed -- pip install "konpy[quality]"' in result.output
+        assert "import-linter: no config -- no contracts configured" in result.output
+
+
+class TestDefaultConventionsLane:
+    def test_default_trio_fires_without_config(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        pkg = tmp_path / "src" / "pkg"
+        pkg.mkdir(parents=True)
+        (pkg / "__init__.py").write_text(
+            "def business_logic():\n    return 1\n", encoding="utf-8"
+        )
+        (pkg / "loose.py").write_text(
+            "from typing import Any\n\nvalue: Any = 1\n", encoding="utf-8"
+        )
+        (pkg / "huge.py").write_text("x = 1\n" * 301, encoding="utf-8")
+
+        result = runner.invoke(app, ["report"])
+
+        assert result.exit_code == 0, result.output
+        assert "no konpy.json — built-in defaults" in result.output
+        assert "[init-files-are-barrels]" in result.output
+        assert "[no-typing-any]" in result.output
+        assert "[max-module-length]" in result.output
+        assert "advisory — exit code unaffected" in result.output
+        assert "defaults 3 findings" in result.output
+
+    def test_default_lane_exempts_tests_and_vendored_trees(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        (tests_dir / "test_any.py").write_text(
+            "from typing import Any\n\nvalue: Any = 1\n", encoding="utf-8"
+        )
+        build_dir = tmp_path / "build" / "lib"
+        build_dir.mkdir(parents=True)
+        (build_dir / "huge.py").write_text("x = 1\n" * 301, encoding="utf-8")
+
+        result = runner.invoke(app, ["report"])
+
+        assert result.exit_code == 0, result.output
+        assert "defaults clean" in result.output
+        assert "[no-typing-any]" not in result.output
+        assert "[max-module-length]" not in result.output
+
+    def test_config_present_suppresses_the_default_lane(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "konpy.json").write_text(
+            '{"version": "v1", "conventions": []}\n', encoding="utf-8"
+        )
+        (tmp_path / "loose.py").write_text(
+            "from typing import Any\n\nvalue: Any = 1\n", encoding="utf-8"
+        )
+
+        result = runner.invoke(app, ["report"])
+
+        assert result.exit_code == 0, result.output
+        assert "built-in defaults" not in result.output
+        assert "[no-typing-any]" not in result.output

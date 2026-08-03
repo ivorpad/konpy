@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import os
 import sys
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 
 from konpy.cli._hook_findings import HookFinding, append_hook_finding
 from konpy.cli._hook_prompt_run import run_prompt_verifications
 from konpy.cli._hook_rules_run import run_rules_verifications
+from konpy.cli._hook_shared import resolve_hook_target
 from konpy.cli._hook_support import (
     CLAUDE_WRITE_TOOLS,
     CODEX_WRITE_TOOLS,
@@ -19,12 +20,12 @@ from konpy.cli._hook_support import (
     build_rules_hook_prompt,
     extract_target_paths,
     hook_child_args,
-    parse_hook_payload,
     parse_rules_verdict,
     parse_verdict,
     path_matches_any,
 )
-from konpy.cli._semantic_rules import SemanticRuleV1, read_semantic_rules
+from konpy.cli._review_outcome import ReviewStatus
+from konpy.cli._semantic_rules import read_semantic_rules
 from konpy.cli.agent_runner import (
     DEFAULT_MODEL,
     AgentInvocation,
@@ -38,6 +39,13 @@ from konpy.config.errors import Err, Ok, Result
 
 SENTINEL_ENV = "KONPY_HOOK_ACTIVE"
 DEFAULT_TIMEOUT = 300.0
+
+_HOOK_EXIT_CODES: dict[ReviewStatus, int] = {
+    "pass": 0,
+    "findings": 2,
+    "unavailable": 1,
+    "invalid-response": 1,
+}
 
 
 def run_hook_command(
@@ -82,31 +90,16 @@ def run_hook_command(
         rules_package = rules_result.value
 
     raw_stdin = stdin_text if stdin_text is not None else sys.stdin.read()
-    payload = parse_hook_payload(raw_stdin)
-    if payload is None:
+    target = resolve_hook_target(
+        raw_stdin=raw_stdin,
+        match=match,
+        rules_package=rules_package,
+    )
+    if target is None:
         return 0
-    if payload.tool_name not in (CLAUDE_WRITE_TOOLS | CODEX_WRITE_TOOLS):
-        return 0
-
-    target_paths = extract_target_paths(payload)
-    matched_paths = [
-        path for path in target_paths if path_matches_any(path, match)
-    ]
-    if not matched_paths:
-        return 0
-
-    batches: list[tuple[str, list[SemanticRuleV1]]] = []
-    if rules_package is not None:
-        for path in _dedupe_paths(matched_paths):
-            applicable = [
-                rule
-                for rule in rules_package.rules
-                if path_matches_any(path, rule.match)
-            ]
-            if applicable:
-                batches.append((path, applicable))
-        if not batches:
-            return 0
+    payload = target.payload
+    matched_paths = target.matched_paths
+    batches = target.batches
 
     invocation_result: Result[AgentInvocation]
     if runner is None:
@@ -129,7 +122,7 @@ def run_hook_command(
         )
 
     if rules_package is None:
-        return run_prompt_verifications(
+        outcome = run_prompt_verifications(
             paths=matched_paths,
             prompt=prompt or "",
             payload=payload,
@@ -140,19 +133,25 @@ def run_hook_command(
             run_verifier=run_verifier,
             append_finding=append_hook_finding,
             write_error=_write_error,
+            stop_on_first_failure=True,
+            command_name="hook",
+        )
+    else:
+        outcome = run_rules_verifications(
+            batches=batches,
+            payload=payload,
+            invocation=invocation,
+            agent_value=agent_value,
+            model=model,
+            log_path=log_path,
+            run_verifier=run_verifier,
+            append_finding=append_hook_finding,
+            write_error=_write_error,
+            stop_on_first_failure=True,
+            command_name="hook",
         )
 
-    return run_rules_verifications(
-        batches=batches,
-        payload=payload,
-        invocation=invocation,
-        agent_value=agent_value,
-        model=model,
-        log_path=log_path,
-        run_verifier=run_verifier,
-        append_finding=append_hook_finding,
-        write_error=_write_error,
-    )
+    return _HOOK_EXIT_CODES[outcome.status]
 
 
 def _run_hook_agent(
@@ -188,10 +187,6 @@ def _normalize_hook_agent(agent: HookAgent | str | None) -> Result[str]:
     if value in {HookAgent.CLAUDE.value, HookAgent.CODEX.value}:
         return Ok(value)
     return Err(f'Invalid agent "{value}". Expected one of: claude, codex.')
-
-
-def _dedupe_paths(paths: Sequence[str]) -> list[str]:
-    return list(dict.fromkeys(paths))
 
 
 def _write_error(message: str) -> None:

@@ -46,7 +46,11 @@ def run_explain_command(
         return 1
 
     resolved_format = format.value if isinstance(format, ExplainFormat) else format
-    rendered = render_explain(loaded_result.value.config, format=resolved_format)  # type: ignore[arg-type]
+    rendered = render_explain(
+        loaded_result.value.config,
+        format=resolved_format,  # type: ignore[arg-type]
+        predicate_registry=loaded_result.value.predicate_registry,
+    )
 
     sys.stdout.write(rendered)
     sys.stdout.write("\n")

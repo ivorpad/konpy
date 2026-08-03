@@ -9,6 +9,7 @@ from konpy.python_ast._assignments import (
 )
 from konpy.python_ast._classes import _process_class
 from konpy.python_ast._collector import _add_module_docstring_target, _Collector
+from konpy.python_ast._dotted_refs import _collect_dotted_refs
 from konpy.python_ast._dunder_all import _collect_all_state
 from konpy.python_ast._function_fingerprints import _collect_function_fingerprints
 from konpy.python_ast._functions import _process_function
@@ -55,6 +56,7 @@ def parse_file_structure(source: str, file_path: str = "<unknown>") -> PyFileStr
             _process_assignment(node, collector)
 
     _classify_non_barrel_statements(module.body, collector, aliases)
+    _collect_dotted_refs(module, collector, aliases)
     return _finalize_structure(collector)
 
 
@@ -77,6 +79,10 @@ def _empty_file_structure() -> PyFileStructure:
         non_barrel_statements=(),
         string_literals=(),
         type_aliases=(),
+        decorators=(),
+        call_sites=(),
+        base_class_refs=(),
+        scoped_imports=(),
         all_names=None,
         all_is_dynamic=False,
     )
@@ -106,6 +112,10 @@ def _finalize_structure(collector: _Collector) -> PyFileStructure:
         non_barrel_statements=tuple(collector.non_barrel_statements),
         string_literals=tuple(collector.string_literals),
         type_aliases=tuple(collector.type_aliases),
+        decorators=tuple(collector.decorators),
+        call_sites=tuple(collector.call_sites),
+        base_class_refs=tuple(collector.base_class_refs),
+        scoped_imports=tuple(collector.scoped_imports),
         all_names=all_names,
         all_is_dynamic=collector.all_state.is_dynamic,
     )

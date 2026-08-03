@@ -41,7 +41,8 @@ def test_prompt_embeds_four_lane_contract_routing_and_evidence() -> None:
     assert '"coveredElsewhere"' in prompt
     assert '"unmapped"' in prompt
     assert "Routing order:" in prompt
-    assert "Ruff or mypy" in prompt
+    assert "Ruff owns lint-level concerns" in prompt
+    assert "Import Linter owns resolved dependency architecture" in prompt
     assert "read-only agent can verify" in prompt
     assert "Every source rule must land in exactly one" in prompt
     assert "self-contained verification instruction" in prompt

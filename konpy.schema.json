@@ -1287,6 +1287,50 @@
           ],
           "default": null,
           "title": "Restrictduplicatefunctions"
+        },
+        "restrictDecorators": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RestrictDecoratorsOptionsV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "restrictBaseClasses": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RestrictBaseClassesOptionsV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "restrictCalls": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RestrictCallsOptionsV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "restrictImports": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RestrictImportsOptionsV1"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "title": "MustPredicatesV1",
@@ -1517,6 +1561,133 @@
       "title": "RestrictAnnotationsOptionsV1",
       "type": "object"
     },
+    "RestrictBaseClassesOptionsV1": {
+      "additionalProperties": false,
+      "description": "Options for the ``restrictBaseClasses`` predicate.",
+      "properties": {
+        "forbid": {
+          "description": "Star-pattern base class paths to forbid (written or resolved form).",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Forbid",
+          "type": "array"
+        },
+        "allow": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Star-pattern base class paths that override a forbid match.",
+          "title": "Allow"
+        }
+      },
+      "required": [
+        "forbid"
+      ],
+      "title": "RestrictBaseClassesOptionsV1",
+      "type": "object"
+    },
+    "RestrictCallsOptionsV1": {
+      "additionalProperties": false,
+      "description": "Options for the ``restrictCalls`` predicate.",
+      "properties": {
+        "forbid": {
+          "description": "Star-pattern callee paths to forbid (written or resolved form).",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Forbid",
+          "type": "array"
+        },
+        "allow": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Star-pattern callee paths that override a forbid match.",
+          "title": "Allow"
+        },
+        "scope": {
+          "default": "any",
+          "description": "When \"module\", only check call sites that run at import time: module-level statements and class-body statements (class bodies execute when the class is defined). When \"any\", check calls at every scope, including inside function bodies.",
+          "enum": [
+            "any",
+            "module"
+          ],
+          "title": "Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "forbid"
+      ],
+      "title": "RestrictCallsOptionsV1",
+      "type": "object"
+    },
+    "RestrictDecoratorsOptionsV1": {
+      "additionalProperties": false,
+      "description": "Options for the ``restrictDecorators`` predicate.",
+      "properties": {
+        "forbid": {
+          "description": "Star-pattern decorator paths to forbid (written or resolved form).",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Forbid",
+          "type": "array"
+        },
+        "allow": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Star-pattern decorator paths that override a forbid match.",
+          "title": "Allow"
+        }
+      },
+      "required": [
+        "forbid"
+      ],
+      "title": "RestrictDecoratorsOptionsV1",
+      "type": "object"
+    },
     "RestrictDuplicateFunctionsOptionsV1": {
       "additionalProperties": false,
       "description": "Options for the ``restrictDuplicateFunctions`` predicate.",
@@ -1576,6 +1747,62 @@
         }
       },
       "title": "RestrictFileLengthOptionsV1",
+      "type": "object"
+    },
+    "RestrictImportsOptionsV1": {
+      "additionalProperties": false,
+      "description": "Options for the ``restrictImports`` predicate.",
+      "properties": {
+        "forbid": {
+          "description": "Star-pattern import paths to forbid, matched against the import's source module or its full symbol path.",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Forbid",
+          "type": "array"
+        },
+        "allow": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Star-pattern import paths that override a forbid match.",
+          "title": "Allow"
+        },
+        "scope": {
+          "default": "any",
+          "description": "Restrict which imports are checked by where they execute: \"module\" for top-level imports only, \"function\" for imports nested inside a function body only, or \"any\" for both.",
+          "enum": [
+            "any",
+            "module",
+            "function"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
+        "includeTypeChecking": {
+          "default": false,
+          "description": "When false (the default), imports guarded by `if TYPE_CHECKING:` are skipped. Set true to check them too.",
+          "title": "Includetypechecking",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "forbid"
+      ],
+      "title": "RestrictImportsOptionsV1",
       "type": "object"
     },
     "RestrictRepeatedLiteralsOptionsV1": {
@@ -1746,6 +1973,57 @@
       },
       "title": "UnusedCodeV1",
       "type": "object"
+    },
+    "VerifyConfigV1": {
+      "additionalProperties": false,
+      "description": "Optional ``verify`` roster config, run by ``konpy verify``.\n\nA child config's ``verify`` section replaces its parent's wholesale under\n``extends`` -- unlike ``unusedCode``, whose individual fields merge one by\none -- because this model has a single list field, and the generic\ninheritance merge never merges list values, only replaces them.",
+      "properties": {
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/VerifyStepV1"
+          },
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "steps"
+      ],
+      "title": "VerifyConfigV1",
+      "type": "object"
+    },
+    "VerifyStepV1": {
+      "additionalProperties": false,
+      "description": "One named step in a ``konpy verify`` roster, run to completion in order.",
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "run": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Run",
+          "type": "array"
+        },
+        "timeout": {
+          "default": 1800,
+          "minimum": 1,
+          "title": "Timeout",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "run"
+      ],
+      "title": "VerifyStepV1",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -1882,6 +2160,17 @@
       "anyOf": [
         {
           "$ref": "#/$defs/UnusedCodeV1"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "verify": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VerifyConfigV1"
         },
         {
           "type": "null"

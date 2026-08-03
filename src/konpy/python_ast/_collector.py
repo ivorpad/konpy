@@ -5,13 +5,17 @@ from dataclasses import dataclass, field
 
 from konpy.python_ast._dunder_all import _AllState, _is_public
 from konpy.python_ast.structure import (
+    BaseClassRefInfo,
+    CallSiteInfo,
     ClassAttributeInfo,
     ClassInfo,
     ConstantInfo,
     DeclarationSymbolInfo,
     DeclarationSymbolKind,
+    DecoratorInfo,
     DefaultExportSymbolInfo,
     DocstringTargetInfo,
+    DocstringTargetKind,
     ExportInfo,
     ExportKind,
     FunctionAnnotationInfo,
@@ -22,6 +26,7 @@ from konpy.python_ast.structure import (
     InterfaceInfo,
     NamedExportSymbolInfo,
     NonBarrelStatementInfo,
+    ScopedImportInfo,
     SourcePosition,
     StringLiteralInfo,
     TypeAliasInfo,
@@ -35,6 +40,7 @@ class _ImportBinding:
     from_: str
     level: int
     is_type: bool
+    is_module_import: bool
     pos: SourcePosition
 
 
@@ -58,6 +64,10 @@ class _Collector:
     non_barrel_statements: list[NonBarrelStatementInfo] = field(default_factory=list)
     string_literals: list[StringLiteralInfo] = field(default_factory=list)
     type_aliases: list[TypeAliasInfo] = field(default_factory=list)
+    decorators: list[DecoratorInfo] = field(default_factory=list)
+    call_sites: list[CallSiteInfo] = field(default_factory=list)
+    base_class_refs: list[BaseClassRefInfo] = field(default_factory=list)
+    scoped_imports: list[ScopedImportInfo] = field(default_factory=list)
     import_bindings: dict[str, _ImportBinding] = field(default_factory=dict)
     _export_keys: set[tuple[str, str | None, bool, ExportKind]] = field(
         default_factory=set
@@ -90,7 +100,7 @@ def _add_module_docstring_target(module: ast.Module, collector: _Collector) -> N
 def _add_docstring_target(
     collector: _Collector,
     *,
-    kind: str,
+    kind: DocstringTargetKind,
     name: str,
     qualified_name: str,
     is_public: bool,

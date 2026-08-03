@@ -2,22 +2,45 @@
 
 ## The loop
 
-The ratchet turns verified hook failures into reviewable proposals:
+The ratchet turns review findings into reviewable proposals:
 
-1. `konpy hook --log` records verified failures.
+1. `konpy review --log` records findings.
 2. `konpy hook-propose` groups recurring prompts.
 3. The proposal agent routes them into structural, semantic, covered, and unmapped lanes.
 4. A human reviews each artifact.
-5. Accepted structural rules enter `konpy.json`; accepted semantic rules remain in a `hook --rules` package.
+5. Accepted structural rules enter `konpy.json`; accepted semantic rules remain in a `review --rules` package.
 
-Not every semantic rule can become deterministic. A recurring finding may remain semantic if no structural predicate expresses it.
+A model's opinion never promotes itself: no step here is automatic, and no finding blocks anything on its own. Not every semantic rule can become deterministic, either — a recurring finding may remain semantic if no structural predicate expresses it.
+
+## A second ratchet: the baseline file
+
+The loop above needs an agent to run at all. `konpy check --write-baseline` needs none: it's a deterministic ratchet for turning on a rule, or a whole stricter config, against code that already violates it, without touching a line of source or waiting on a review pass.
+
+Brownfield flow: adopt the strict config, record its current violations, commit the baseline, wire CI to the pair.
+
+```bash
+konpy check --config-path konpy.strict.json --write-baseline --baseline konpy.strict.baseline.json
+git add konpy.strict.json konpy.strict.baseline.json
+```
+
+CI then runs:
+
+```bash
+konpy check --config-path konpy.strict.json --baseline konpy.strict.baseline.json
+```
+
+and fails only on violations the baseline didn't already know about. Fix debt at your own pace; each fix leaves its `(file, convention)` baseline entry stale, and `check` prints a warning naming it, not a failure, since penalizing the moment debt goes down would be backwards. Run `--write-baseline` again to lower the floor and clear the warning.
+
+Neither ratchet can raise the bar silently. A baseline that would need a higher count than what's recorded prints `baseline: raised <file>/<convention> from X to Y` on `--write-baseline`, the same way a `hook-propose` pack never installs itself into `konpy.json`. The two compose: the baseline adopts a rule cleanly on day one against code you haven't touched yet; the findings-log loop above discovers rules you don't have at all.
+
+Full flag reference: [`check`, Baseline and the ratchet](../reference/cli.md#baseline-and-the-ratchet).
 
 ## Turning on logging
 
 Prompt mode:
 
 ```bash
-konpy hook \
+konpy review \
   --agent claude \
   --match 'src/**/*.py' \
   --prompt 'Verify that docstrings match implemented behavior.' \
@@ -27,22 +50,21 @@ konpy hook \
 Rules mode:
 
 ```bash
-konpy hook \
+konpy review \
   --agent claude \
   --match '**/*.py' \
   --rules packs/team-style.rules.json \
   --log .konpy/hook-findings.jsonl
 ```
 
-Logging is fail-open. Exit codes remain:
+`konpy hook --log` writes the same log if you're still on the deprecated blocking command — just swap `review` for `hook` above.
 
-- `0`: pass or skip;
-- `1`: configuration or infrastructure error;
-- `2`: verified failure.
+Logging is fail-open either way. `review` never turns a finding into a nonzero exit (`0` pass/skip/finding, `1` local misconfiguration only); the deprecated `hook` still reserves exit `2` for a fail verdict.
 
-A log write error is printed after verifier feedback:
+A log write error is printed after verifier feedback, named after whichever command produced it:
 
 ```text
+konpy review: --log warning: <detail>
 konpy hook: --log warning: <detail>
 ```
 
@@ -175,8 +197,8 @@ The proposal agent returns:
 A finding may become:
 
 - a structural reusable convention;
-- a semantic rule that remains in hook verification;
-- a Ruff or mypy recommendation;
+- a semantic rule that remains in `review` (or `hook`) verification;
+- a Ruff, type-checker, or Import Linter recommendation;
 - an unmapped item when the evidence is insufficient or the rule needs broader context.
 
 The evidence rubric treats a single occurrence as weak evidence unless its reasons identify a clear general pattern.
@@ -205,7 +227,7 @@ Review the structural pack and semantic rules separately.
 For a structural proposal:
 
 1. Confirm the paths and predicates match the evidence.
-2. Remove rules already handled by Ruff or mypy.
+2. Remove rules already handled by Ruff, your type checker, or Import Linter.
 3. Add accepted rules through `conventionSources`.
 
 For a semantic proposal:
@@ -213,7 +235,7 @@ For a semantic proposal:
 1. Confirm the prompt can be judged from one file.
 2. Narrow the `match` globs.
 3. Keep the prompt self-contained.
-4. Add the rules package to the hook command.
+4. Add the rules package to the `review` command.
 
 Example structural wiring:
 
@@ -232,13 +254,13 @@ Example structural wiring:
 Example semantic wiring:
 
 ```bash
-konpy hook \
+konpy review \
   --agent claude \
   --match '**/*.py' \
   --rules packs/ratcheted.rules.json
 ```
 
-`hook-propose` never edits `konpy.json` or hook settings.
+`hook-propose` never edits `konpy.json` or the hook/review wiring.
 
 ## Suppressions
 

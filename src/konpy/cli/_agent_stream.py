@@ -150,8 +150,9 @@ def claude_stream_result(stdout: str) -> str:
         event = _decode_event(line)
         if event is None:
             continue
-        if event.get("type") == "result" and isinstance(event.get("result"), str):
-            result_text = event["result"]
+        result_value = event.get("result")
+        if event.get("type") == "result" and isinstance(result_value, str):
+            result_text = result_value
         elif event.get("type") == "assistant":
             assistant_texts.extend(
                 text for text, _is_tool in _claude_message_parts(event)

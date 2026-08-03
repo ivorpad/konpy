@@ -55,7 +55,7 @@ def _collect_usages_recursively(
 
 def _collect_usages_in_definition_list(
     *,
-    list_: Sequence[object] | None,
+    list_: object,
     key: str,
     object_fields: Sequence[str],
     declared: set[str],
@@ -64,7 +64,7 @@ def _collect_usages_in_definition_list(
     extend_field: bool = False,
     implement_field: bool = False,
 ) -> None:
-    if list_ is None:
+    if not isinstance(list_, Sequence) or isinstance(list_, str | bytes | bytearray):
         return
 
     for entry in list_:
@@ -94,8 +94,9 @@ def _collect_usages_in_definition_list(
                 usages=usages,
             )
 
-        if implement_field and isinstance(entry_data.get("implement"), list):
-            for item in entry_data["implement"]:
+        implement_value = entry_data.get("implement")
+        if implement_field and isinstance(implement_value, list):
+            for item in implement_value:
                 _collect_extend_usages(value=item, key=key, declared=declared, usages=usages)
 
 

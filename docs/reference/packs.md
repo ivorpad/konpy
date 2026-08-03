@@ -2,7 +2,7 @@
 
 The repository ships reusable structural convention packs under [`packs/`](../../packs/). Each is a `ReusableConventionsPackageV1` loaded through `conventionSources`.
 
-If a rule needs one-file judgment rather than a structural predicate, use a [semantic-rules package](./semantic-rules.md) instead. Semantic rules are consumed by `konpy hook --rules`, not `konpy.json`.
+If a rule needs one-file judgment rather than a structural predicate, use a [semantic-rules package](./semantic-rules.md) instead. Semantic rules are consumed by `konpy review --rules`, not `konpy.json`.
 
 ## `python-best-practices.json`
 
@@ -60,6 +60,8 @@ tests/use_cases/
 | `ports-are-protocols-or-abcs` | Port modules define `Protocol` or `ABC` classes | Define the boundary explicitly |
 | `adapters-export-adapter-suffix` | Adapter modules define `*Adapter` classes | Use the adapter suffix |
 | `use-cases-paired-with-tests` | Use cases have paired tests | Add the corresponding test |
+
+`domain-does-not-import-adapters-or-infrastructure` is a `matchContent` check on each domain file's own source text: it catches a domain module that imports `adapters`/`infrastructure` directly, not one that imports a third domain module that does. It's a direct, source-level check, not a resolved-graph one. For a contract that follows the import chain, use Import Linter — see [Import boundaries](../guides/import-boundaries.md).
 
 ## `src-layout.json`
 

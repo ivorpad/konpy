@@ -7,6 +7,7 @@ themselves.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from konpy.config._placeholder_predicate_usages import _collect_usages_in_predicates
@@ -74,7 +75,13 @@ def _collect_usages_in_block(
     if "for" in block:
         for_data = _to_alias_dict(block["for"])
         files = for_data["files"]
-        file_entries = [files] if isinstance(files, str) else files
+        file_entries: list[str]
+        if isinstance(files, str):
+            file_entries = [files]
+        elif isinstance(files, Sequence):
+            file_entries = [entry for entry in files if isinstance(entry, str)]
+        else:
+            file_entries = []
         for file_entry in file_entries:
             _add_declarations_from_string(value=file_entry, into=declared_here)
             _push_string_usages(
@@ -101,7 +108,8 @@ def _collect_usages_in_block(
                 usages=usages,
             )
 
-    for file_entry in block.get("excludeFiles", []):
+    exclude_files = block.get("excludeFiles", [])
+    for file_entry in exclude_files if isinstance(exclude_files, Sequence) else []:
         _push_string_usages(
             value=file_entry,
             key="must.excludeFiles",

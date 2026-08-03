@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 from konpy.cli._hook_findings import HookFinding
@@ -49,7 +49,7 @@ def aggregate_findings(
     return sorted(aggregated, key=lambda item: (-item.occurrences, item.prompt))
 
 
-def _dedupe_preserving_order(values: Sequence[str]) -> list[str]:
+def _dedupe_preserving_order(values: Iterable[str]) -> list[str]:
     seen: set[str] = set()
     deduped: list[str] = []
     for value in values:

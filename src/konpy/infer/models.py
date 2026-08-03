@@ -10,7 +10,6 @@ user-facing contract.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from konpy.python_ast.structure import PyFileStructure
 
@@ -39,7 +38,7 @@ class HeuristicSignal:
     total: int
     violators: list[str]
     convention_name: str
-    convention: dict[str, Any]
+    convention: dict[str, object]
     reason: str | None = None
 
 
@@ -64,7 +63,7 @@ class InferProposal:
     confidence: float
     violators: list[str]
     omitted_violators: int
-    convention: dict[str, Any]
+    convention: dict[str, object]
 
 
 @dataclass(frozen=True, kw_only=True)

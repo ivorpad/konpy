@@ -18,7 +18,7 @@ class RuleFailure(TypedDict):
 
 
 class RulesVerdict(TypedDict):
-    """Normalized batched semantic-rules verdict."""
+    """Parsed batched semantic-rules verdict."""
 
     verdict: Literal["pass", "fail"]
     failures: list[RuleFailure]
@@ -108,7 +108,9 @@ def parse_rules_verdict(stdout: str) -> RulesVerdict | None:
             }
         )
 
-    return {"verdict": verdict, "failures": failures}
+    if verdict == "pass":
+        return {"verdict": "pass", "failures": failures}
+    return {"verdict": "fail", "failures": failures}
 
 
 def normalize_rules_verdict(

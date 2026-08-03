@@ -112,3 +112,101 @@ class TestGateEndToEnd:
         assert exit_code == 0
         assert stdout == ""
         assert stderr == ""
+
+
+class TestGateFailClosedEndToEnd:
+    def test_fail_closed_broken_write_exits_two_with_json_diagnostics(
+        self,
+        tmp_path: Path,
+        run_cli_stdin,
+    ) -> None:
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        _write_config(project_dir)
+
+        exit_code, stdout, stderr = run_cli_stdin(
+            project_dir,
+            _write_payload(project_dir=project_dir, content="VALUE = 1\n"),
+            "gate",
+            "--match",
+            "src/**/*.py",
+            "--fail-closed",
+        )
+
+        parsed = json.loads(stderr)
+        diagnostic = parsed["diagnostics"][0]
+
+        assert exit_code == 2
+        assert stdout == ""
+        assert diagnostic["filePath"] == "src/service.py"
+        assert diagnostic["conventionName"] == "service-must-export-process"
+        assert parsed["summary"]["errors"] == 1
+
+    def test_fail_closed_unparseable_stdin_exits_two_with_verification_unavailable(
+        self,
+        tmp_path: Path,
+        run_cli_stdin,
+    ) -> None:
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        _write_config(project_dir)
+
+        exit_code, stdout, stderr = run_cli_stdin(
+            project_dir,
+            "not json",
+            "gate",
+            "--match",
+            "src/**/*.py",
+            "--fail-closed",
+        )
+
+        assert exit_code == 2
+        assert stdout == ""
+        assert stderr.startswith("konpy gate: verification unavailable: ")
+        assert stderr.rstrip("\n").endswith("(blocking: --fail-closed)")
+
+    def test_default_mode_unparseable_stdin_exits_zero(
+        self,
+        tmp_path: Path,
+        run_cli_stdin,
+    ) -> None:
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        _write_config(project_dir)
+
+        exit_code, stdout, stderr = run_cli_stdin(
+            project_dir,
+            "not json",
+            "gate",
+            "--match",
+            "src/**/*.py",
+        )
+
+        assert exit_code == 0
+        assert stdout == ""
+        assert stderr == ""
+
+    def test_fail_closed_conforming_write_exits_zero_silently(
+        self,
+        tmp_path: Path,
+        run_cli_stdin,
+    ) -> None:
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        _write_config(project_dir)
+
+        exit_code, stdout, stderr = run_cli_stdin(
+            project_dir,
+            _write_payload(
+                project_dir=project_dir,
+                content="def process():\n    return 1\n",
+            ),
+            "gate",
+            "--match",
+            "src/**/*.py",
+            "--fail-closed",
+        )
+
+        assert exit_code == 0
+        assert stdout == ""
+        assert stderr == ""

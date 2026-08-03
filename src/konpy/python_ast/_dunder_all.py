@@ -71,7 +71,7 @@ def _all_statement_literal_values(node: ast.stmt) -> list[str] | None:
         return _literal_string_sequence(node.value) if node.value is not None else None
     if isinstance(node, ast.AugAssign) and _is_all_augassign(node):
         return _literal_string_sequence(node.value)
-    if not _is_all_mutation_expr(node):
+    if not isinstance(node, ast.Expr) or not _is_all_mutation_expr(node):
         return None
 
     call = node.value

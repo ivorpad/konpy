@@ -2,16 +2,38 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from typing import Any, Literal, Self
+from typing import Literal, Protocol, Self, runtime_checkable
 
-from pydantic import ConfigDict, Field, ValidationInfo, field_validator, model_validator
+from pydantic import (
+    ConfigDict,
+    Field,
+    TypeAdapter,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
+from konpy.config._schema_predicates_restrict import (
+    RestrictBaseClassesOptionsV1,
+    RestrictCallsOptionsV1,
+    RestrictDecoratorsOptionsV1,
+    RestrictImportsOptionsV1,
+)
 from konpy.config._schema_types import (
     NonEmptyRegexList,
     NonEmptyString,
     _predicate_registry_from_context,
     _StrictModel,
 )
+
+
+@runtime_checkable
+class _PluginValueAdapterProvider(Protocol):
+    """Structural shape needed from a predicate registry to validate plugin
+    keys, checked via `isinstance` so this module never has to import the
+    concrete `konpy.predicates.registry.PredicateRegistry` at module level."""
+
+    plugin_value_adapters: Mapping[str, TypeAdapter[object]]
 
 
 class ExportDefinitionV1(_StrictModel):
@@ -206,6 +228,10 @@ class MustPredicatesV1(_StrictModel):
     restrictDuplicateFunctions: (
         Literal[True] | RestrictDuplicateFunctionsOptionsV1 | None
     ) = None
+    restrictDecorators: RestrictDecoratorsOptionsV1 | None = None
+    restrictBaseClasses: RestrictBaseClassesOptionsV1 | None = None
+    restrictCalls: RestrictCallsOptionsV1 | None = None
+    restrictImports: RestrictImportsOptionsV1 | None = None
 
     @field_validator("matchContent")
     @classmethod
@@ -231,11 +257,13 @@ class MustPredicatesV1(_StrictModel):
             return self
 
         registry = _predicate_registry_from_context(info.context)
-        adapters: Mapping[str, Any] = (
-            getattr(registry, "plugin_value_adapters", {}) if registry is not None else {}
+        adapters: Mapping[str, TypeAdapter[object]] = (
+            registry.plugin_value_adapters
+            if isinstance(registry, _PluginValueAdapterProvider)
+            else {}
         )
 
-        validated_extra: dict[str, Any] = {}
+        validated_extra: dict[str, object] = {}
         for key, value in extra.items():
             adapter = adapters.get(key)
             if adapter is None:

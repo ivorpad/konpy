@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 from pydantic import TypeAdapter
 
+from konpy.config.errors import Ok
+from konpy.config.plugin_loader import load_plugin_registry
 from konpy.config.schema import ConfigV1
 from konpy.core._runner_cross_file import RunCrossFileIndexCache
 from konpy.core._runner_matching import _build_case_maps, _prepare_block_evaluation
+from konpy.core.baseline import BaselineData
 from konpy.core.context import PredicateContext, build_context
 from konpy.core.diagnostics import Diagnostic, DiagnosticSeverity, create_diagnostic
 from konpy.core.filesystem import FakeFileSystem, FileSystem
@@ -20,6 +24,7 @@ from konpy.predicates.registry import (
     builtin_predicate_registry,
 )
 from konpy.python_ast.structure import PyFileStructure
+from tests.fake_distribution import install_fake_distribution
 
 
 def config(conventions: list[dict], **extra: object) -> ConfigV1:
@@ -1425,6 +1430,57 @@ class TestCaching:
         assert file_system.read_file_calls == ["src/index.py"]
 
 
+class TestRunUnusedCodeFlag:
+    """`run_unused_code=False` skips the whole-project unused-code scan
+    entirely -- the mechanism `konpy gate` relies on to stay fast by
+    default, since unusedCode findings are warnings and can't block unless
+    the caller also opts into `--error-on-warnings`."""
+
+    def test_default_still_runs_unused_code(self) -> None:
+        result = run(
+            config=config([], unusedCode={}),
+            file_system=FakeFileSystem(
+                contents={"src/a.py": "def dead():\n    return 1\n"},
+            ),
+        )
+
+        assert any("dead" in diagnostic.message for diagnostic in result.diagnostics)
+
+    def test_run_unused_code_false_skips_the_engine_entirely(self) -> None:
+        file_system = CountingFileSystem(
+            contents={"src/a.py": "def dead():\n    return 1\n"},
+        )
+
+        result = run(
+            config=config([], unusedCode={}),
+            file_system=file_system,
+            run_unused_code=False,
+        )
+
+        assert result.diagnostics == []
+        # The unused-code engine never globbed or read anything: pins the
+        # mechanism (no work done), not just the absence of diagnostics.
+        assert file_system.read_file_calls == []
+
+    def test_run_unused_code_false_leaves_predicate_conventions_unaffected(self) -> None:
+        result = run(
+            config=config(
+                [
+                    {
+                        "name": "exports",
+                        "paths": "src/shared.py",
+                        "must": {"exportConstants": ["VALUE"]},
+                    }
+                ],
+                unusedCode={},
+            ),
+            file_system=FakeFileSystem(contents={"src/shared.py": "VALUE = 1\n"}),
+            run_unused_code=False,
+        )
+
+        assert result.diagnostics == []
+
+
 class TestRestrictAnnotationsRunner:
     def test_runs_as_builtin_ast_predicate_through_run(self) -> None:
         result = run(
@@ -1734,6 +1790,104 @@ class TestDuplicationPredicatesRunner:
             ("packages/pkg/a.py", "shared-value"),
             ("packages/pkg/b.py", "shared-value"),
         ]
+
+    def test_diff_scope_cross_file_selection_survives_plugin_registry_merge(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ) -> None:
+        # Regression test: load_plugin_registry() must carry
+        # cross_file_predicates from the builtin registry into the merged
+        # registry it returns once any plugin is configured. Otherwise
+        # _block_has_cross_file_predicate stops recognizing
+        # restrictRepeatedLiterals as cross-file, the nested `for` block
+        # here is no longer treated as cross-file scope, and a convention
+        # whose only in-scope evidence lives in that block goes unreported
+        # under --files/--changed the moment a plugin loads.
+        install_fake_distribution(
+            tmp_path=tmp_path,
+            monkeypatch=monkeypatch,
+            distribution_name="konpy-test-runner-plugin",
+            import_package="konpy_test_runner_plugin",
+            modules={
+                "rules": '''
+from konpy.plugin import PredicatePlugin
+
+
+def handler(*, expected, context, structure, convention_name=None, severity=None):
+    return []
+
+
+plugin = PredicatePlugin(
+    key="requireRunnerMarker",
+    value_model=str,
+    handler=handler,
+    forbidden_message_template=\'Forbidden marker "{resolved_value}"\',
+)
+'''
+            },
+            entry_points={
+                "konpy.predicates": {
+                    "requireRunnerMarker": "konpy_test_runner_plugin.rules:plugin",
+                }
+            },
+        )
+
+        conventions = [
+            {
+                "name": "nested-no-repeated-literals",
+                "paths": "packages/{name}/marker.txt",
+                "must": [
+                    {
+                        "for": {"files": "*.py"},
+                        "must": {
+                            "restrictRepeatedLiterals": {"maxOccurrences": 1}
+                        },
+                    }
+                ],
+            }
+        ]
+        file_system = FakeFileSystem(
+            contents={
+                "packages/pkg/marker.txt": "marker\n",
+                "packages/pkg/a.py": 'A = "shared-value"\n',
+                "packages/pkg/b.py": 'B = "shared-value"\n',
+            },
+        )
+        target_files = frozenset({"packages/pkg/b.py"})
+
+        no_plugin_config = config(conventions)
+        no_plugin_registry_result = load_plugin_registry(plugins=no_plugin_config.plugins)
+        assert isinstance(no_plugin_registry_result, Ok)
+        no_plugin_result = run(
+            config=no_plugin_config,
+            file_system=file_system,
+            predicate_registry=no_plugin_registry_result.value,
+            target_files=target_files,
+        )
+
+        plugin_config = config(conventions, plugins=["konpy-test-runner-plugin"])
+        plugin_registry_result = load_plugin_registry(plugins=plugin_config.plugins)
+        assert isinstance(plugin_registry_result, Ok)
+        plugin_result = run(
+            config=plugin_config,
+            file_system=file_system,
+            predicate_registry=plugin_registry_result.value,
+            target_files=target_files,
+        )
+
+        expected = [
+            ("packages/pkg/a.py", "shared-value"),
+            ("packages/pkg/b.py", "shared-value"),
+        ]
+        assert [
+            (diagnostic.file_path, diagnostic.found)
+            for diagnostic in no_plugin_result.diagnostics
+        ] == expected
+        assert [
+            (diagnostic.file_path, diagnostic.found)
+            for diagnostic in plugin_result.diagnostics
+        ] == expected
 
 
 class TestCrossFileIndexCache:
@@ -2453,3 +2607,130 @@ class TestRuntimeSuppressions:
 
         assert result.diagnostics == []
         assert file_system.read_file_calls == ["src/shared.py"]
+
+
+class TestRuntimeBaseline:
+    _UNANNOTATED_SOURCE = (
+        "def create(value):\n"
+        "    return value\n"
+        "\n"
+        "\n"
+        "def update(value):\n"
+        "    return value\n"
+        "\n"
+        "\n"
+        "def delete(value):\n"
+        "    return value\n"
+    )
+
+    _UNANNOTATED_SOURCE_WITH_SUPPRESSED_MIDDLE = (
+        "def create(value):\n"
+        "    return value\n"
+        "\n"
+        "\n"
+        "def update(value):  # konpy: ignore[annotations] -- legacy\n"
+        "    return value\n"
+        "\n"
+        "\n"
+        "def delete(value):\n"
+        "    return value\n"
+    )
+
+    def _annotations_config(self) -> ConfigV1:
+        # `returns: False` limits each unannotated function to exactly one
+        # diagnostic (the untyped parameter), so line numbers map 1:1 to
+        # violations for these tests.
+        return config(
+            [
+                {
+                    "name": "annotations",
+                    "paths": "src/service.py",
+                    "must": {"annotateFunctions": {"returns": False}},
+                }
+            ]
+        )
+
+    def test_baseline_demotes_recorded_violations_and_populates_result_fields(self) -> None:
+        result = run(
+            config=self._annotations_config(),
+            file_system=FakeFileSystem(
+                contents={"src/service.py": self._UNANNOTATED_SOURCE},
+            ),
+            baseline=BaselineData(
+                baseline_version="v1",
+                entries={"src/service.py": {"annotations": 2}},
+            ),
+        )
+
+        # 3 violations (create/update/delete), recorded budget 2: the first
+        # two by line order (create, update) are demoted; delete overflows
+        # the budget and stays a new violation.
+        assert len(result.diagnostics) == 1
+        assert result.diagnostics[0].line == 9
+        assert len(result.baselined_diagnostics) == 2
+        assert [item.diagnostic.line for item in result.baselined_diagnostics] == [1, 5]
+        assert result.baseline_stale_entries == []
+
+    def test_suppressed_diagnostic_does_not_consume_baseline_budget(self) -> None:
+        # Baseline budget is 2 for "annotations" on src/service.py. Without
+        # suppression there would be 3 diagnostics (create/update/delete);
+        # `update` (the middle one, by line) is suppressed inline. Had
+        # baseline been applied BEFORE suppression filtering, the budget of
+        # 2 would have been consumed by `create`+`update` (the first two by
+        # line order), leaving `delete` to wrongly appear as a new
+        # violation. Suppression-first means `update` never reaches the
+        # baseline step at all, so the budget of 2 covers `create`+`delete`
+        # exactly and nothing is left over.
+        result = run(
+            config=self._annotations_config(),
+            file_system=FakeFileSystem(
+                contents={"src/service.py": self._UNANNOTATED_SOURCE_WITH_SUPPRESSED_MIDDLE},
+            ),
+            baseline=BaselineData(
+                baseline_version="v1",
+                entries={"src/service.py": {"annotations": 2}},
+            ),
+        )
+
+        assert result.diagnostics == []
+        assert len(result.suppressed_diagnostics) == 1
+        assert len(result.baselined_diagnostics) == 2
+        assert [item.diagnostic.line for item in result.baselined_diagnostics] == [1, 9]
+        assert result.baseline_stale_entries == []
+
+    def test_run_without_baseline_leaves_new_fields_empty(self) -> None:
+        result = run(
+            config=self._annotations_config(),
+            file_system=FakeFileSystem(
+                contents={"src/service.py": self._UNANNOTATED_SOURCE_WITH_SUPPRESSED_MIDDLE},
+            ),
+        )
+
+        # No baseline: `create`/`delete` are unbaselined new violations,
+        # `update` is still suppressed (suppression is independent of
+        # baseline), and both new RunResult fields stay at their defaults.
+        assert len(result.diagnostics) == 2
+        assert result.baselined_diagnostics == []
+        assert result.baseline_stale_entries == []
+
+    def test_baseline_reports_stale_entries_through_run(self) -> None:
+        result = run(
+            config=self._annotations_config(),
+            file_system=FakeFileSystem(
+                contents={"src/service.py": self._UNANNOTATED_SOURCE},
+            ),
+            baseline=BaselineData(
+                baseline_version="v1",
+                entries={
+                    "src/service.py": {"annotations": 2},
+                    "src/gone.py": {"stale-rule": 1},
+                },
+            ),
+        )
+
+        assert len(result.baseline_stale_entries) == 1
+        stale = result.baseline_stale_entries[0]
+        assert stale.file_path == "src/gone.py"
+        assert stale.convention_name == "stale-rule"
+        assert stale.recorded_count == 1
+        assert stale.found_count == 0

@@ -75,3 +75,49 @@ See [`validate`](../reference/cli.md#validate) for the success/failure semantics
 ```
 
 Run `konpy` after the lighter checks so structural failures surface against a known-good baseline. For custom reports, gating, or agent workflows, use [`--format=json`](../reference/cli.md#json) and group results by `conventionName` — see [fixing-violations.md](./fixing-violations.md).
+
+## One verification entry point
+
+As that job grows, put it behind one script your repository owns instead of listing commands separately in CI, pre-commit, and any Claude Code hooks:
+
+```bash
+#!/usr/bin/env bash
+# scripts/verify
+set -euo pipefail
+uv run mypy .
+uv run pytest
+uv run ruff check
+uv run konpy check
+```
+
+```yaml
+- run: uv sync --frozen
+- run: uv run scripts/verify
+```
+
+`konpy` is one step in that script, not the whole of it: a linter alongside your type checker and test suite, not a replacement for CI. The payoff is that CI, a local pre-push check, and a [`PreToolUse`/`PostToolUse` hook](./claude-code-hook.md) all call the same entry point. Add a flag to the `konpy check` line (`--error-on-warnings`, a stricter `--diagnostic-level`) and every caller picks it up without editing three separate command lists.
+
+### Or: declare the roster in `konpy.json` with `konpy verify`
+
+A bespoke `scripts/verify` still has to be written and maintained as its own file. [`konpy verify`](../reference/cli.md#verify) gets you the same one-entry-point property without one: the step roster lives in `konpy.json` itself, next to your conventions, instead of in a separate script.
+
+```json
+{
+  "version": "v1",
+  "conventions": [],
+  "verify": {
+    "steps": [
+      { "name": "ruff", "run": ["ruff", "check"] },
+      { "name": "konpy-check", "run": ["konpy", "check"] },
+      { "name": "pytest", "run": ["pytest", "-q"] }
+    ]
+  }
+}
+```
+
+```yaml
+- run: uv sync --frozen
+- run: uv run konpy verify
+```
+
+Every step always runs, even after an earlier one fails, so one CI job reports everything that's broken instead of stopping at the first red step. A missing tool (`ruff` not installed, say) is a step *failure*, not a silent skip — `pip install "konpy[quality]"` covers `ruff`/`basedpyright`/`import-linter` if your roster calls them and CI doesn't already provide them. See [`verify`](../reference/cli.md#verify) for the full config shape and exit-code contract.

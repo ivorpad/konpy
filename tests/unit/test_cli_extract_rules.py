@@ -110,7 +110,8 @@ class TestPromptAssembly:
         assert '"coveredElsewhere"' in prompt
         assert '"unmapped"' in prompt
         assert "Routing order:" in prompt
-        assert "Ruff or mypy" in prompt
+        assert "Ruff owns lint-level concerns" in prompt
+        assert "Import Linter owns resolved dependency architecture" in prompt
         assert "single\n   changed file" in prompt
         assert "repository-wide, runtime, operational, or process" in prompt
         assert "Every source rule must land in exactly" in prompt

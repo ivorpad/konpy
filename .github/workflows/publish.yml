@@ -1,8 +1,11 @@
 name: Publish to PyPI
 
-# Build the sdist + wheel on every push/PR (smoke test), and publish to PyPI
-# via Trusted Publishing (OIDC — no API token) when a GitHub Release is created
-# or a v* tag is pushed.
+# Build the sdist + wheel via scripts/verify's release profile (full
+# verification, then `uv build` + `twine check`) on a tag push, a published
+# GitHub Release, or a manual dispatch, and publish to PyPI via Trusted
+# Publishing (OIDC — no API token) when triggered by a tag or release.
+# PR verification lives in ci.yml; running the full suite twice per PR
+# would be waste.
 
 on:
   push:
@@ -10,7 +13,6 @@ on:
       - "v*"
   release:
     types: [published]
-  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -23,14 +25,11 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
-      - name: Run tests
-        run: uv run pytest -q
+      - name: Install dependencies
+        run: uv sync --frozen
 
-      - name: Build sdist and wheel
-        run: uv build
-
-      - name: Check distribution metadata
-        run: uvx twine check dist/*
+      - name: Verify and build release
+        run: uv run --frozen scripts/verify release
 
       - name: Upload distribution artifacts
         uses: actions/upload-artifact@v4

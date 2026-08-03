@@ -121,17 +121,12 @@ def load_plugin_registry(*, plugins: Sequence[str] | None) -> Result[PredicateRe
             plugin_forbidden_messages=forbidden_messages,
             plugin_validate_placeholders=validate_placeholders,
             plugin_origins=origins,
+            cross_file_predicates=base_registry.cross_file_predicates,
         )
     )
-
-
-def load_predicate_plugins(*, plugins: Sequence[str] | None) -> Result[PredicateRegistry]:
-    """Alias for load_plugin_registry, kept for call sites that predate its rename."""
-    return load_plugin_registry(plugins=plugins)
 
 
 __all__ = [
     "PREDICATE_PLUGIN_ENTRY_POINT_GROUP",
     "load_plugin_registry",
-    "load_predicate_plugins",
 ]

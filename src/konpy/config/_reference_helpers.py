@@ -2,12 +2,19 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
+from typing import TYPE_CHECKING, TypeGuard
 
 from pydantic import BaseModel, ValidationError
 
 from konpy.config.errors import Err, Ok, Result, format_error_path
 from konpy.config.schema import CONVENTION_REF_PATTERN, ReusableConventionV1
 from konpy.config.source_resolver import SourceMap
+
+if TYPE_CHECKING:
+    # konpy.predicates.registry imports konpy.config.schema at module
+    # level, so importing it unconditionally here would cycle back through
+    # this package's __init__; PredicateRegistry is only used in annotations.
+    from konpy.predicates.registry import PredicateRegistry
 
 _STRING_REF_REGEX = re.compile(f"^{CONVENTION_REF_PATTERN}$")
 
@@ -80,11 +87,13 @@ def _to_alias_dict(value: object) -> dict[str, object]:
     raise TypeError(f"Expected mapping-like config entry, got {type(value).__name__}")
 
 
-def _is_plain_mapping(value: object) -> bool:
+def _is_plain_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
     return isinstance(value, Mapping) and not isinstance(value, BaseModel)
 
 
-def _validation_context(predicate_registry: object | None) -> dict[str, object] | None:
+def _validation_context(
+    predicate_registry: PredicateRegistry | None,
+) -> dict[str, PredicateRegistry] | None:
     if predicate_registry is None:
         return None
     return predicate_registry.validation_context()

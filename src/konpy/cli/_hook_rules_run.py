@@ -13,6 +13,11 @@ from konpy.cli._hook_rules import (
     parse_rules_verdict,
 )
 from konpy.cli._hook_support import HookPayload
+from konpy.cli._review_outcome import (
+    ReviewFinding,
+    ReviewOutcome,
+    combined_review_status,
+)
 from konpy.cli._semantic_rules import SemanticRuleV1
 from konpy.cli.agent_runner import AgentInvocation, AgentRunResult
 from konpy.config.errors import Err, Result
@@ -33,8 +38,27 @@ def run_rules_verifications(
     run_verifier: RunVerifier,
     append_finding: AppendFinding,
     write_error: WriteError,
-) -> int:
-    """Run one batched semantic verifier per applicable file."""
+    stop_on_first_failure: bool,
+    command_name: str,
+) -> ReviewOutcome:
+    """Run one batched semantic verifier per applicable file.
+
+    With `stop_on_first_failure=True`, an agent-run failure, an invalid
+    verdict, or the first batch with failures all stop processing
+    immediately (this is deliberate cost control: each additional batch is
+    another agent subprocess). With `stop_on_first_failure=False`, every
+    batch is verified and infra/verdict problems are collected as warnings
+    rather than aborting.
+
+    `command_name` (e.g. `"hook"` or `"review"`) names the calling command in
+    any `--log` write-failure warning, so the message matches whichever
+    command is actually running.
+    """
+    findings: list[ReviewFinding] = []
+    warnings: list[str] = []
+    saw_unavailable = False
+    saw_invalid_response = False
+
     for path, rules in batches:
         run_result = run_verifier(
             build_rules_hook_prompt(
@@ -44,14 +68,28 @@ def run_rules_verifications(
             )
         )
         if _agent_run_failed(invocation, run_result, write_error):
-            return 1
+            if stop_on_first_failure:
+                return ReviewOutcome(status="unavailable")
+            saw_unavailable = True
+            warnings.append(
+                f'Agent CLI "{invocation.agent}" exited with code '
+                f"{run_result.returncode} for {path}."
+            )
+            continue
 
         verdict = parse_rules_verdict(run_result.stdout)
         if verdict is None:
             write_error(
                 f'Agent CLI "{invocation.agent}" did not return a valid verdict.'
             )
-            return 1
+            if stop_on_first_failure:
+                return ReviewOutcome(status="invalid-response")
+            saw_invalid_response = True
+            warnings.append(
+                f'Agent CLI "{invocation.agent}" did not return a valid '
+                f"verdict for {path}."
+            )
+            continue
 
         normalized = normalize_rules_verdict(
             verdict,
@@ -63,11 +101,18 @@ def run_rules_verifications(
                 f'Agent CLI "{invocation.agent}" returned an invalid verdict: '
                 f"{normalized.error}"
             )
-            return 1
+            if stop_on_first_failure:
+                return ReviewOutcome(status="invalid-response")
+            saw_invalid_response = True
+            warnings.append(
+                f'Agent CLI "{invocation.agent}" returned an invalid verdict '
+                f"for {path}: {normalized.error}"
+            )
+            continue
         if not normalized.value:
             continue
 
-        warnings: list[str] = []
+        batch_warnings: list[str] = []
         for failure in normalized.value:
             rule = failure["rule"]
             reasons = failure["reasons"]
@@ -91,13 +136,32 @@ def run_rules_verifications(
                     ),
                 )
                 if isinstance(result, Err):
-                    warnings.append(result.error)
+                    batch_warnings.append(result.error)
 
-        for warning in warnings:
-            write_error(f"konpy hook: --log warning: {warning}")
-        return 2
+            findings.append(
+                ReviewFinding(path=path, rule=rule.name, reasons=tuple(reasons))
+            )
 
-    return 0
+        for warning in batch_warnings:
+            write_error(f"konpy {command_name}: --log warning: {warning}")
+        warnings.extend(batch_warnings)
+
+        if stop_on_first_failure:
+            return ReviewOutcome(
+                status="findings",
+                findings=tuple(findings),
+                warnings=tuple(batch_warnings),
+            )
+
+    return ReviewOutcome(
+        status=combined_review_status(
+            has_findings=bool(findings),
+            saw_invalid_response=saw_invalid_response,
+            saw_unavailable=saw_unavailable,
+        ),
+        findings=tuple(findings),
+        warnings=tuple(warnings),
+    )
 
 
 def _agent_run_failed(

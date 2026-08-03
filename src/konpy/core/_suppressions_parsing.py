@@ -151,7 +151,7 @@ def _parse_suppression_comment(
         ]
 
     reason = _parse_reason(match.group("tail"))
-    if reason is _InvalidReason:
+    if isinstance(reason, _InvalidReasonType):
         return None, [
             _hygiene_diagnostic(
                 file_path=file_path,

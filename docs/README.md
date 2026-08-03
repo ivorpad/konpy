@@ -22,10 +22,11 @@ _Inspired by [Vercel's konsistent](https://github.com/vercel-labs/konsistent), r
 - [CI integration](./guides/ci-integration.md) — GitHub Actions, output formats, PR comments.
 - [Authoring reusable conventions](./guides/authoring-reusable-conventions.md) — publish a convention package others can consume.
 - [Extracting rules](./guides/extracting-rules.md) — use an explicit local agent command to draft reusable conventions from prose.
+- [Import boundaries](./guides/import-boundaries.md) — when a konpy import predicate is enough vs. when a rule needs Import Linter's resolved import graph.
 - [Inferring conventions](./guides/inferring-conventions.md) — mine an existing codebase for candidate conventions with `konpy infer`.
-- [Claude Code hook integration](./guides/claude-code-hook.md) — deterministic hook: run `konpy check --files` automatically after Claude edits a file, no LLM call.
-- [Agentic verification hooks](./guides/hooks.md) — `konpy hook`: spawn a read-only verifier agent from a Claude Code/Codex `PostToolUse` hook for checks a structural predicate can't express. See that guide's "Which hook mechanism should I use?" for how it differs from the deterministic recipe above.
-- [The ratchet](./guides/ratchet.md) — persist verified agentic hook failures and promote recurring patterns into reviewable deterministic convention packs.
+- [Claude Code hook integration](./guides/claude-code-hook.md) — deterministic hook: run `konpy check --files` automatically after Claude edits a file, no LLM call; also covers the `konpy gate` `PreToolUse` block and the `konpy review` `PostToolUse` advisory check.
+- [Agentic verification hooks](./guides/hooks.md) — `konpy review`: spawn a read-only verifier agent from a Claude Code/Codex `PostToolUse` hook for checks a structural predicate can't express; findings are advisory and never block. `konpy hook` is the deprecated blocking predecessor. See that guide's "Which hook mechanism should I use?" for how these differ from the deterministic recipe above and from `konpy gate`.
+- [The ratchet](./guides/ratchet.md) — persist review findings and promote recurring patterns into reviewable deterministic convention packs.
 - [Agent evaluation](./guides/agent-eval.md) — A/B-compare agent runs using konpy's own diagnostics as the metric.
 
 ## Reference

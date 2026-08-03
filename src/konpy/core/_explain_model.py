@@ -8,7 +8,6 @@ from pydantic import BaseModel
 from konpy.config.schema import (
     ConditionV1,
     ConfigV1,
-    ConventionV1,
     ForV1,
     HasFileConditionV1,
     MustBlockV1,
@@ -17,8 +16,12 @@ from konpy.config.schema import (
     Severity,
     UnusedCodeV1,
 )
-from konpy.core.convention_name import generate_convention_name
-from konpy.predicates.registry import iter_predicate_items
+from konpy.core.policy import EffectiveConvention, resolve_effective_policy
+from konpy.predicates.registry import (
+    PredicateRegistry,
+    builtin_predicate_registry,
+    iter_predicate_items,
+)
 from konpy.unused import resolve_config as resolve_unused_config
 
 
@@ -76,10 +79,6 @@ class ExplainedConfig:
     unused_code: ExplainedUnusedCode | None
 
 
-def _paths_list(paths: str | list[str]) -> list[str]:
-    return [paths] if isinstance(paths, str) else list(paths)
-
-
 def _stringify(value: object) -> str:
     if isinstance(value, BaseModel):
         return _stringify(value.model_dump(by_alias=True, exclude_none=True))
@@ -119,7 +118,7 @@ def _condition_str(*, if_: ConditionV1 | None, for_: ForV1 | None) -> str | None
     return "only when " + "; ".join(parts)
 
 
-def _block_from_must_block(block: MustBlockV1, *, convention: ConventionV1) -> ExplainedBlock:
+def _block_from_must_block(block: MustBlockV1, *, convention_hint: str | None) -> ExplainedBlock:
     condition_parts: list[str] = []
     condition = _condition_str(if_=block.if_, for_=block.for_)
     if condition is not None:
@@ -131,61 +130,27 @@ def _block_from_must_block(block: MustBlockV1, *, convention: ConventionV1) -> E
     return ExplainedBlock(
         name=block.name,
         condition="; ".join(condition_parts) if condition_parts else None,
-        hint=block.hint or convention.hint,
+        hint=block.hint or convention_hint,
         must=_explain_predicates(block.must) if block.must is not None else [],
         must_not=_explain_predicates(block.mustNot) if block.mustNot is not None else [],
     )
 
 
-def _explain_blocks(convention: ConventionV1) -> list[ExplainedBlock]:
-    if isinstance(convention.must, list):
-        blocks = [_block_from_must_block(block, convention=convention) for block in convention.must]
-        if convention.mustNot is not None:
-            blocks.append(
-                ExplainedBlock(
-                    name=None,
-                    condition=None,
-                    hint=convention.hint,
-                    must_not=_explain_predicates(convention.mustNot),
-                )
-            )
-        return blocks
-
-    if convention.must is not None or convention.mustNot is not None:
-        return [
-            ExplainedBlock(
-                name=None,
-                condition=None,
-                hint=convention.hint,
-                must=(
-                    _explain_predicates(convention.must)
-                    if convention.must is not None
-                    else []
-                ),
-                must_not=(
-                    _explain_predicates(convention.mustNot)
-                    if convention.mustNot is not None
-                    else []
-                ),
-            )
-        ]
-
-    # Unreachable given _RequiresMustOrMustNot, kept for defensive completeness.
-    return []
+def _explain_blocks(convention: EffectiveConvention) -> list[ExplainedBlock]:
+    return [
+        _block_from_must_block(block, convention_hint=convention.hint)
+        for block in convention.blocks
+    ]
 
 
-def _explain_convention(convention: ConventionV1) -> ExplainedConvention:
-    resolved_name = convention.name or generate_convention_name(
-        must=convention.must,
-        must_not=convention.mustNot,
-    )
+def _explain_convention(convention: EffectiveConvention) -> ExplainedConvention:
     return ExplainedConvention(
-        name=resolved_name,
+        name=convention.name,
         description=convention.description,
         hint=convention.hint,
-        severity=convention.severity or "error",
-        paths=_paths_list(convention.paths),
-        exclude_files=list(convention.excludeFiles or []),
+        severity=convention.severity,
+        paths=list(convention.paths),
+        exclude_files=list(convention.exclude_files),
         blocks=_explain_blocks(convention),
     )
 
@@ -204,13 +169,29 @@ def _explain_unused_code(unused: UnusedCodeV1) -> ExplainedUnusedCode:
     )
 
 
-def build_explained_config(config: ConfigV1) -> ExplainedConfig:
-    """Flatten a resolved `ConfigV1` into explain-ready conventions and unused-code settings."""
+def build_explained_config(
+    config: ConfigV1,
+    *,
+    predicate_registry: PredicateRegistry | None = None,
+) -> ExplainedConfig:
+    """Flatten a resolved `ConfigV1` into explain-ready conventions and unused-code settings.
+
+    Resolves the same `EffectivePolicy` that `core.runner.run()` evaluates
+    (via `core.policy.resolve_effective_policy`), so name/severity/exclude-
+    files/block normalization can never drift between `check` and `explain`.
+    `predicate_registry` should be the actual registry the config was loaded
+    with (plugin predicates affect nothing here today, since
+    `generate_convention_name` doesn't consult it, but passing it keeps this
+    call site correct if that ever changes); it defaults to the builtin
+    registry for direct callers that never installed plugins.
+    """
+    registry = predicate_registry or builtin_predicate_registry()
+    policy = resolve_effective_policy(config, predicate_registry=registry)
     return ExplainedConfig(
-        conventions=[_explain_convention(c) for c in config.conventions],
+        conventions=[_explain_convention(c) for c in policy.conventions],
         unused_code=(
-            _explain_unused_code(config.unusedCode)
-            if config.unusedCode is not None
+            _explain_unused_code(policy.unused_code)
+            if policy.unused_code is not None
             else None
         ),
     )

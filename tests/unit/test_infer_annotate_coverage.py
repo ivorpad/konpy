@@ -56,6 +56,10 @@ def make_structure(targets: tuple[FunctionAnnotationInfo, ...]) -> PyFileStructu
         "non_barrel_statements": (),
         "string_literals": (),
         "type_aliases": (),
+        "decorators": (),
+        "call_sites": (),
+        "base_class_refs": (),
+        "scoped_imports": (),
         "all_names": None,
         "all_is_dynamic": False,
     }

@@ -26,6 +26,8 @@ from konpy.config._schema_conventions import (
     ReusableConventionsPackageV1,
     ReusableConventionV1,
     UnusedCodeV1,
+    VerifyConfigV1,
+    VerifyStepV1,
 )
 from konpy.config._schema_predicates import (
     AnnotateFunctionsOptionsV1,
@@ -40,8 +42,12 @@ from konpy.config._schema_predicates import (
     InterfaceDefinitionV1,
     MustPredicatesV1,
     RestrictAnnotationsOptionsV1,
+    RestrictBaseClassesOptionsV1,
+    RestrictCallsOptionsV1,
+    RestrictDecoratorsOptionsV1,
     RestrictDuplicateFunctionsOptionsV1,
     RestrictFileLengthOptionsV1,
+    RestrictImportsOptionsV1,
     RestrictRepeatedLiteralsOptionsV1,
 )
 from konpy.config._schema_types import (
@@ -97,12 +103,18 @@ __all__ = [
     "RawConfigV1",
     "RawHandWrittenConventionV1",
     "RestrictAnnotationsOptionsV1",
+    "RestrictBaseClassesOptionsV1",
+    "RestrictCallsOptionsV1",
+    "RestrictDecoratorsOptionsV1",
     "RestrictDuplicateFunctionsOptionsV1",
     "RestrictFileLengthOptionsV1",
+    "RestrictImportsOptionsV1",
     "RestrictRepeatedLiteralsOptionsV1",
     "ReusableConventionV1",
     "ReusableConventionsPackageV1",
     "Severity",
     "SourcePrefix",
     "UnusedCodeV1",
+    "VerifyConfigV1",
+    "VerifyStepV1",
 ]

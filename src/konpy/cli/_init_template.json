@@ -176,7 +176,7 @@
     {
       "name": "no-print-statements",
       "description": "Library code never uses bare print(); reserve stdout for CLI entry points.",
-      "hint": "Use logging (or the CLI layer) instead of print() in library code.",
+      "hint": "Use logging (or the CLI layer) instead of print() in library code. If this module IS a console-script entry point ([project.scripts] target living outside cli/), add it to this rule's excludeFiles instead.",
       "paths": [
         "src/**/*.py",
         "!src/**/cli/**",

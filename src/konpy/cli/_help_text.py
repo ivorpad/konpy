@@ -12,6 +12,7 @@ _GETTING_STARTED = r"""Getting started:
   konpy init          Write a strict starter konpy.json (src layout, barrel-only
                       __init__.py, typing/docstring coverage, size caps,
                       duplication ratchets, unused-code detection)
+  konpy init --agents Also scaffold AGENTS.md, .claude/settings.json hooks, and a verify roster
   konpy check         Check the codebase against konpy.json
   konpy docs [topic]  Print bundled reference docs (no topic lists the topics)
   konpy explain       Render active conventions as guidance for a code-writing agent
@@ -40,7 +41,7 @@ def render_help_text() -> str:
 Usage:
   konpy [command] [options]
 
-  Bare `konpy` runs the zero-config codebase report (unused code, duplication,
+  Bare `konpy` runs the zero-config codebase report (default conventions, unused code, duplication,
   coverage — no konpy.json required); options without a command imply `check`
   (e.g. `konpy --files a.py`). This help lives on `konpy help`.
 
@@ -56,8 +57,11 @@ Commands:
   infer          Mine the codebase for candidate structural conventions
   explain        Render resolved conventions as agent guidance
   gate           Run a deterministic PreToolUse convention gate
-  hook           Run an agentic PostToolUse verification hook
+  review         Run an advisory PostToolUse review (findings never block)
+  hook           Deprecated: prefer review or gate; agentic PostToolUse hook
   hook-propose   Promote logged hook findings into rule proposals
+  improve        Ask an agent to propose a diff for one duplication finding (never applies it)
+  verify         Run the config-declared verification-step roster
   version        Print the version number
   help           Show this help message
 
@@ -74,6 +78,9 @@ Check options:
   --show-suppressed          List diagnostics suppressed by source comments
   --files <path...>          Restrict checking to files; repeatable or space-separated
   --changed                  Restrict checking to files changed since HEAD
+  --write-baseline           Record current violations as the baseline, exit 0
+  --baseline <path>          Baseline file (default: konpy.baseline.json, auto-discovered)
+  --show-baselined           List diagnostics hidden by the baseline
 
 Validate options:
   --config-path <path>       Path to konpy.json config file
@@ -126,6 +133,16 @@ Hook options:
   --timeout <seconds>        Verifier subprocess timeout (default: 300.0)
   --log <path>               Append per-rule fail findings as JSONL
 
+Review options (same flags as hook; findings never fail the process):
+  --match <glob>             Glob filtering written/edited files; repeatable
+  --prompt <text>            One natural-language verification instruction
+  --rules <path>             Semantic-rules package for batched verification
+                             Exactly one of --prompt or --rules is required
+  --agent <agent>            Verifier agent CLI: claude or codex (required)
+  --model <model>            Model passed through to the agent CLI (default: sonnet)
+  --timeout <seconds>        Verifier subprocess timeout (default: 300.0)
+  --log <path>               Append per-rule fail findings as JSONL
+
 Hook-propose options:
   [findings-path]            JSONL log (default: .konpy/hook-findings.jsonl)
   -o, --output <path>        Path for generated reusable convention pack proposal
@@ -136,6 +153,22 @@ Hook-propose options:
   --timeout <seconds>        Timeout for the proposal agent subprocess
   --verbose                  Stream the agent CLI's own output to stderr
 
+Improve options:
+  --group <name>              Duplicate-function group to target by canonical function name
+  --agent <agent>             Agent CLI to use: auto, claude, or codex
+  --model <model>             Model passed through to the agent CLI (default: sonnet)
+  --timeout <seconds>         Timeout for the proposing agent subprocess (default: 300.0)
+  -o, --output <path>         Write the proposed diff here instead of stdout
+  --config-path <path>        Only its directory anchors the scan root; need not exist
+
+Verify options:
+  --config-path <path>       Path to konpy.json config file
+
+Exit codes (improve):
+  0  the agent produced a diff-shaped response
+  1  no groups, an unknown/ambiguous --group, no agent CLI found, agent
+     failure, or a non-diff-shaped response (still printed to stdout)
+
 Exit codes (gate):
   0  allow, skipped, unreconstructable, or fail-open config/runtime warning
   1  unrecognized gate arguments only; non-blocking misconfiguration
@@ -145,6 +178,10 @@ Exit codes (hook):
   0  pass, or skipped because no tool, path, or semantic rule applies
   1  fail-open configuration or infrastructure error, including invalid rules
   2  verified failure only; reasons are written to stderr
+
+Exit codes (review):
+  0  always, except local misconfiguration; findings never fail the process
+  1  local misconfiguration only: bad flags or an unreadable/invalid rules file
 
 Global options:
   --help, -h                 Show help

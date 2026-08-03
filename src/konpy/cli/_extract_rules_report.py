@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from pathlib import Path
+
+from konpy.cli._extract_rules_contract import CoveredElsewhereEntry, UnmappedEntry
 
 
 def format_unmapped_stdout(
-    unmapped: Sequence[Mapping[str, str]],
+    unmapped: Sequence[UnmappedEntry],
     *,
-    covered_elsewhere: Sequence[Mapping[str, str]] = (),
+    covered_elsewhere: Sequence[CoveredElsewhereEntry] = (),
     rules_path: str | Path | None = None,
 ) -> str:
     """Format rule-routing results for stdout."""
@@ -23,9 +25,9 @@ def format_unmapped_stdout(
 
 
 def format_unmapped_report(
-    unmapped: Sequence[Mapping[str, str]],
+    unmapped: Sequence[UnmappedEntry],
     *,
-    covered_elsewhere: Sequence[Mapping[str, str]] = (),
+    covered_elsewhere: Sequence[CoveredElsewhereEntry] = (),
     rules_path: str | Path | None = None,
 ) -> str:
     """Format rule-routing results as Markdown."""
@@ -63,7 +65,7 @@ def format_unmapped_report(
 
 
 def _format_covered_stdout(
-    covered_elsewhere: Sequence[Mapping[str, str]],
+    covered_elsewhere: Sequence[CoveredElsewhereEntry],
 ) -> str:
     if not covered_elsewhere:
         return "Covered by existing linters: none"
@@ -74,7 +76,7 @@ def _format_covered_stdout(
 
 
 def _format_unmapped_stdout_section(
-    unmapped: Sequence[Mapping[str, str]],
+    unmapped: Sequence[UnmappedEntry],
 ) -> str:
     if not unmapped:
         return "Unmapped rules: none"
@@ -85,7 +87,7 @@ def _format_unmapped_stdout_section(
 
 
 def _covered_plain_lines(
-    covered_elsewhere: Sequence[Mapping[str, str]],
+    covered_elsewhere: Sequence[CoveredElsewhereEntry],
 ) -> list[str]:
     lines: list[str] = []
     for item in covered_elsewhere:
@@ -98,7 +100,7 @@ def _covered_plain_lines(
 
 
 def _covered_markdown_lines(
-    covered_elsewhere: Sequence[Mapping[str, str]],
+    covered_elsewhere: Sequence[CoveredElsewhereEntry],
 ) -> list[str]:
     lines: list[str] = []
     for item in covered_elsewhere:

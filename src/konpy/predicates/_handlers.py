@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Literal, cast
 
+from konpy.config.schema import RestrictFileLengthOptionsV1
 from konpy.core.context import PredicateContext
 from konpy.core.diagnostics import Diagnostic, DiagnosticSeverity
 from konpy.core.filesystem import FileSystem
@@ -24,12 +26,16 @@ from konpy.predicates.have_paired_file import check_have_paired_file
 from konpy.predicates.have_type import check_have_type
 from konpy.predicates.import_ import check_import
 from konpy.predicates.import_from import check_import_from
-from konpy.predicates.import_source import check_import_source
+from konpy.predicates.import_source import ImportKind, ImportSourceGroup, check_import_source
 from konpy.predicates.import_types import check_import_types
 from konpy.predicates.match_content import check_match_content
 from konpy.predicates.restrict_annotations import check_restrict_annotations
+from konpy.predicates.restrict_base_classes import check_restrict_base_classes
+from konpy.predicates.restrict_calls import check_restrict_calls
+from konpy.predicates.restrict_decorators import check_restrict_decorators
 from konpy.predicates.restrict_duplicate_functions import check_restrict_duplicate_functions
 from konpy.predicates.restrict_file_length import check_restrict_file_length
+from konpy.predicates.restrict_imports import check_restrict_imports
 from konpy.predicates.restrict_repeated_literals import check_restrict_repeated_literals
 from konpy.predicates.use_declaration_order import check_use_declaration_order
 from konpy.python_ast.structure import PyFileStructure
@@ -63,6 +69,10 @@ AST_PREDICATES = frozenset(
         "restrictAnnotations",
         "restrictRepeatedLiterals",
         "restrictDuplicateFunctions",
+        "restrictDecorators",
+        "restrictBaseClasses",
+        "restrictCalls",
+        "restrictImports",
     }
 )
 
@@ -141,7 +151,7 @@ def _have_type(
     severity: DiagnosticSeverity | None,
 ) -> list[Diagnostic]:
     return check_have_type(
-        expected=value,
+        expected=cast("Literal['file', 'directory']", value),
         context=context,
         file_system=file_system,
         convention_name=convention_name,
@@ -158,7 +168,7 @@ def _have_files(
     severity: DiagnosticSeverity | None,
 ) -> list[Diagnostic]:
     return check_have_files(
-        expected=value,
+        expected=cast("list[str]", value),
         context=context,
         convention_name=convention_name,
         severity=severity,
@@ -174,7 +184,7 @@ def _match_content(
     severity: DiagnosticSeverity | None,
 ) -> list[Diagnostic]:
     return check_match_content(
-        expected=value,
+        expected=cast("list[str]", value),
         context=context,
         file_system=file_system,
         convention_name=convention_name,
@@ -191,7 +201,7 @@ def _restrict_file_length(
     severity: DiagnosticSeverity | None,
 ) -> list[Diagnostic]:
     return check_restrict_file_length(
-        expected=value,
+        expected=cast("Literal[True] | RestrictFileLengthOptionsV1", value),
         context=context,
         file_system=file_system,
         convention_name=convention_name,
@@ -208,7 +218,7 @@ def _have_paired_file(
     severity: DiagnosticSeverity | None,
 ) -> list[Diagnostic]:
     return check_have_paired_file(
-        expected=value,
+        expected=cast("str", value),
         context=context,
         file_system=file_system,
         convention_name=convention_name,
@@ -216,7 +226,7 @@ def _have_paired_file(
     )
 
 
-def _import_source(group: str, import_kind: str) -> PredicateHandler:
+def _import_source(group: ImportSourceGroup, import_kind: ImportKind) -> PredicateHandler:
     def wrapped(
         value: object,
         context: PredicateContext,
@@ -235,7 +245,7 @@ def _import_source(group: str, import_kind: str) -> PredicateHandler:
         }[(group, import_kind)]
 
         return check_import_source(
-            expected=value,
+            expected=cast("bool", value),
             predicate_name=predicate_name,
             group=group,
             import_kind=import_kind,
@@ -281,4 +291,8 @@ PREDICATE_HANDLERS: dict[str, PredicateHandler] = {
     "restrictFileLength": _restrict_file_length,
     "restrictRepeatedLiterals": _ast(check_restrict_repeated_literals),
     "restrictDuplicateFunctions": _ast(check_restrict_duplicate_functions),
+    "restrictDecorators": _ast(check_restrict_decorators),
+    "restrictBaseClasses": _ast(check_restrict_base_classes),
+    "restrictCalls": _ast(check_restrict_calls),
+    "restrictImports": _ast(check_restrict_imports),
 }

@@ -7,10 +7,10 @@ into an AI coding agent's instructions file (e.g. CLAUDE.md) so the agent
 follows the rules while writing code, instead of only being caught by `check`
 afterwards.
 
-Deliberately independent of core/runner.py: block-flattening logic here is a
-self-contained reimplementation of the same must/mustNot/list-of-blocks shape
-(rather than importing runner.py's private `_normalize_must_blocks`), to avoid
-any coupling to runner internals.
+Convention name/severity/exclude-files/block normalization is shared with
+`core/runner.py` via `core.policy.resolve_effective_policy` -- both consume
+the same `EffectivePolicy`, so `explain` can never render a convention under
+a different name or shape than `check` enforces it under.
 
 Placeholders (`${name.method(...)}`) inside paths/predicate values are never
 resolved here -- there is no per-file PredicateContext at explain-time -- they

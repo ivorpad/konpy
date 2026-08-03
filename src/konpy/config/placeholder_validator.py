@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING
 
 from konpy.config._placeholder_block_collectors import _collect_usages_in_assertions
@@ -33,10 +33,16 @@ def validate_placeholders(
         convention_data = _to_alias_dict(convention)
         identifier = identifiers[index] if index < len(identifiers) else f"conventions[{index}]"
 
-        declared_from_paths = _collect_declarations(convention_data["paths"])
+        paths = convention_data["paths"]
+        if not isinstance(paths, str | Sequence):
+            raise TypeError(
+                f"Expected str or sequence of str for paths, got {type(paths).__name__}"
+            )
+        declared_from_paths = _collect_declarations(paths)
         declared = set(declared_from_paths)
 
-        for name in convention_data.get("placeholders", {}):
+        placeholders = convention_data.get("placeholders", {})
+        for name in placeholders if isinstance(placeholders, Mapping) else {}:
             if name in declared_from_paths:
                 errors.append(
                     f'Convention "{identifier}" declares placeholder "{name}" both in paths '

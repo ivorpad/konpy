@@ -5,9 +5,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from konpy.core.context import PredicateContext
+from konpy.predicates.import_source import ImportKind, ImportSourceGroup
 from konpy.predicates.registry import PredicateRegistry
 
-_IMPORT_SOURCE_GROUPS: dict[str, tuple[str, str]] = {
+_IMPORT_SOURCE_GROUPS: dict[str, tuple[ImportSourceGroup, ImportKind]] = {
     "importFromCurrentDir": ("currentDir", "value"),
     "importFromParents": ("parents", "value"),
     "importFromExternals": ("externals", "value"),

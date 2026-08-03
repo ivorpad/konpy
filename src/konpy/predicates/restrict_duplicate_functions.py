@@ -16,7 +16,10 @@ if TYPE_CHECKING:
     from konpy.config.schema import RestrictDuplicateFunctionsOptionsV1
 
 DEFAULT_MIN_STATEMENTS = 4
-_FIX_HINT = (
+# Public (not module-private) because `konpy improve` reuses this exact
+# wording in its finding block -- the agent should see the same fix guidance
+# a `konpy check` diagnostic would show for this violation.
+FIX_HINT = (
     "Extract the shared implementation into one helper and call it from the "
     "duplicate functions, or make the implementations meaningfully different."
 )
@@ -44,7 +47,7 @@ def _option_int(
     if expected is True:
         return default
     value = _get_value(expected, key)
-    return default if value is None else int(value)
+    return default if not isinstance(value, int | str) else int(value)
 
 
 def _option_bool(
@@ -67,7 +70,7 @@ def _option_list(
         return ()
 
     value = _get_value(expected, key)
-    if value is None:
+    if not isinstance(value, list):
         return ()
     return tuple(str(item) for item in value)
 
@@ -161,11 +164,11 @@ def check_restrict_duplicate_functions(
                     severity=severity,
                     expected="unique function implementation",
                     found=f"duplicate of {canonical_label}",
-                    fix_hint=_FIX_HINT,
+                    fix_hint=FIX_HINT,
                 )
             )
 
     return _sort_diagnostics(diagnostics)
 
 
-__all__ = ["DEFAULT_MIN_STATEMENTS", "check_restrict_duplicate_functions"]
+__all__ = ["DEFAULT_MIN_STATEMENTS", "FIX_HINT", "check_restrict_duplicate_functions"]

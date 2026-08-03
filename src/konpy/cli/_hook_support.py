@@ -147,7 +147,10 @@ def parse_verdict(stdout: str) -> Verdict | None:
     if not isinstance(reasons, list):
         return None
 
-    return {"verdict": verdict, "reasons": [str(reason) for reason in reasons]}
+    reason_list = [str(reason) for reason in reasons]
+    if verdict == "pass":
+        return {"verdict": "pass", "reasons": reason_list}
+    return {"verdict": "fail", "reasons": reason_list}
 
 
 def hook_child_args(agent: HookAgent | str) -> tuple[str, ...]:

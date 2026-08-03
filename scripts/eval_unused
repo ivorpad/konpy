@@ -1,0 +1,206 @@
+#!/usr/bin/env python3
+"""Compare konpy's unused-code engine against `vulture` on the same target.
+
+Runs the konpy unused-code engine (`UnusedCodeV1` defaults, the same
+include/exclude composition `konpy report` uses) over a target path and
+prints every finding. If `vulture` can be run through `uvx`, it also runs
+vulture over the same path at `--min-confidence 80` and prints a
+best-effort overlap summary, matched on (file, symbol name).
+
+Usage:
+
+    scripts/eval_unused [path]
+
+`path` defaults to the current directory.
+
+This is an evaluation tool for eyeballing agreement between the two
+detectors during development. It has no pass/fail verdict, is not a test,
+and is never invoked by `scripts/verify`.
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+from konpy.config.schema import UnusedCodeV1
+from konpy.core.diagnostics import Diagnostic
+from konpy.core.filesystem import RealFileSystem
+from konpy.unused.engine import run_unused_code_with_metadata
+
+_VULTURE_LINE_RE = re.compile(
+    r"^(?P<path>.+):(?P<line>\d+): unused \S+ '(?P<name>[^']+)' \(\d+% confidence\)$"
+)
+_MESSAGE_NAME_RE = re.compile(r'"([^"]+)"')
+_VULTURE_TIMEOUT_SECONDS = 120
+# 0 = vulture ran clean, 3 = vulture found things -- both mean it ran. Any
+# other code (1 = tool error, 2 = bad options, 127-style shell failures) is
+# treated the same as `uvx` failing to bootstrap the tool at all.
+_VULTURE_OK_RETURNCODES = (0, 3)
+
+VultureFinding = tuple[str, int, str]
+
+
+def _parse_args(argv: list[str] | None) -> argparse.Namespace:
+    """Parse the single positional target-path argument."""
+    parser = argparse.ArgumentParser(prog="scripts/eval_unused", description=__doc__)
+    parser.add_argument("path", nargs="?", default=".", help="Directory to scan (default: .)")
+    return parser.parse_args(argv)
+
+
+def _verdict(predicate_name: str) -> str:
+    """Map a konpy unused-code predicate name to its short verdict label."""
+    return "test-only" if predicate_name.endswith(".testOnly") else "dead"
+
+
+def _symbol_name(message: str) -> str:
+    """Pull the quoted qualname out of a konpy unused-code diagnostic message."""
+    match = _MESSAGE_NAME_RE.search(message)
+    return match.group(1) if match else "?"
+
+
+def _run_konpy(target: Path) -> tuple[list[Diagnostic], float]:
+    """Run the unused-code engine at `UnusedCodeV1` defaults over `target`.
+
+    Returns the sorted diagnostics plus wall-clock runtime in milliseconds.
+    """
+    file_system = RealFileSystem(cwd=target)
+    start = time.perf_counter()
+    result = run_unused_code_with_metadata(config=UnusedCodeV1(), file_system=file_system)
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    return result.diagnostics, elapsed_ms
+
+
+def _print_konpy_findings(diagnostics: list[Diagnostic], elapsed_ms: float) -> None:
+    """Print the konpy findings count, per-verdict breakdown, runtime, and each finding."""
+    dead = sum(1 for d in diagnostics if _verdict(d.predicate_name) == "dead")
+    test_only = len(diagnostics) - dead
+    print("== konpy unused-code engine ==")
+    print(
+        f"{len(diagnostics)} findings (dead: {dead}, test-only: {test_only}) "
+        f"in {elapsed_ms:.1f}ms"
+    )
+    for diagnostic in diagnostics:
+        name = _symbol_name(diagnostic.message)
+        verdict = _verdict(diagnostic.predicate_name)
+        print(f"{diagnostic.file_path}:{diagnostic.line or 0} {name} [{verdict}]")
+
+
+def _parse_vulture_output(stdout: str) -> list[VultureFinding]:
+    """Parse vulture's default text output into (path, line, name) tuples.
+
+    Lines that do not match vulture's `path:line: unused <kind> 'name' (NN%
+    confidence)` shape (warnings, syntax errors on stderr-adjacent stdout)
+    are silently skipped -- this is best-effort parsing, not a contract with
+    vulture's output format.
+    """
+    findings: list[VultureFinding] = []
+    for line in stdout.splitlines():
+        match = _VULTURE_LINE_RE.match(line)
+        if match:
+            findings.append((match.group("path"), int(match.group("line")), match.group("name")))
+    return findings
+
+
+def _run_vulture(target: str) -> list[VultureFinding] | None:
+    """Run vulture over `target` via `uvx`; return None if it could not run at all."""
+    try:
+        completed = subprocess.run(
+            ["uvx", "vulture", target, "--min-confidence", "80"],
+            capture_output=True,
+            text=True,
+            timeout=_VULTURE_TIMEOUT_SECONDS,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+    if completed.returncode not in _VULTURE_OK_RETURNCODES:
+        return None
+    return _parse_vulture_output(completed.stdout)
+
+
+def _repo_relative(target: Path, raw_path: str) -> str:
+    """Resolve `raw_path` to a POSIX-style path relative to `target`.
+
+    `target` must already be resolved (absolute, symlinks followed). konpy
+    reports paths relative to the scan root; vulture reports paths relative
+    to its own cwd when that happens to be under `target`, but falls back to
+    a fully absolute path otherwise (e.g. when the target was passed as an
+    absolute path from outside its own tree). Resolving both forms and then
+    re-deriving the path relative to `target` puts both sides on the same
+    key regardless of which form either tool used.
+    """
+    candidate = Path(raw_path)
+    absolute = candidate.resolve() if candidate.is_absolute() else (target / candidate).resolve()
+    try:
+        return absolute.relative_to(target).as_posix()
+    except ValueError:
+        # Outside target entirely -- keep a stable (if non-matching) key
+        # rather than raising.
+        return absolute.as_posix()
+
+
+def _konpy_key(target: Path, diagnostic: Diagnostic) -> tuple[str, str]:
+    """Canonicalize a konpy finding to a (repo-relative path, bare name) match key."""
+    name = _symbol_name(diagnostic.message)
+    return _repo_relative(target, diagnostic.file_path), name.rsplit(".", 1)[-1]
+
+
+def _vulture_key(target: Path, finding: VultureFinding) -> tuple[str, str]:
+    """Canonicalize a vulture finding to a (repo-relative path, bare name) match key."""
+    raw_path, _line, name = finding
+    return _repo_relative(target, raw_path), name
+
+
+def _print_vulture_section(target: Path, target_arg: str, diagnostics: list[Diagnostic]) -> None:
+    """Run vulture (if available), print its findings, and print the overlap summary.
+
+    Overlap is matched on (file, symbol name) only -- not line number, since
+    konpy reports a definition's line while vulture may report a reference
+    site. This is a best-effort comparison, not an authoritative one: konpy
+    reports dotted qualnames for class members where vulture reports the
+    bare attribute name, so both sides are reduced to the bare name before
+    matching.
+    """
+    print()
+    print("== vulture ==")
+    vulture_findings = _run_vulture(target_arg)
+    if vulture_findings is None:
+        print("vulture unavailable, skipped")
+        return
+
+    print(f"{len(vulture_findings)} findings")
+
+    konpy_keys = {_konpy_key(target, d) for d in diagnostics}
+    vulture_keys = {_vulture_key(target, f) for f in vulture_findings}
+    both = konpy_keys & vulture_keys
+    konpy_only = konpy_keys - vulture_keys
+    vulture_only = vulture_keys - konpy_keys
+    print(
+        f"overlap (by file + bare name): both {len(both)}, "
+        f"konpy-only {len(konpy_only)}, vulture-only {len(vulture_only)}"
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run the konpy-vs-vulture comparison and print the results. Always exits 0."""
+    args = _parse_args(argv)
+    target = Path(args.path).resolve()
+
+    diagnostics, elapsed_ms = _run_konpy(target)
+    _print_konpy_findings(diagnostics, elapsed_ms)
+    _print_vulture_section(target, args.path, diagnostics)
+
+    print()
+    print(
+        "reminder: scripts/eval_unused is an evaluation harness, not "
+        "authoritative, and is never part of scripts/verify."
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

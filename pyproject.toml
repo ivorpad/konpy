@@ -19,10 +19,16 @@ keywords = ["lint", "consistent code", "code conventions", "python"]
 [project.scripts]
 konpy = "konpy.cli.app:main"
 
+[project.optional-dependencies]
+quality = ["ruff", "basedpyright", "import-linter"]
+
 [dependency-groups]
 dev = [
+    "basedpyright>=1.39.9",
+    "import-linter>=2.13",
     "pytest>=8",
     "ruff>=0.11",
+    "twine>=7.0.0",
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -60,4 +66,46 @@ src = ["src", "tests"]
 extend-exclude = ["tests/e2e/fixtures", "tmp"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "T20", "FIX"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/**" = ["T201"]
+
+[tool.basedpyright]
+typeCheckingMode = "standard"
+include = ["src"]
+exclude = ["tests/e2e/fixtures", "tmp"]
+venvPath = "."
+venv = ".venv"
+reportExplicitAny = "error"
+
+[tool.importlinter]
+root_package = "konpy"
+
+[[tool.importlinter.contracts]]
+name = "engine layers never import the CLI"
+type = "forbidden"
+source_modules = [
+    "konpy.core",
+    "konpy.config",
+    "konpy.python_ast",
+    "konpy.predicates",
+    "konpy.unused",
+    "konpy.infer",
+    "konpy.plugin",
+]
+forbidden_modules = ["konpy.cli"]
+
+[[tool.importlinter.contracts]]
+name = "python_ast stays dependency-free"
+type = "forbidden"
+source_modules = ["konpy.python_ast"]
+forbidden_modules = [
+    "konpy.cli",
+    "konpy.config",
+    "konpy.core",
+    "konpy.predicates",
+    "konpy.unused",
+    "konpy.infer",
+    "konpy.plugin",
+]

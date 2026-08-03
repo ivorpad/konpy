@@ -56,7 +56,7 @@ def _option_list(
         return ()
 
     value = _get_value(expected, key)
-    if value is None:
+    if not isinstance(value, list):
         return ()
     return tuple(str(item) for item in value)
 

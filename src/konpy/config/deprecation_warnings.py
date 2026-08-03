@@ -69,11 +69,11 @@ def _collect_predicate_warnings(*, predicates: object, path: str, warnings: list
 
 def _collect_function_warnings(
     *,
-    list_: list[object] | None,
+    list_: object,
     path: str,
     warnings: list[str],
 ) -> None:
-    if list_ is None:
+    if not isinstance(list_, list):
         return
 
     for index, entry in enumerate(list_):

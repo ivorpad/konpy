@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+from konpy.core.baseline import BaselinedDiagnostic, BaselineStaleEntry
 from konpy.core.diagnostics import Diagnostic
 from konpy.core.reporters import (
     count_severities,
@@ -21,12 +22,16 @@ def make_result(
     files_checked: int = 1,
     duration_ms: float | None = 5,
     suppressed_diagnostics: list[SuppressedDiagnostic] | None = None,
+    baselined_diagnostics: list[BaselinedDiagnostic] | None = None,
+    baseline_stale_entries: list[BaselineStaleEntry] | None = None,
 ) -> RunResult:
     return RunResult(
         diagnostics=diagnostics,
         files_checked=files_checked,
         duration_ms=duration_ms,
         suppressed_diagnostics=suppressed_diagnostics or [],
+        baselined_diagnostics=baselined_diagnostics or [],
+        baseline_stale_entries=baseline_stale_entries or [],
     )
 
 
@@ -89,6 +94,44 @@ def suppressed_diagnostic(
             rule=convention_name,
             reason=reason,
         ),
+    )
+
+
+def baselined_diagnostic(
+    *,
+    file_path: str = "src/foo.py",
+    predicate_name: str = "export",
+    message: str = 'Missing export "process"',
+    severity: str = "error",
+    convention_name: str = "conv-name",
+    line: int | None = None,
+) -> BaselinedDiagnostic:
+    return BaselinedDiagnostic(
+        diagnostic=diagnostic(
+            file_path=file_path,
+            predicate_name=predicate_name,
+            message=message,
+            severity=severity,
+            convention_name=convention_name,
+            line=line,
+        ),
+        file_path=file_path,
+        convention_name=convention_name,
+    )
+
+
+def stale_baseline_entry(
+    *,
+    file_path: str = "src/foo.py",
+    convention_name: str = "conv-name",
+    recorded_count: int = 2,
+    found_count: int = 1,
+) -> BaselineStaleEntry:
+    return BaselineStaleEntry(
+        file_path=file_path,
+        convention_name=convention_name,
+        recorded_count=recorded_count,
+        found_count=found_count,
     )
 
 
@@ -382,6 +425,86 @@ class TestFormatDefault:
         assert "\x1b[" in output
 
 
+class TestFormatDefaultBaseline:
+    def test_baselined_summary_mentions_count(self) -> None:
+        output = format_default(
+            make_result(
+                [],
+                files_checked=3,
+                baselined_diagnostics=[baselined_diagnostic()],
+            ),
+            colors=False,
+        )
+
+        assert "Checked 3 files in 5ms. No violations found, 1 baselined." in output
+
+    def test_mixed_summary_mentions_baselined_count(self) -> None:
+        output = format_default(
+            make_result(
+                [diagnostic(message="visible error")],
+                baselined_diagnostics=[baselined_diagnostic(), baselined_diagnostic()],
+            ),
+            colors=False,
+        )
+
+        assert "Checked 1 file in 5ms. Found 1 error, 2 baselined." in output
+
+    def test_show_baselined_lists_baselined_diagnostics(self) -> None:
+        output = format_default(
+            make_result(
+                [],
+                baselined_diagnostics=[
+                    baselined_diagnostic(
+                        file_path="src/service.py",
+                        message='Missing export "process"',
+                        convention_name="documented-service",
+                    )
+                ],
+            ),
+            colors=False,
+            show_baselined=True,
+        )
+
+        assert "Baselined diagnostics:" in output
+        assert "src/service.py" in output
+        assert 'error  Missing export "process"  [documented-service]' in output
+
+    def test_baselined_diagnostics_not_listed_without_show_baselined(self) -> None:
+        output = format_default(
+            make_result(
+                [],
+                baselined_diagnostics=[baselined_diagnostic(message='Missing export "process"')],
+            ),
+            colors=False,
+        )
+
+        assert "Baselined diagnostics:" not in output
+        assert 'Missing export "process"' not in output
+        assert "1 baselined" in output
+
+    def test_stale_entries_render_unconditionally_as_warnings(self) -> None:
+        output = format_default(
+            make_result(
+                [],
+                baseline_stale_entries=[
+                    stale_baseline_entry(
+                        file_path="src/service.py",
+                        convention_name="documented-service",
+                        recorded_count=2,
+                        found_count=1,
+                    )
+                ],
+            ),
+            colors=False,
+        )
+
+        assert "Stale baseline entries:" in output
+        assert (
+            'Stale baseline entry for "documented-service" in src/service.py: '
+            "recorded 2, found 1. Run konpy check --write-baseline to ratchet down."
+        ) in output
+
+
 class TestFormatDefaultFixHints:
     def test_appends_hint_line_when_fix_hint_present(self) -> None:
         output = format_default(
@@ -440,11 +563,14 @@ class TestFormatJson:
         assert json.loads(format_json(make_result([]))) == {
             "diagnostics": [],
             "suppressed": [],
+            "baselined": [],
+            "baselineStale": [],
             "summary": {
                 "filesChecked": 1,
                 "errors": 0,
                 "warnings": 0,
                 "suppressed": 0,
+                "baselined": 0,
                 "durationMs": 5,
             },
             "truncation": {
@@ -522,6 +648,7 @@ class TestFormatJson:
             "errors": 1,
             "warnings": 0,
             "suppressed": 1,
+            "baselined": 0,
             "durationMs": 5,
         }
         assert parsed["suppressed"] == [
@@ -550,6 +677,79 @@ class TestFormatJson:
         )
 
         assert len(parsed["suppressed"]) == 1
+
+
+class TestFormatJsonBaseline:
+    def test_outputs_baselined_array_and_summary_count(self) -> None:
+        parsed = json.loads(
+            format_json(
+                make_result(
+                    [diagnostic(message="visible")],
+                    files_checked=4,
+                    baselined_diagnostics=[
+                        baselined_diagnostic(
+                            file_path="src/service.py",
+                            message='Missing export "process"',
+                            convention_name="documented-service",
+                        )
+                    ],
+                )
+            )
+        )
+
+        assert parsed["summary"]["baselined"] == 1
+        assert parsed["baselined"] == [
+            {
+                "severity": "error",
+                "conventionName": "documented-service",
+                "filePath": "src/service.py",
+                "predicateName": "export",
+                "message": 'Missing export "process"',
+            }
+        ]
+
+    def test_outputs_baselined_details_even_when_show_baselined_is_false(self) -> None:
+        parsed = json.loads(
+            format_json(
+                make_result([], baselined_diagnostics=[baselined_diagnostic()]),
+                show_baselined=False,
+            )
+        )
+
+        assert len(parsed["baselined"]) == 1
+
+    def test_outputs_baseline_stale_entries(self) -> None:
+        parsed = json.loads(
+            format_json(
+                make_result(
+                    [],
+                    baseline_stale_entries=[
+                        stale_baseline_entry(
+                            file_path="src/service.py",
+                            convention_name="documented-service",
+                            recorded_count=2,
+                            found_count=1,
+                        )
+                    ],
+                )
+            )
+        )
+
+        assert parsed["baselineStale"] == [
+            {
+                "filePath": "src/service.py",
+                "conventionName": "documented-service",
+                "recorded": 2,
+                "found": 1,
+            }
+        ]
+
+    def test_baselined_and_baseline_stale_are_empty_by_default(self) -> None:
+        parsed = json.loads(format_json(make_result([diagnostic()])))
+
+        assert parsed["baselined"] == []
+        assert parsed["baselineStale"] == []
+        assert parsed["summary"]["baselined"] == 0
 
 
 class TestFormatJsonTruncation:
@@ -759,6 +959,53 @@ class TestFormatGithub:
             "(suppressed by line 3: legacy API)"
         )
 
+    def test_baselined_notices_are_omitted_without_show_baselined(self) -> None:
+        output = format_github(make_result([], baselined_diagnostics=[baselined_diagnostic()]))
+
+        assert output == ""
+
+    def test_baselined_notices_are_emitted_with_show_baselined(self) -> None:
+        output = format_github(
+            make_result(
+                [],
+                baselined_diagnostics=[
+                    baselined_diagnostic(
+                        file_path="src/service.py",
+                        message='Missing export "process"',
+                        convention_name="documented-service",
+                        line=4,
+                    )
+                ],
+            ),
+            show_baselined=True,
+        )
+
+        assert output == (
+            "::notice file=src/service.py,line=4,title=Baselined documented-service::"
+            'error: Missing export "process"'
+        )
+
+    def test_stale_entries_render_as_warning_notices_unconditionally(self) -> None:
+        output = format_github(
+            make_result(
+                [],
+                baseline_stale_entries=[
+                    stale_baseline_entry(
+                        file_path="src/service.py",
+                        convention_name="documented-service",
+                        recorded_count=2,
+                        found_count=1,
+                    )
+                ],
+            )
+        )
+
+        assert output == (
+            "::warning title=Stale baseline entry::"
+            'Stale baseline entry for "documented-service" in src/service.py: '
+            "recorded 2, found 1. Run konpy check --write-baseline to ratchet down."
+        )
+
 
 class TestFormatMarkdown:
     def test_returns_summary_for_no_diagnostics(self) -> None:
@@ -940,6 +1187,59 @@ class TestFormatMarkdown:
         )
 
         assert "**Checked 2 files in 5ms. Found 1 error. Suppressed 1 finding.**" in output
+
+    def test_show_baselined_adds_baselined_markdown_section(self) -> None:
+        output = format_markdown(
+            make_result(
+                [],
+                baselined_diagnostics=[
+                    baselined_diagnostic(
+                        file_path="src/service.py",
+                        message='Missing export "process"',
+                        convention_name="documented-service",
+                    )
+                ],
+            ),
+            show_baselined=True,
+        )
+
+        assert "### Baselined diagnostics" in output
+        assert "**`src/service.py`**" in output
+        assert (
+            '| - | error | Missing export "process" | documented-service |'
+        ) in output
+
+    def test_baselined_summary_mentions_count(self) -> None:
+        output = format_markdown(
+            make_result(
+                [diagnostic(file_path="src/a.py", message="critical")],
+                files_checked=2,
+                baselined_diagnostics=[baselined_diagnostic()],
+            )
+        )
+
+        assert "**Checked 2 files in 5ms. Found 1 error, 1 baselined.**" in output
+
+    def test_stale_entries_render_unconditionally(self) -> None:
+        output = format_markdown(
+            make_result(
+                [],
+                baseline_stale_entries=[
+                    stale_baseline_entry(
+                        file_path="src/service.py",
+                        convention_name="documented-service",
+                        recorded_count=2,
+                        found_count=1,
+                    )
+                ],
+            )
+        )
+
+        assert "### Stale baseline entries" in output
+        assert (
+            '- Stale baseline entry for "documented-service" in src/service.py: '
+            "recorded 2, found 1. Run konpy check --write-baseline to ratchet down."
+        ) in output
 
 
 class TestFormatMarkdownFixHints:

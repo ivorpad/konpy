@@ -8,6 +8,7 @@ from konpy.config._schema_predicates import MustPredicatesV1
 from konpy.config._schema_types import (
     ConventionName,
     ConventionRef,
+    NonEmptyString,
     PlaceholdersMap,
     Severity,
     SourcePrefix,
@@ -46,6 +47,22 @@ _MUST_ONLY_PREDICATE_MESSAGES = {
     "restrictDuplicateFunctions": (
         'restrictDuplicateFunctions is only supported in "must", not "mustNot"; '
         "it already reports duplicate functions directly."
+    ),
+    "restrictDecorators": (
+        'restrictDecorators is only supported in "must", not "mustNot"; '
+        "the forbid list already expresses the ban directly."
+    ),
+    "restrictBaseClasses": (
+        'restrictBaseClasses is only supported in "must", not "mustNot"; '
+        "the forbid list already expresses the ban directly."
+    ),
+    "restrictCalls": (
+        'restrictCalls is only supported in "must", not "mustNot"; '
+        "the forbid list already expresses the ban directly."
+    ),
+    "restrictImports": (
+        'restrictImports is only supported in "must", not "mustNot"; '
+        "the forbid list already expresses the ban directly."
     ),
 }
 
@@ -192,6 +209,42 @@ class UnusedCodeV1(_StrictModel):
     severity: Severity | None = None
 
 
+class VerifyStepV1(_StrictModel):
+    """One named step in a ``konpy verify`` roster, run to completion in order."""
+
+    name: NonEmptyString
+    """Unique name for this step; shown in the `[verify] <name> ... ok|FAILED` line."""
+    run: list[NonEmptyString] = Field(min_length=1)
+    """Argv executed verbatim, never through a shell: `run[0]` is the executable."""
+    timeout: int = Field(default=1800, ge=1)
+    """Seconds allowed before this step is reported as a timeout failure."""
+
+
+class VerifyConfigV1(_StrictModel):
+    """Optional ``verify`` roster config, run by ``konpy verify``.
+
+    A child config's ``verify`` section replaces its parent's wholesale under
+    ``extends`` -- unlike ``unusedCode``, whose individual fields merge one by
+    one -- because this model has a single list field, and the generic
+    inheritance merge never merges list values, only replaces them.
+    """
+
+    steps: list[VerifyStepV1] = Field(min_length=1)
+    """The roster, run in declaration order. Every step always runs, even
+    after an earlier one fails; there is no fail-fast short-circuit."""
+
+    @model_validator(mode="after")
+    def _check_unique_step_names(self) -> Self:
+        seen: set[str] = set()
+        for step in self.steps:
+            if step.name in seen:
+                raise ValueError(
+                    f'Duplicate verify step name "{step.name}". Step names must be unique.'
+                )
+            seen.add(step.name)
+        return self
+
+
 class RawConfigV1(_StrictModel):
     """The konpy.json file as written (conventions may be references)."""
 
@@ -205,6 +258,7 @@ class RawConfigV1(_StrictModel):
     conventionSources: dict[SourcePrefix, str] | None = None
     conventions: list[ConventionRef | ConventionUseRefV1 | RawHandWrittenConventionV1]
     unusedCode: UnusedCodeV1 | None = None
+    verify: VerifyConfigV1 | None = None
 
 
 class ConfigV1(_StrictModel):
@@ -218,3 +272,4 @@ class ConfigV1(_StrictModel):
     conventionSources: dict[str, str] | None = None
     conventions: list[ConventionV1]
     unusedCode: UnusedCodeV1 | None = None
+    verify: VerifyConfigV1 | None = None

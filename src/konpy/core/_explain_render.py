@@ -10,6 +10,7 @@ from konpy.core._explain_model import (
     ExplainedUnusedCode,
     build_explained_config,
 )
+from konpy.predicates.registry import PredicateRegistry
 
 ExplainFormat = Literal["md", "text"]
 
@@ -189,9 +190,19 @@ def render_explain_text(explained: ExplainedConfig) -> str:
     return "\n".join(lines)
 
 
-def render_explain(config: ConfigV1, *, format: ExplainFormat = "md") -> str:
-    """Render a resolved `ConfigV1` as prevention-side guidance in `format`."""
-    explained = build_explained_config(config)
+def render_explain(
+    config: ConfigV1,
+    *,
+    format: ExplainFormat = "md",
+    predicate_registry: PredicateRegistry | None = None,
+) -> str:
+    """Render a resolved `ConfigV1` as prevention-side guidance in `format`.
+
+    `predicate_registry` should be the actual registry `config` was loaded
+    against (e.g. `LoadedConfig.predicate_registry`), so convention naming
+    matches what `check` would enforce; it defaults to the builtin registry.
+    """
+    explained = build_explained_config(config, predicate_registry=predicate_registry)
     if format == "text":
         return render_explain_text(explained)
     if format == "md":

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
@@ -17,6 +18,12 @@ from konpy.config.errors import Err, Ok, Result, format_validation_error
 from konpy.config.schema import ConventionV1
 from konpy.config.source_resolver import SourceMap
 
+if TYPE_CHECKING:
+    # konpy.predicates.registry imports konpy.config.schema at module
+    # level, so importing it unconditionally here would cycle back through
+    # this package's __init__; PredicateRegistry is only used in annotations.
+    from konpy.predicates.registry import PredicateRegistry
+
 
 @dataclass(frozen=True)
 class ExpandedReferences:
@@ -30,7 +37,7 @@ def expand_references(
     *,
     conventions: Sequence[object],
     source_map: SourceMap,
-    predicate_registry: object | None = None,
+    predicate_registry: PredicateRegistry | None = None,
 ) -> Result[ExpandedReferences]:
     """Expand every entry in a raw ``conventions`` list into a materialized ``ConventionV1``."""
     expanded: list[ConventionV1] = []
@@ -84,7 +91,7 @@ def expand_string_reference(
     ref: str,
     index: int,
     source_map: SourceMap,
-    predicate_registry: object | None = None,
+    predicate_registry: PredicateRegistry | None = None,
 ) -> Result[ConventionV1]:
     """Expand a bare string reference (``"vendor/name"``) into a materialized convention."""
     lookup = _lookup_reusable(ref=ref, index=index, source_map=source_map)
@@ -129,7 +136,7 @@ def expand_use_reference(
     entry: Mapping[str, object],
     index: int,
     source_map: SourceMap,
-    predicate_registry: object | None = None,
+    predicate_registry: PredicateRegistry | None = None,
 ) -> Result[ConventionV1]:
     """Expand a ``{ use: "vendor/name", ... }`` reference into a materialized convention."""
     ref = str(entry["use"])
@@ -179,7 +186,7 @@ def _expand_hand_written(
     entry: object,
     index: int,
     source_map: SourceMap,
-    predicate_registry: object | None,
+    predicate_registry: PredicateRegistry | None,
 ) -> Result[ConventionV1]:
     must = getattr(entry, "must", None)
     if must is None and isinstance(entry, Mapping):

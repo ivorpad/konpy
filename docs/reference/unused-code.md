@@ -41,7 +41,7 @@ level of class-body methods and attributes) is classified in priority order:
 | `allowed` | name or qualname is in `allow` | silent |
 | `hook` | dunder (`__x__`) or a framework lifecycle name (`model_post_init`, `setUp`, `main`, …) | silent |
 | `registered` | bears a registry decorator (`@app.*`, `@field_validator`, `@pytest.fixture`, …) | silent |
-| `model-field` | class attribute on a model base (`BaseModel`, `BaseSettings`, `TypedDict`, `Enum`, …) or `@dataclass` class | silent |
+| `model-field` | class attribute on a model base (`BaseModel`, `BaseSettings`, `TypedDict`, `Enum`, …) or `@dataclass` class — including bases reached through an intermediate class defined in the same module (`Child(Base)` where `Base(TypedDict)`); an intermediate base imported from another module is not resolved | silent |
 | `protocol-override` | public method on a class whose base is imported from a third-party (non-stdlib, non-repo) module — the library dispatches to it by name, so a zero reference count says nothing; private `_`-methods stay reportable | silent |
 | `entrypoint` | name appears as a string token in a declared entrypoint file (Dockerfile `CMD`, SAM/serverless templates, `pyproject.toml`, …) | silent |
 | `dead` | no reference anywhere (code, tests, entrypoint files, strings) | **report** (`unusedCode.dead`) |
@@ -110,3 +110,40 @@ Shipped so `"unusedCode": {}` already understands common frameworks:
   that keeps noise at zero.
 - **Scope depth.** Nested functions inside functions and local variables are not
   collected (v1).
+
+## Precision posture
+
+False positives are treated as defects. A definition classified `dead` or
+`test-only` that is actually referenced from production code is a bug, fixed
+by tightening the classifier or adding a preset, not worked around by asking
+users to list more names in `allow`. False negatives are the accepted cost of
+holding that line: bare-name matching, string-token references, and framework
+exemptions all trade completeness for the zero-false-positive guarantee.
+
+`test-only` is a deliberately separate signal, not a bug class. A definition
+referenced only under a test glob is a distinct finding (dead test scaffolding,
+or production code that only a test still calls) from `dead` (referenced
+nowhere at all). Neither classification means "the detector missed a
+reference"; it means the reference it found lives in a specific place.
+
+Use in a library cannot be inferred from one repository. A public function
+with zero references inside this codebase may still be load-bearing for
+external consumers this scan never sees. `entrypointFiles`, `allow`, and the
+`protocol-override`/`registered`/`hook` classes exist to keep that gap from
+producing noise, but they cannot enumerate every external caller. When a
+`dead` finding is genuinely public API, put it in `allow`; do not delete it on
+the classifier's say-so.
+
+Framework exemptions (registry decorators, hook names, model bases) are part
+of the compatibility surface, not incidental detail. Narrowing or removing one
+without evidence that a framework changed its dispatch mechanism reintroduces
+false positives across every project relying on that preset.
+
+### Evaluation harness
+
+`scripts/eval_unused [path]` runs this engine over a target directory and,
+when `vulture` is reachable via `uvx`, also runs vulture
+(`--min-confidence 80`) over the same path, printing a best-effort overlap
+keyed on `(file, symbol name)`. It exists to eyeball agreement between the two
+detectors during development. It has no pass/fail verdict, is not a test, and
+is never invoked by `scripts/verify` or CI.

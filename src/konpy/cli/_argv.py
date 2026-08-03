@@ -14,10 +14,13 @@ _KNOWN_SUBCOMMANDS = {
     "explain",
     "gate",
     "hook",
+    "review",
     "hook-propose",
+    "improve",
     "init",
     "docs",
     "report",
+    "verify",
     "version",
     "help",
 }
@@ -27,7 +30,7 @@ _MULTI_VALUE_OPTIONS = ("--files", "--exclude")
 # Options that only `report` accepts. Flags-only argv normally implies `check`,
 # but `konpy --exclude vendor/**` clearly means the report, so route it there
 # instead of failing with "No such option" on `check`.
-_REPORT_ONLY_OPTIONS = ("--exclude",)
+_REPORT_ONLY_OPTIONS = ("--exclude", "--include-vendored")
 
 
 def _expand_multi_value_options(argv: list[str]) -> list[str]:

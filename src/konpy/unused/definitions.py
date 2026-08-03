@@ -42,6 +42,11 @@ def collect_definitions(*, module: ast.Module, module_path: str) -> list[Definit
     """Collect module-level and one-level-of-class-body definitions from `module`."""
     definitions: list[Definition] = []
     import_scope = _module_import_scope(module)
+    local_class_bases = {
+        node.name: _base_names(node.bases)
+        for node in module.body
+        if isinstance(node, ast.ClassDef)
+    }
 
     for node in module.body:
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
@@ -72,7 +77,10 @@ def collect_definitions(*, module: ast.Module, module_path: str) -> list[Definit
             )
             definitions.extend(
                 _collect_class_members(
-                    node=node, module_path=module_path, import_scope=import_scope
+                    node=node,
+                    module_path=module_path,
+                    import_scope=import_scope,
+                    local_class_bases=local_class_bases,
                 )
             )
         elif isinstance(node, ast.Assign | ast.AnnAssign):
@@ -94,10 +102,18 @@ def collect_definitions(*, module: ast.Module, module_path: str) -> list[Definit
 
 
 def _collect_class_members(
-    *, node: ast.ClassDef, module_path: str, import_scope: _ModuleImportScope
+    *,
+    node: ast.ClassDef,
+    module_path: str,
+    import_scope: _ModuleImportScope,
+    local_class_bases: dict[str, tuple[str, ...]],
 ) -> list[Definition]:
-    bases = _base_names(node.bases)
-    base_roots = _base_roots(bases, import_scope)
+    direct_bases = _base_names(node.bases)
+    # Members carry the module-local transitive base closure so model-base
+    # exemptions see through local intermediates; base roots stay direct-only
+    # (protocol-override targets direct third-party subclasses).
+    bases = _expand_local_bases(direct_bases, local_class_bases)
+    base_roots = _base_roots(direct_bases, import_scope)
     class_decorators = _decorator_names(node.decorator_list)
     members: list[Definition] = []
 
@@ -218,6 +234,27 @@ def _module_import_scope(module: ast.Module) -> _ModuleImportScope:
         star_roots=tuple(sorted(star_roots)),
         local_names=frozenset(local_names),
     )
+
+
+def _expand_local_bases(
+    bases: tuple[str, ...], local_class_bases: dict[str, tuple[str, ...]]
+) -> tuple[str, ...]:
+    """Close `bases` over module-local class definitions, direct bases first.
+
+    Bases defined in other modules stay as written — resolution is
+    module-local by design, matching the collector's single-file scope.
+    """
+    expanded: list[str] = []
+    seen: set[str] = set()
+    queue: deque[str] = deque(bases)
+    while queue:
+        base = queue.popleft()
+        if base in seen:
+            continue
+        seen.add(base)
+        expanded.append(base)
+        queue.extend(local_class_bases.get(base, ()))
+    return tuple(expanded)
 
 
 def _base_roots(bases: tuple[str, ...], scope: _ModuleImportScope) -> tuple[str, ...]:

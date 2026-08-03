@@ -1182,3 +1182,146 @@ class TestDuplicationPredicateSchema:
                 ]
             )
         ) is False
+
+
+class TestRestrictWildcardPredicatesSchema:
+    @pytest.mark.parametrize(
+        "predicate,options",
+        [
+            pytest.param(
+                "restrictDecorators",
+                {"forbid": ["pytest.mark.*"], "allow": ["pytest.mark.skip"]},
+                id="decorators",
+            ),
+            pytest.param(
+                "restrictBaseClasses",
+                {"forbid": ["pydantic.BaseModel"]},
+                id="base-classes",
+            ),
+            pytest.param(
+                "restrictCalls",
+                {"forbid": ["subprocess.run"], "scope": "module"},
+                id="calls",
+            ),
+            pytest.param(
+                "restrictImports",
+                {
+                    "forbid": ["pkg.Logger"],
+                    "scope": "function",
+                    "includeTypeChecking": True,
+                },
+                id="imports",
+            ),
+        ],
+    )
+    def test_accepts_options_object(self, predicate: str, options: dict[str, object]) -> None:
+        assert parses(
+            config(
+                [
+                    {
+                        "paths": "src/*.py",
+                        "must": {predicate: options},
+                    }
+                ]
+            )
+        ) is True
+
+    @pytest.mark.parametrize(
+        "predicate",
+        [
+            "restrictDecorators",
+            "restrictBaseClasses",
+            "restrictCalls",
+            "restrictImports",
+        ],
+    )
+    def test_rejects_bare_true(self, predicate: str) -> None:
+        assert parses(
+            config(
+                [
+                    {
+                        "paths": "src/*.py",
+                        "must": {predicate: True},
+                    }
+                ]
+            )
+        ) is False
+
+    @pytest.mark.parametrize(
+        "predicate",
+        [
+            "restrictDecorators",
+            "restrictBaseClasses",
+            "restrictCalls",
+            "restrictImports",
+        ],
+    )
+    def test_rejects_missing_forbid(self, predicate: str) -> None:
+        assert parses(
+            config(
+                [
+                    {
+                        "paths": "src/*.py",
+                        "must": {predicate: {}},
+                    }
+                ]
+            )
+        ) is False
+
+    @pytest.mark.parametrize(
+        "predicate",
+        [
+            "restrictDecorators",
+            "restrictBaseClasses",
+            "restrictCalls",
+            "restrictImports",
+        ],
+    )
+    def test_rejects_empty_forbid_list(self, predicate: str) -> None:
+        assert parses(
+            config(
+                [
+                    {
+                        "paths": "src/*.py",
+                        "must": {predicate: {"forbid": []}},
+                    }
+                ]
+            )
+        ) is False
+
+    @pytest.mark.parametrize(
+        "predicate",
+        [
+            "restrictDecorators",
+            "restrictBaseClasses",
+            "restrictCalls",
+            "restrictImports",
+        ],
+    )
+    def test_rejects_top_level_must_not(self, predicate: str) -> None:
+        assert parses(
+            config(
+                [
+                    {
+                        "paths": "src/*.py",
+                        "mustNot": {predicate: {"forbid": ["x"]}},
+                    }
+                ]
+            )
+        ) is False
+
+    def test_must_not_rejection_messages_name_each_predicate(self) -> None:
+        from konpy.config.schema import MustBlockV1
+
+        for predicate in (
+            "restrictDecorators",
+            "restrictBaseClasses",
+            "restrictCalls",
+            "restrictImports",
+        ):
+            try:
+                MustBlockV1.model_validate({"mustNot": {predicate: {"forbid": ["x"]}}})
+            except ValueError as error:
+                assert predicate in str(error)
+            else:
+                raise AssertionError(f"expected {predicate} in mustNot to be rejected")

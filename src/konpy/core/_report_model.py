@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from konpy.core._report_tools import ReportToolLane
 from konpy.core.diagnostics import Diagnostic
 
 
@@ -36,6 +37,11 @@ class ReportFunctionGroup:
     # Member names differing from the canonical one — a duplicate hiding
     # behind a rename (`_iter_error_chain` vs `_iter_retry_error_chain`).
     name_variants: tuple[str, ...] = ()
+    # True when members span more than one component (a member's component is
+    # its first path segment, or its second when the first is `src`/`lib`).
+    # Cross-component duplication compounds fastest, so it ranks and renders
+    # first.
+    is_cross_component: bool = False
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -67,11 +73,14 @@ class ReportData:
     files: int
     test_files: int
     generated_files: int
+    vendor_files: int
+    vendor_roots: tuple[str, ...]
     loc: int
     skipped_unparsable: int
     unused: tuple[Diagnostic, ...]
     literal_groups: tuple[ReportLiteralGroup, ...]
     function_groups: tuple[ReportFunctionGroup, ...]
+    tool_lanes: tuple[ReportToolLane, ...]
     coverage: ReportCoverage
     conventions: ReportConventions
     duration_ms: float
@@ -83,4 +92,5 @@ __all__ = [
     "ReportData",
     "ReportFunctionGroup",
     "ReportLiteralGroup",
+    "ReportToolLane",
 ]

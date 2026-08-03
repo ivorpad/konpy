@@ -75,7 +75,9 @@ def _warn_unmatched(file_system: RealFileSystem, patterns: Sequence[str]) -> Non
             )
 
 
-def run_report_command(exclude: Sequence[str] | None = None) -> int:
+def run_report_command(
+    exclude: Sequence[str] | None = None, *, include_vendored: bool = False
+) -> int:
     """Assemble and print the zero-config report for the current directory."""
     cwd = Path.cwd()
     file_system = RealFileSystem(cwd=cwd)
@@ -85,6 +87,7 @@ def run_report_command(exclude: Sequence[str] | None = None) -> int:
         file_system=file_system,
         config_path=cwd / CONFIG_FILENAME,
         exclude=patterns,
+        include_vendored=include_vendored,
     )
     typer.echo(render_report(data))
     return 1 if data.conventions.errors else 0

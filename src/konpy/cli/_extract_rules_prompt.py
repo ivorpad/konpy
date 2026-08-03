@@ -57,14 +57,29 @@ ReusableConventionsPackageV1 format summary:
   is only a human-review proposal.
 
 Routing order:
-1. If an established Ruff or mypy rule covers the check, emit it only in
-   "coveredElsewhere". Do not duplicate it with a konpy convention, including
-   a weak matchContent approximation.
-2. Otherwise, if the rule is expressible with the supplied konpy predicates
-   and placeholders, emit it only in "pack".
-3. Otherwise, if a read-only agent can verify the rule by inspecting a single
-   changed file with judgment, emit it only in "semantic".
-4. Only rules requiring repository-wide, runtime, operational, or process
+Match each source rule against these seven owners in order and stop at the
+first one whose scope actually covers the rule:
+1. Ruff owns lint-level concerns: general style, unused imports, print/TODO
+   markers, common security rules. Emit only in "coveredElsewhere".
+2. The active type checker (e.g. basedpyright) owns type semantics and Any
+   policy. Emit only in "coveredElsewhere".
+3. Import Linter owns resolved dependency architecture: layering, forbidden
+   imports followed transitively, package independence. A konpy import
+   predicate only inspects the one import statement in front of it and
+   cannot follow a transitive chain, so do not approximate this with a
+   konpy convention. Emit only in "coveredElsewhere".
+4. konpy owns structural conventions expressible with the supplied
+   predicates and placeholders: layout, required exports/imports, module
+   length, docstring/annotation coverage, duplication, unused code. Emit
+   only in "pack". Do not duplicate a rule already owned by 1-3 with a
+   konpy convention, including a weak matchContent approximation.
+5. pytest owns claims about runtime behavior rather than source shape. Emit
+   only in "coveredElsewhere".
+6. Advisory review owns a genuinely subjective, per-file judgment call none
+   of the tools above can express, where a read-only agent can verify the
+   rule by inspecting a single
+   changed file with judgment. Emit only in "semantic".
+7. Only rules requiring repository-wide, runtime, operational, or process
    knowledge belong in "unmapped".
 
 Semantic-rule requirements:

@@ -83,9 +83,13 @@ Plugin predicate keys remain strict: unknown keys are rejected unless a named pl
   - [`restrictAnnotations`](#restrictannotations)
   - [`restrictRepeatedLiterals`](#restrictrepeatedliterals)
   - [`restrictDuplicateFunctions`](#restrictduplicatefunctions)
+  - [`restrictDecorators`](#restrictdecorators)
+  - [`restrictBaseClasses`](#restrictbaseclasses)
+  - [`restrictCalls`](#restrictcalls)
+  - [`restrictImports`](#restrictimports)
 - [Plugin predicates](#plugin-predicates)
 
-Most predicates support template substitutions in their string values — see [path-patterns.md](./path-patterns.md#case-transformations) for the full case-transformation catalog. Exceptions: `matchContent` regex patterns are compiled as written and do **not** perform template substitution, because `${...}` is valid regex syntax; `restrictAnnotations`, `restrictRepeatedLiterals`, and `restrictDuplicateFunctions` option patterns also do **not** perform template substitution, because they match parsed source facts exactly.
+Most predicates support template substitutions in their string values — see [path-patterns.md](./path-patterns.md#case-transformations) for the full case-transformation catalog. Exceptions: `matchContent` regex patterns are compiled as written and do **not** perform template substitution, because `${...}` is valid regex syntax; `restrictAnnotations`, `restrictRepeatedLiterals`, `restrictDuplicateFunctions`, `restrictDecorators`, `restrictBaseClasses`, `restrictCalls`, and `restrictImports` option patterns also do **not** perform template substitution, because they match parsed source facts exactly.
 
 `mustNot` accepts only the object form:
 
@@ -404,6 +408,8 @@ For `class PostgresAdapter(BaseAdapter, Connectable, Disposable): ...`, `extend`
 ## Import predicates
 
 A "type-only" import in Python is one written inside a top-level `if TYPE_CHECKING:` block. Everything else is a value import.
+
+These are all lexical, source-level checks (v1 semantics, unchanged): `importFrom`/`importTypes` match the written module specifier as it appears in the import statement; `importFromCurrentDir`/`importFromParents` classify by relative-import level, i.e. how many dots precede the specifier; `importFromExternals` means "absolute-import syntax," not "third-party." None of them resolve whether an absolute specifier belongs to the current project or a dependency, and none walk the import graph beyond the one statement in front of them — a `mustNot: { "importFrom": "acme.internal" }` rule doesn't catch a file that imports something which itself imports `acme.internal`. For resolved-graph and transitive-dependency contracts, see [Import boundaries](../guides/import-boundaries.md).
 
 ### `import`
 
@@ -846,6 +852,178 @@ When a duplicate group is found, the canonical function is the lowest `(file_pat
 `restrictDuplicateFunctions` is cross-file and always evaluates the full selected scope. Under `--files`/`--changed`, scoping selects a convention when any file in the predicate's effective block scope is in scope; once selected, grouping still uses the full block scope.
 
 `restrictDuplicateFunctions` is only supported under `must`. Putting it under `mustNot` is rejected during config validation.
+
+### `restrictDecorators`
+
+Flag decorators whose written or resolved dotted path matches a forbidden pattern.
+
+```json
+"must": {
+  "restrictDecorators": { "forbid": ["pytest.mark.skip", "pytest.mark.xfail"] }
+}
+```
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `forbid` | string[] | required | Star-pattern decorator paths to forbid, checked against both the written and resolved form. Patterns support `*`; `[`, `]`, and `?` are literal. |
+| `allow` | string[] | unset | Star-pattern decorator paths that override a `forbid` match. |
+
+There is no default rule set: `forbid` is required, and the bare `true` shorthand that `restrictAnnotations`/`restrictFileLength` support is not available here.
+
+Matching checks both the decorator's written form and its import-resolved form, so an alias doesn't dodge the rule:
+
+```py
+import pytest as pt
+
+@pt.mark.skip  # written "pt.mark.skip", resolves to "pytest.mark.skip" — matches
+def test_thing(): ...
+```
+
+A decorator with no matching import binding (a locally defined one) resolves to itself. A relative import resolves with its leading dots, e.g. `.utils.helper`.
+
+Config example — a test suite that must fix or delete a failing test instead of skipping it:
+
+```json
+{
+  "paths": "tests/**/*.py",
+  "must": {
+    "restrictDecorators": { "forbid": ["pytest.mark.skip", "pytest.mark.xfail"] }
+  }
+}
+```
+
+`restrictDecorators` is only supported under `must`. Putting it under `mustNot` is rejected during config validation.
+
+### `restrictBaseClasses`
+
+Flag base classes whose written or resolved dotted path matches a forbidden pattern.
+
+```json
+"must": {
+  "restrictBaseClasses": { "forbid": ["pydantic.BaseModel"] }
+}
+```
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `forbid` | string[] | required | Star-pattern base-class paths to forbid, checked against both the written and resolved form. Patterns support `*`; `[`, `]`, and `?` are literal. |
+| `allow` | string[] | unset | Star-pattern base-class paths that override a `forbid` match. |
+
+`forbid` is required; there is no default rule set and no bare `true` shorthand.
+
+```py
+from pydantic import BaseModel as BM
+
+class Order(BM):  # written "BM", resolves to "pydantic.BaseModel" — matches forbid
+    ...
+```
+
+Locally defined bases resolve to themselves; relative imports resolve with their leading dots, the same as `restrictDecorators`.
+
+Config example — keep a domain layer's models free of a validation-library base class:
+
+```json
+{
+  "paths": "src/domain/**/*.py",
+  "must": {
+    "restrictBaseClasses": { "forbid": ["pydantic.BaseModel"] }
+  }
+}
+```
+
+`restrictBaseClasses` is only supported under `must`. Putting it under `mustNot` is rejected during config validation.
+
+### `restrictCalls`
+
+Flag call sites whose written or resolved callee matches a forbidden pattern.
+
+```json
+"must": {
+  "restrictCalls": { "forbid": ["Config"], "scope": "module" }
+}
+```
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `forbid` | string[] | required | Star-pattern callee paths to forbid, checked against both the written and resolved form. Patterns support `*`; `[`, `]`, and `?` are literal. |
+| `allow` | string[] | unset | Star-pattern callee paths that override a `forbid` match. |
+| `scope` | `"any"` \| `"module"` | `"any"` | `"module"` restricts checking to call sites that run at import time: module-level statements and class-body statements (a class body executes when the class is defined). `"any"` checks calls at every scope, including inside function bodies. |
+
+`scope: "module"` catches eager construction that runs as a side effect of importing the module, not just top-level assignments:
+
+```py
+CONFIG = Config()  # module scope — flagged
+
+class Service:
+    _client = Client()  # class body — flagged, it runs at class-definition time
+
+def get_config():
+    return Config()  # function scope — not flagged under scope: "module"
+```
+
+Config example — ban eager `Config()` construction at import time, forcing it behind a function call:
+
+```json
+{
+  "paths": "src/**/*.py",
+  "must": {
+    "restrictCalls": { "forbid": ["Config"], "scope": "module" }
+  }
+}
+```
+
+The default `scope: "any"` is for calls that are unsafe regardless of where they run, such as banning `unittest`-style skips repo-wide:
+
+```json
+"must": { "restrictCalls": { "forbid": ["*.skipTest"] } }
+```
+
+`restrictCalls` is only supported under `must`. Putting it under `mustNot` is rejected during config validation.
+
+### `restrictImports`
+
+Flag imports whose source module or full symbol path matches a forbidden pattern, at any scope — including inside a function body, which `importFrom` cannot see.
+
+```json
+"must": {
+  "restrictImports": { "forbid": ["boto3", "botocore", "httpx"] }
+}
+```
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `forbid` | string[] | required | Star-pattern import paths to forbid, matched against the import's source module or its full symbol path. Patterns support `*`; `[`, `]`, and `?` are literal. |
+| `allow` | string[] | unset | Star-pattern import paths that override a `forbid` match. |
+| `scope` | `"any"` \| `"module"` \| `"function"` | `"any"` | Restrict which imports are checked by where they execute: `"module"` for top-level imports only, `"function"` for imports nested inside a function body only, `"any"` for both. |
+| `includeTypeChecking` | boolean | `false` | When `false`, imports guarded by `if TYPE_CHECKING:` are skipped. Set `true` to check them too. |
+
+A bare module name matches on the import's source, so it forbids every symbol pulled from that module. A dotted symbol path matches on the specific imported name instead: `forbid: ["pkg.Logger"]` bans `from pkg import Logger` but not `from pkg import Other` — `Other`'s symbol path is `pkg.Other`, a different string.
+
+This is the case a module-scope `importFrom` rule structurally cannot catch — the import hides inside a function and only runs when that function is called:
+
+```py
+def send_metric(name: str, value: float) -> None:
+    import boto3  # function-scoped; a module-level importFrom on this file never sees it
+
+    boto3.client("cloudwatch").put_metric_data(...)
+```
+
+Config example — ban SDK imports anywhere in an inner layer, regardless of where the import sits:
+
+```json
+{
+  "paths": "src/domain/**/*.py",
+  "must": {
+    "restrictImports": { "forbid": ["boto3", "botocore", "httpx"] }
+  }
+}
+```
+
+`restrictImports` stays source-level like the rest of konpy's import predicates: it doesn't resolve whether an absolute specifier belongs to the project or a dependency, and it doesn't walk the import graph beyond the one import statement. See [Import boundaries](../guides/import-boundaries.md) for when you need the resolved-graph guarantees of a tool like Import Linter instead.
+
+`importFrom` is the upstream-parity predicate and only ever sees module-scope imports; `restrictImports` is the scope-aware konpy extension, adding `scope` plus `forbid`/`allow` wildcards on top.
+
+`restrictImports` is only supported under `must`. Putting it under `mustNot` is rejected during config validation.
 
 ---
 

@@ -1,5 +1,6 @@
 {
   "version": "v1",
+  "extends": ["./konpy.json"],
   "conventionSources": {
     "bp": "./packs/python-best-practices.json"
   },
@@ -25,28 +26,17 @@
       "paths": ["src/konpy/**/*.py", "!src/konpy/**/__init__.py"]
     },
     {
-      "name": "no-todo-fixme",
-      "description": "No TODO/FIXME markers in source.",
-      "paths": "src/konpy/**/*.py",
-      "mustNot": { "matchContent": ["\\bTODO\\b", "\\bFIXME\\b"] }
-    },
-    {
-      "name": "no-any-annotations",
-      "description": "typing.Any defeats the type checker; annotate precisely.",
-      "paths": "src/konpy/**/*.py",
-      "mustNot": { "matchContent": [": Any\\b", "-> Any\\b", "\\[Any\\]"] }
-    },
-    {
-      "name": "no-print-statements",
-      "description": "Use the reporter layer, never bare print(), outside the CLI.",
-      "paths": ["src/konpy/**/*.py", "!src/konpy/cli/**"],
-      "mustNot": { "matchContent": ["^\\s*print\\("] }
-    },
-    {
       "name": "max-module-length",
       "description": "Modules longer than 300 lines should be split.",
       "paths": "src/konpy/**/*.py",
       "must": { "restrictFileLength": { "maxLines": 300 } }
+    },
+    {
+      "name": "tests-never-skip",
+      "description": "Tests are deleted or fixed, never skipped; environment-conditional runs use skipif.",
+      "hint": "Remove the skip/xfail marker and fix or delete the test, or use pytest.mark.skipif for a real environment condition.",
+      "paths": ["tests/**/*.py", "!tests/e2e/fixtures/**"],
+      "must": { "restrictDecorators": { "forbid": ["pytest.mark.skip", "pytest.mark.xfail"] } }
     }
   ],
   "unusedCode": {

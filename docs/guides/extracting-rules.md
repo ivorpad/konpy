@@ -46,7 +46,7 @@ Every source rule must enter one lane.
 
 ### Covered by existing linters
 
-If Ruff or mypy already checks a rule, extraction reports the existing tool instead of creating a weaker konpy approximation.
+If Ruff, the active type checker, Import Linter, or pytest already owns a rule, extraction reports the existing tool instead of creating a weaker konpy approximation. See [Import boundaries](./import-boundaries.md) for why an import-architecture rule specifically routes to Import Linter rather than a konpy `importFrom*` predicate.
 
 Example:
 
@@ -98,16 +98,16 @@ Rules that need judgment but can be checked by reading one changed file enter a 
 }
 ```
 
-Wire the package into an agent hook:
+Wire the package into an advisory review:
 
 ```bash
-konpy hook \
+konpy review \
   --agent claude \
   --match '**/*.py' \
   --rules packs/team-rules.rules.json
 ```
 
-See [Semantic rules](../reference/semantic-rules.md).
+`konpy hook --rules` takes the same package if you're on the deprecated blocking command. See [Semantic rules](../reference/semantic-rules.md).
 
 ### Unmapped rules
 
@@ -122,14 +122,17 @@ Examples include:
 
 ## Routing order
 
-The extraction prompt applies this order:
+The extraction prompt checks each source rule against seven owners in order and stops at the first one whose scope covers the rule:
 
-1. Use Ruff or mypy when an established rule covers the check.
-2. Use a structural konpy convention when predicates can express it.
-3. Use a semantic rule when one-file read-only inspection is enough.
-4. Use unmapped only for checks that do not fit the first three lanes.
+1. Ruff — lint-level concerns: style, unused imports, print/TODO markers, common security rules.
+2. The active type checker — type semantics and Any policy.
+3. Import Linter — resolved dependency architecture: layering, transitive forbidden imports, package independence.
+4. konpy — structural conventions the supplied predicates and placeholders can express.
+5. pytest — claims about runtime behavior rather than source shape.
+6. Advisory review — a subjective, per-file judgment call none of the above can express; routed to the semantic lane.
+7. Unmapped — anything left that needs repository-wide, runtime, operational, or process knowledge.
 
-This order prevents generated `matchContent` rules from duplicating mature linters.
+Owners 1, 2, 3, and 5 all land in the "covered by existing linters" lane; konpy's structural predicates never approximate a check one of them already owns.
 
 ## Reports
 
@@ -239,10 +242,11 @@ The structural pack is written first, followed by semantic rules and the report.
 
 ## Related workflows
 
-[`konpy hook-propose`](./ratchet.md) uses the same four-lane output contract. Its input is logged hook failures rather than a prose document.
+[`konpy hook-propose`](./ratchet.md) uses the same four-lane output contract. Its input is logged review findings rather than a prose document.
 
 See also:
 
 - [Semantic rules](../reference/semantic-rules.md)
+- [Import boundaries](./import-boundaries.md)
 - [Agentic verification hooks](./hooks.md)
 - [Reusable conventions](../reference/reusable-conventions.md)

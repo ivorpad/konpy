@@ -13,6 +13,18 @@ from konpy.cli.report import split_exclude_values
 runner = CliRunner()
 
 
+@pytest.fixture(autouse=True)
+def _skip_external_tool_lanes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stub out the real ruff/basedpyright/import-linter subprocesses.
+
+    These tests exercise `--exclude` scoping, not external-tool integration --
+    that's covered directly, with fake runners, in test_report_tools.py.
+    Skipping the real subprocesses keeps this suite fast and independent of
+    what happens to be on PATH.
+    """
+    monkeypatch.setattr("konpy.core.report.collect_tool_lanes", lambda root, **_: ())
+
+
 class TestSplitExcludeValues:
     def test_splits_on_commas_and_whitespace(self) -> None:
         assert split_exclude_values(["a/**,b/**"]) == ["a/**", "b/**"]
@@ -136,16 +148,23 @@ class TestPreprocessArgvExpandsExclude:
 
 class TestReportExcludeOption:
     def _tree(self, root: Path) -> None:
-        """A source module plus a vendored copy that references it."""
+        """A source module plus a second copy that references it.
+
+        The second tree lives under a plain, non-vendor-looking name (not
+        `vendor/`, `downloads/`, etc.) so these `--exclude` tests stay
+        orthogonal to the report's own vendor/template auto-detection
+        (test_report_vendor.py) -- they exercise caller-supplied scoping,
+        not the built-in default.
+        """
         src = root / "src"
         src.mkdir()
         (src / "mod.py").write_text(
             "def dead_helper() -> int:\n    return 1\n", encoding="utf-8"
         )
-        vendored = root / "vendor" / "pkg"
-        vendored.mkdir(parents=True)
-        (vendored / "mod.py").write_text(
-            "def vendored_orphan() -> int:\n    return 2\n", encoding="utf-8"
+        mirrored = root / "mirror" / "pkg"
+        mirrored.mkdir(parents=True)
+        (mirrored / "mod.py").write_text(
+            "def mirrored_orphan() -> int:\n    return 2\n", encoding="utf-8"
         )
 
     def test_excluded_tree_leaves_every_lane_and_the_header(
@@ -155,14 +174,14 @@ class TestReportExcludeOption:
         self._tree(tmp_path)
 
         unscoped = runner.invoke(app, ["report"])
-        scoped = runner.invoke(app, ["report", "--exclude", "vendor/**"])
+        scoped = runner.invoke(app, ["report", "--exclude", "mirror/**"])
 
         assert unscoped.exit_code == 0
         assert scoped.exit_code == 0
         assert "2 files" in unscoped.output
         assert "1 file" in scoped.output
-        assert "vendored_orphan" in unscoped.output
-        assert "vendored_orphan" not in scoped.output
+        assert "mirrored_orphan" in unscoped.output
+        assert "mirrored_orphan" not in scoped.output
         # The kept file is still analyzed rather than dropped with the exclude.
         assert "dead_helper" in scoped.output
 
@@ -177,21 +196,21 @@ class TestReportExcludeOption:
             "def generated_orphan() -> int:\n    return 3\n", encoding="utf-8"
         )
 
-        comma = runner.invoke(app, ["report", "--exclude", "vendor/**,generated/**"])
-        spaced = runner.invoke(app, ["report", "--exclude", "vendor/** generated/**"])
+        comma = runner.invoke(app, ["report", "--exclude", "mirror/**,generated/**"])
+        spaced = runner.invoke(app, ["report", "--exclude", "mirror/** generated/**"])
         repeated = runner.invoke(
-            app, ["report", "--exclude", "vendor/**", "--exclude", "generated/**"]
+            app, ["report", "--exclude", "mirror/**", "--exclude", "generated/**"]
         )
         # `_preprocess_argv` (invoked by `main()` in real usage) is what turns
         # one unquoted `--exclude a b` occurrence into repeated flags.
         expanded = runner.invoke(
-            app, _preprocess_argv(["report", "--exclude", "vendor/**", "generated/**"])
+            app, _preprocess_argv(["report", "--exclude", "mirror/**", "generated/**"])
         )
 
         for result in (comma, spaced, repeated, expanded):
             assert result.exit_code == 0
             assert "1 file" in result.output
-            assert "vendored_orphan" not in result.output
+            assert "mirrored_orphan" not in result.output
             assert "generated_orphan" not in result.output
 
     def test_excluded_references_cannot_mask_dead_code(

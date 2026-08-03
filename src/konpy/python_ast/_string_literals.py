@@ -144,7 +144,7 @@ def _is_mapping_key(node: ast.Constant, parent_map: dict[ast.AST, ast.AST]) -> b
         return any(key is node for key in parent.keys)
     if isinstance(parent, ast.Subscript):
         return parent.slice is node
-    if isinstance(parent, ast.Call):
+    if isinstance(parent, ast.Call) and isinstance(node.value, str):
         return (
             isinstance(parent.func, ast.Attribute)
             and parent.func.attr in _MAPPING_ACCESSORS

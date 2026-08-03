@@ -112,6 +112,23 @@ class TestClassBody:
         assert attribute.class_bases == ("BaseModel", "Generic")
         assert attribute.class_decorators == ("dataclass",)
 
+    def test_class_bases_close_over_local_intermediate_classes(self) -> None:
+        definitions = by_qualname(
+            collect(
+                """
+                class Base(TypedDict):
+                    session_id: str
+
+                class Child(Base, Mixin):
+                    event_name: str
+                """
+            )
+        )
+
+        # Direct bases first in declaration order, inherited bases appended.
+        assert definitions["Child.event_name"].class_bases == ("Base", "Mixin", "TypedDict")
+        assert definitions["Base.session_id"].class_bases == ("TypedDict",)
+
     def test_does_not_recurse_into_nested_functions(self) -> None:
         definitions = by_qualname(
             collect(

@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "konpy gate --match '**/*.py'",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "konpy review --agent claude --model sonnet --timeout 90 --match '**/*.py' --prompt 'Verify that docstrings and comments accurately describe the implemented behavior.' --log .konpy/hook-findings.jsonl",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}

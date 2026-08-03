@@ -1,45 +1,15 @@
-"""Per-convention setup: normalizing `must`/`mustNot` into blocks, and
-attaching convention-level description/hint metadata to their diagnostics.
+"""Attaching convention-level description/hint metadata to diagnostics.
+
+`must`/`mustNot` block normalization lives in `core.policy` (shared by the
+runner and `explain`); this module keeps only the post-evaluation metadata
+step, which stays close to the diagnostics it decorates.
 """
 
 from __future__ import annotations
 
 from dataclasses import replace
 
-from konpy.config.schema import MustBlockV1, MustPredicatesV1
 from konpy.core.diagnostics import Diagnostic
-from konpy.predicates.registry import PredicateRegistry
-
-
-def _normalize_must_blocks(
-    *,
-    must: MustPredicatesV1 | list[MustBlockV1] | None,
-    must_not: MustPredicatesV1 | None,
-    predicate_registry: PredicateRegistry,
-) -> list[MustBlockV1]:
-    context = predicate_registry.validation_context()
-
-    if isinstance(must, list):
-        blocks = list(must)
-        if must_not is not None:
-            blocks.append(MustBlockV1.model_validate({"mustNot": must_not}, context=context))
-        return blocks
-
-    if must is not None and must_not is not None:
-        return [
-            MustBlockV1.model_validate(
-                {"must": must, "mustNot": must_not},
-                context=context,
-            )
-        ]
-
-    if must is not None:
-        return [MustBlockV1.model_validate({"must": must}, context=context)]
-
-    if must_not is not None:
-        return [MustBlockV1.model_validate({"mustNot": must_not}, context=context)]
-
-    return []
 
 
 def _with_convention_metadata(

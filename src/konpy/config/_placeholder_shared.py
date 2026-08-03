@@ -39,11 +39,13 @@ def _add_declarations_from_string(*, value: str, into: set[str]) -> None:
 
 def _push_string_usages(
     *,
-    value: str,
+    value: object,
     key: str,
     declared: set[str],
     usages: list[_Usage],
 ) -> None:
+    if not isinstance(value, str):
+        return
     for match in USAGE_REGEX.finditer(value):
         name = match.group(1)
         if name not in declared:

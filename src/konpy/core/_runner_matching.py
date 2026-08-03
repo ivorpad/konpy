@@ -24,10 +24,6 @@ from konpy.predicates.registry import PredicateRegistry, iter_predicate_items
 from konpy.python_ast.structure import PyFileStructure
 
 
-def _to_list(value: str | list[str]) -> list[str]:
-    return value if isinstance(value, list) else [value]
-
-
 def _build_case_maps(config: ConfigV1) -> CaseMaps:
     kebab_to_pascal_map = config.kebabToPascalMap
     kebab_to_camel_map = config.kebabToCamelMap

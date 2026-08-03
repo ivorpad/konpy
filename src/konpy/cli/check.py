@@ -4,6 +4,14 @@ import sys
 from enum import Enum, StrEnum
 from pathlib import Path
 
+from konpy.cli._baseline_support import (
+    compute_raised_entries,
+    format_baseline_written_message,
+    format_raised_warning,
+    read_baseline_if_present,
+    resolve_baseline_path,
+    write_baseline_file,
+)
 from konpy.cli._check_support import (
     enum_value as _shared_enum_value,
 )
@@ -17,6 +25,8 @@ from konpy.cli._check_support import (
     prepare_check_runtime,
 )
 from konpy.config.errors import Err
+from konpy.core.baseline import BaselineData
+from konpy.core.diagnostics import Diagnostic
 from konpy.core.diff_scope import resolve_diff_scope
 from konpy.core.filesystem import RealFileSystem
 from konpy.core.reporters import (
@@ -61,11 +71,15 @@ def run_check_command(
     show_suppressed: bool = False,
     files: list[str] | None = None,
     changed: bool = False,
+    baseline: str | None = None,
+    write_baseline: bool = False,
+    show_baselined: bool = False,
 ) -> int:
     """Run `konpy check` and write the formatted report to stdout.
 
-    Returns the process exit code: 1 on config/scope errors or violations at
-    or above the failure threshold, 0 otherwise.
+    Returns the process exit code: 1 on config/scope/baseline errors or
+    violations at or above the failure threshold, 0 otherwise. `--write-baseline`
+    is a distinct recording mode: it always exits 0 (see `_write_baseline_and_report`).
     """
     del verbose
 
@@ -84,14 +98,39 @@ def run_check_command(
     if isinstance(prepared_result, Err):
         _write_error(prepared_result.error)
         return 1
-
     prepared = prepared_result.value
+
+    baseline_path = resolve_baseline_path(baseline=baseline, config_path=config_path)
+    previous_baseline_result = read_baseline_if_present(baseline_path)
+    if isinstance(previous_baseline_result, Err):
+        _write_error(previous_baseline_result.error)
+        return 1
+    previous_baseline = previous_baseline_result.value
+
+    if write_baseline:
+        # Recording mode captures the FULL current violation set -- never
+        # filtered through the existing baseline -- so it always reflects
+        # reality, not whatever was previously recorded.
+        run_result = run(
+            config=prepared.config,
+            file_system=RealFileSystem(cwd=Path.cwd()),
+            predicate_registry=prepared.predicate_registry,
+            report_suppression_warnings=prepared.diagnostic_level_value != "error",
+            target_files=target_files,
+        )
+        return _write_baseline_and_report(
+            diagnostics=run_result.diagnostics,
+            baseline_path=baseline_path,
+            previous_baseline=previous_baseline,
+        )
+
     run_result = run(
         config=prepared.config,
         file_system=RealFileSystem(cwd=Path.cwd()),
         predicate_registry=prepared.predicate_registry,
         report_suppression_warnings=prepared.diagnostic_level_value != "error",
         target_files=target_files,
+        baseline=previous_baseline,
     )
 
     truncation = truncate_diagnostics(
@@ -103,6 +142,8 @@ def run_check_command(
         files_checked=run_result.files_checked,
         duration_ms=run_result.duration_ms,
         suppressed_diagnostics=run_result.suppressed_diagnostics,
+        baselined_diagnostics=run_result.baselined_diagnostics,
+        baseline_stale_entries=run_result.baseline_stale_entries,
     )
 
     total_errors, total_warnings = count_severities(run_result.diagnostics)
@@ -113,6 +154,7 @@ def run_check_command(
         format=resolved_format,
         colors=colors,
         show_suppressed=show_suppressed,
+        show_baselined=show_baselined,
         total_errors=total_errors,
         total_warnings=total_warnings,
         omitted=truncation.omitted,
@@ -123,13 +165,14 @@ def run_check_command(
         output.append(formatted)
     # `--format json` must stay a single parseable JSON object on stdout
     # (product invariant: JSON output is always {diagnostics, suppressed,
-    # summary, truncation}). `summary.errors`/`summary.warnings` are always
-    # the full pre-truncation totals, and `truncation: {shown, omitted}` is
-    # always present, so a low `--max-diagnostics` never silently hides how
-    # much was cut (see docs/guides/agent-eval.md). The human-readable "...
-    # and N more" notice is plain text, not JSON, so it is only appended for
-    # non-JSON formats -- the `diagnostics` array itself stays truncated to
-    # `--max-diagnostics` in both cases; that cap is the point of the flag.
+    # baselined, baselineStale, summary, truncation}). `summary.errors`/
+    # `summary.warnings` are always the full pre-truncation totals, and
+    # `truncation: {shown, omitted}` is always present, so a low
+    # `--max-diagnostics` never silently hides how much was cut (see
+    # docs/guides/agent-eval.md). The human-readable "... and N more" notice
+    # is plain text, not JSON, so it is only appended for non-JSON formats --
+    # the `diagnostics` array itself stays truncated to `--max-diagnostics` in
+    # both cases; that cap is the point of the flag.
     if truncation.omitted > 0 and resolved_format != "json":
         output.append(format_truncation_message(truncation.omitted))
     if output:
@@ -144,12 +187,30 @@ def run_check_command(
     return 0
 
 
+def _write_baseline_and_report(
+    *,
+    diagnostics: list[Diagnostic],
+    baseline_path: Path,
+    previous_baseline: BaselineData | None,
+) -> int:
+    """Write a fresh baseline and report it. Always returns 0 (recording mode)."""
+    data = write_baseline_file(path=baseline_path, diagnostics=diagnostics)
+
+    for entry in compute_raised_entries(previous=previous_baseline, new=data):
+        _write_warning(format_raised_warning(entry))
+
+    sys.stdout.write(format_baseline_written_message(data=data, path=baseline_path))
+    sys.stdout.write("\n")
+    return 0
+
+
 def _format_result(
     *,
     result: RunResult,
     format: str,
     colors: bool | None,
     show_suppressed: bool,
+    show_baselined: bool,
     total_errors: int | None = None,
     total_warnings: int | None = None,
     omitted: int = 0,
@@ -158,15 +219,22 @@ def _format_result(
         return format_json(
             result,
             show_suppressed=show_suppressed,
+            show_baselined=show_baselined,
             total_errors=total_errors,
             total_warnings=total_warnings,
             omitted=omitted,
         )
     if format == "github":
-        return format_github(result, show_suppressed=show_suppressed)
+        return format_github(
+            result, show_suppressed=show_suppressed, show_baselined=show_baselined
+        )
     if format == "markdown":
-        return format_markdown(result, show_suppressed=show_suppressed)
-    return format_default(result, colors=colors, show_suppressed=show_suppressed)
+        return format_markdown(
+            result, show_suppressed=show_suppressed, show_baselined=show_baselined
+        )
+    return format_default(
+        result, colors=colors, show_suppressed=show_suppressed, show_baselined=show_baselined
+    )
 
 
 def _has_errors(result: RunResult) -> bool:
@@ -182,6 +250,10 @@ def _enum_value(value: Enum | str) -> str:
 
 
 def _write_error(message: str) -> None:
+    sys.stderr.write(f"{message}\n")
+
+
+def _write_warning(message: str) -> None:
     sys.stderr.write(f"{message}\n")
 
 
