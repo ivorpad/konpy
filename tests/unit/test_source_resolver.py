@@ -5,7 +5,11 @@ import pytest
 
 from konpy.config.errors import Err, Ok
 from konpy.config.source_resolver import classify_source, resolve_sources
-from tests.fake_distribution import install_fake_distribution, reusable_convention_package
+from tests.fake_distribution import (
+    install_fake_distribution,
+    install_fake_zip_distribution,
+    reusable_convention_package,
+)
 
 
 def write_json(path: Path, value: object) -> None:
@@ -215,6 +219,26 @@ class TestResolveSources:
 
         assert isinstance(result, Ok)
         assert "from-dist-info" in result.value["common"]
+
+    def test_resolves_package_source_from_zip_backed_dist_info(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ) -> None:
+        install_fake_zip_distribution(
+            tmp_path=tmp_path,
+            monkeypatch=monkeypatch,
+            distribution_name="konpy-test-zip-conventions",
+            dist_info_json=reusable_convention_package("from-zip-dist-info"),
+        )
+
+        result = resolve_sources(
+            convention_sources={"common": "konpy-test-zip-conventions"},
+            config_dir=tmp_path,
+        )
+
+        assert isinstance(result, Ok)
+        assert "from-zip-dist-info" in result.value["common"]
 
     def test_package_source_prefers_top_level_import_package_over_dist_info(
         self,

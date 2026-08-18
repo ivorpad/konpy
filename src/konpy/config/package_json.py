@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from importlib import metadata, resources
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 PackageJsonLookupFailureKind = Literal[
     "invalid-name",
@@ -168,10 +168,11 @@ def _read_dist_info_file(
 
         location_path = package_path.as_posix()
         try:
-            # Concrete Path, not the SimplePath protocol `locate_file` is
-            # typed to return: SimplePath.read_text has no `encoding`
-            # parameter under some Python versions' stubs.
-            raw = Path(str(distribution.locate_file(package_path))).read_text(encoding="utf-8")
+            # Typing-only cast: SimplePath.read_text has no `encoding`
+            # parameter under some Python versions' stubs. Must not coerce to
+            # a concrete Path at runtime — zip-backed distributions return a
+            # zipfile path that reads through the archive.
+            raw = cast("Path", distribution.locate_file(package_path)).read_text(encoding="utf-8")
         except OSError as error:
             return PackageJsonLookupFailure(
                 kind="read-error",

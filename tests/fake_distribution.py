@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import json
 import sys
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -98,6 +99,39 @@ def install_fake_distribution(
     importlib.invalidate_caches()
 
     return site_dir
+
+
+def install_fake_zip_distribution(
+    *,
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    distribution_name: str,
+    dist_info_json: object,
+) -> Path:
+    """Install a zip-backed distribution whose konpy.json lives in .dist-info.
+
+    Unlike install_fake_distribution, the dist-info sits inside a zip archive
+    on sys.path, so Distribution.locate_file returns a zipfile path that must
+    be read through the archive rather than as a filesystem Path.
+    """
+    dist_info = f"{distribution_name.replace('-', '_')}-1.0.dist-info"
+    record_text = "".join(
+        f"{dist_info}/{entry},,\n" for entry in ("METADATA", "konpy.json", "RECORD")
+    )
+
+    zip_path = tmp_path / f"{distribution_name}-1.0.zip"
+    with zipfile.ZipFile(zip_path, "w") as archive:
+        archive.writestr(
+            f"{dist_info}/METADATA",
+            f"Metadata-Version: 2.1\nName: {distribution_name}\nVersion: 1.0\n",
+        )
+        archive.writestr(f"{dist_info}/konpy.json", json.dumps(dist_info_json))
+        archive.writestr(f"{dist_info}/RECORD", record_text)
+
+    monkeypatch.syspath_prepend(str(zip_path))
+    importlib.invalidate_caches()
+
+    return zip_path
 
 
 def reusable_convention_package(name: str = "package-must-have-readme") -> dict[str, Any]:
