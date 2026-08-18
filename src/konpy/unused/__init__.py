@@ -1,3 +1,5 @@
+"""Unused-code classification for `konpy report` and unusedCode config."""
+
 from konpy.unused.classifier import (
     Classification,
     ResolvedUnusedConfig,

@@ -1,3 +1,5 @@
+"""Configuration loading, schema, plugins, and inheritance."""
+
 from konpy.config.cli_placeholders import normalize_placeholder_arg, parse_cli_placeholders
 from konpy.config.deprecation_warnings import collect_deprecation_warnings
 from konpy.config.errors import Err, Ok, Result, format_error_path, format_validation_error
