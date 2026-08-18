@@ -198,6 +198,62 @@ def run_agent_subprocess(
     )
 
 
+def run_agent(
+    *,
+    invocation: AgentInvocation,
+    prompt: str,
+    runner: AgentRunner | None,
+    model: str,
+    timeout: float | None,
+    extra_args: Sequence[str] = (),
+    env: dict[str, str] | None = None,
+    on_progress: Callable[[float], None] | None = None,
+    on_output_line: Callable[[str, str], None] | None = None,
+) -> AgentRunResult:
+    """Run an injected runner or fall back to the agent CLI subprocess."""
+    if runner is not None:
+        result = runner(invocation, prompt)
+        if isinstance(result, AgentRunResult):
+            return result
+        return AgentRunResult(returncode=0, stdout=result, stderr="")
+
+    return run_agent_subprocess(
+        invocation=invocation,
+        prompt=prompt,
+        model=model,
+        timeout=timeout,
+        extra_args=extra_args,
+        env=env,
+        on_progress=on_progress,
+        on_output_line=on_output_line,
+    )
+
+
+def write_agent_failure(
+    invocation: AgentInvocation,
+    run_result: AgentRunResult,
+    write_error: Callable[[str], None],
+) -> None:
+    """Write a failed agent CLI's exit code and captured output."""
+    write_error(f'Agent CLI "{invocation.agent}" exited with code {run_result.returncode}.')
+    if run_result.stderr.strip():
+        write_error(run_result.stderr.strip())
+    elif run_result.stdout.strip():
+        write_error(run_result.stdout.strip())
+
+
+def agent_run_failed(
+    invocation: AgentInvocation,
+    result: AgentRunResult,
+    write_error: Callable[[str], None],
+) -> bool:
+    """Report a failed agent run and return True; return False on success."""
+    if result.returncode == 0:
+        return False
+    write_agent_failure(invocation, result, write_error)
+    return True
+
+
 def _normalize_agent(agent: ExtractAgent | str) -> Result[str]:
     value = agent.value if isinstance(agent, ExtractAgent) else str(agent)
     if value in {
@@ -227,8 +283,11 @@ __all__ = [
     "AgentRunResult",
     "AgentRunner",
     "ExtractAgent",
+    "agent_run_failed",
     "first_json_object",
     "iter_json_objects",
+    "run_agent",
     "run_agent_subprocess",
     "select_agent_invocation",
+    "write_agent_failure",
 ]

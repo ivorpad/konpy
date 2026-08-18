@@ -9,8 +9,10 @@
         "src/konpy/cli",
         "src/konpy/config",
         "src/konpy/core",
+        "src/konpy/infer",
         "src/konpy/predicates",
-        "src/konpy/python_ast"
+        "src/konpy/python_ast",
+        "src/konpy/unused"
       ],
       "must": {
         "haveType": "directory",

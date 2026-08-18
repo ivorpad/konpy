@@ -17,6 +17,20 @@ def derive_rules_output_path(pack_path: str | Path) -> Path:
     return destination.with_name(f"{destination.stem}.rules.json")
 
 
+def rules_destination(
+    *,
+    destination: Path,
+    rules_output_path: str | None,
+    has_rules: bool,
+) -> Path | None:
+    """Choose the semantic-rules path, or None when no rules were produced."""
+    if not has_rules:
+        return None
+    if rules_output_path is not None:
+        return Path(rules_output_path)
+    return derive_rules_output_path(destination)
+
+
 def validate_artifact_destinations(
     *,
     pack_path: str | Path,
@@ -24,9 +38,7 @@ def validate_artifact_destinations(
     report_path: str | Path | None,
 ) -> Result[None]:
     """Reject active artifact paths that resolve to the same destination."""
-    named_paths: list[tuple[str, Path]] = [
-        ("reusable convention pack", Path(pack_path))
-    ]
+    named_paths: list[tuple[str, Path]] = [("reusable convention pack", Path(pack_path))]
     if rules_path is not None:
         named_paths.append(("semantic rules", Path(rules_path)))
     if report_path is not None:
@@ -91,6 +103,7 @@ def write_text_artifact(
 
 __all__ = [
     "derive_rules_output_path",
+    "rules_destination",
     "validate_artifact_destinations",
     "write_model_artifact",
     "write_text_artifact",

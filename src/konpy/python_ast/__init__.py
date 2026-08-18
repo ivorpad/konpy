@@ -1,3 +1,5 @@
+"""Python AST parsing and file-structure extraction."""
+
 from konpy.python_ast.parser import parse_file_structure
 from konpy.python_ast.structure import (
     ClassInfo,

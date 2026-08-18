@@ -47,7 +47,7 @@ Structural conventions enforced by `konpy`. Follow these before writing or editi
 
 ## Conventions
 
-- **`packages-have-init`** (severity: `error`) — paths: `src/konpy/cli`, `src/konpy/config`, `src/konpy/core`, `src/konpy/predicates`, `src/konpy/python_ast`
+- **`packages-have-init`** (severity: `error`) — paths: `src/konpy/cli`, `src/konpy/config`, `src/konpy/core`, `src/konpy/infer`, `src/konpy/predicates`, `src/konpy/python_ast`, `src/konpy/unused`
   - Every konpy subpackage is a regular package.
   - must: `haveType` directory; `haveFiles` __init__.py
 - **`predicate-modules-export-check`** (severity: `error`) — paths: `src/konpy/predicates/{module}.py`

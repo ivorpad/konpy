@@ -5,18 +5,8 @@ from typing import Literal
 from konpy.config.schema import AnnotateFunctionsOptionsV1
 from konpy.core.context import PredicateContext
 from konpy.core.diagnostics import Diagnostic, DiagnosticSeverity, create_diagnostic
-from konpy.predicates._utils import get_value
+from konpy.predicates._utils import option_bool
 from konpy.python_ast.structure import PyFileStructure
-
-
-def _option_enabled(
-    expected: Literal[True] | AnnotateFunctionsOptionsV1, key: str, *, default: bool
-) -> bool:
-    if expected is True:
-        return default
-
-    value = get_value(expected, key)
-    return default if value is None else bool(value)
 
 
 def check_annotate_functions(
@@ -28,9 +18,9 @@ def check_annotate_functions(
     severity: DiagnosticSeverity | None = None,
 ) -> list[Diagnostic]:
     """Check that public functions annotate their parameters and/or return type."""
-    check_returns = _option_enabled(expected, "returns", default=True)
-    check_params = _option_enabled(expected, "params", default=True)
-    public_only = _option_enabled(expected, "publicOnly", default=True)
+    check_returns = option_bool(expected, "returns", default=True)
+    check_params = option_bool(expected, "params", default=True)
+    public_only = option_bool(expected, "publicOnly", default=True)
 
     diagnostics: list[Diagnostic] = []
 
@@ -68,8 +58,7 @@ def check_annotate_functions(
                     file_path=context.path,
                     predicate_name="annotateFunctions",
                     message=(
-                        f'Function "{function.qualified_name}" must have a '
-                        "return type annotation"
+                        f'Function "{function.qualified_name}" must have a return type annotation'
                     ),
                     convention_name=convention_name,
                     line=function.pos.line,
@@ -77,7 +66,7 @@ def check_annotate_functions(
                     severity=severity,
                     expected="return type annotation",
                     fix_hint=(
-                        f'Add a return type annotation to function '
+                        f"Add a return type annotation to function "
                         f'"{function.qualified_name}", e.g. `-> <Type>:`.'
                     ),
                 )

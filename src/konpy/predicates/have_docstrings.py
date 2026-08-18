@@ -5,18 +5,8 @@ from typing import Literal
 from konpy.config.schema import HaveDocstringsOptionsV1
 from konpy.core.context import PredicateContext
 from konpy.core.diagnostics import Diagnostic, DiagnosticSeverity, create_diagnostic
-from konpy.predicates._utils import get_value
+from konpy.predicates._utils import option_bool
 from konpy.python_ast.structure import DocstringTargetInfo, PyFileStructure
-
-
-def _option_enabled(
-    expected: Literal[True] | HaveDocstringsOptionsV1, key: str, *, default: bool
-) -> bool:
-    if expected is True:
-        return default
-
-    value = get_value(expected, key)
-    return default if value is None else bool(value)
 
 
 def _message(target: DocstringTargetInfo) -> str:
@@ -58,10 +48,10 @@ def check_have_docstrings(
     severity: DiagnosticSeverity | None = None,
 ) -> list[Diagnostic]:
     """Check that modules, classes, and/or functions have docstrings per the given options."""
-    check_modules = _option_enabled(expected, "modules", default=True)
-    check_classes = _option_enabled(expected, "classes", default=True)
-    check_functions = _option_enabled(expected, "functions", default=True)
-    public_only = _option_enabled(expected, "publicOnly", default=True)
+    check_modules = option_bool(expected, "modules", default=True)
+    check_classes = option_bool(expected, "classes", default=True)
+    check_functions = option_bool(expected, "functions", default=True)
+    public_only = option_bool(expected, "publicOnly", default=True)
 
     diagnostics: list[Diagnostic] = []
 

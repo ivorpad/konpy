@@ -10,6 +10,7 @@ from konpy.predicates._duplication_index import (
     _build_repeated_literal_index,
     _RepeatedLiteralIndex,
 )
+from konpy.predicates._utils import option_int, option_list, sort_diagnostics
 from konpy.python_ast.structure import PyFileStructure
 
 if TYPE_CHECKING:
@@ -30,48 +31,17 @@ class _RepeatedLiteralOptions:
     allow: tuple[str, ...]
 
 
-def _get_value(obj: object, key: str, default: object = None) -> object:
-    if isinstance(obj, dict):
-        return obj.get(key, default)
-    return getattr(obj, key, default)
-
-
-def _option_int(
-    expected: Literal[True] | RestrictRepeatedLiteralsOptionsV1,
-    key: str,
-    *,
-    default: int,
-) -> int:
-    if expected is True:
-        return default
-    value = _get_value(expected, key)
-    return default if not isinstance(value, int | str) else int(value)
-
-
-def _option_list(
-    expected: Literal[True] | RestrictRepeatedLiteralsOptionsV1,
-    key: str,
-) -> tuple[str, ...]:
-    if expected is True:
-        return ()
-
-    value = _get_value(expected, key)
-    if not isinstance(value, list):
-        return ()
-    return tuple(str(item) for item in value)
-
-
 def _normalize_options(
     expected: Literal[True] | RestrictRepeatedLiteralsOptionsV1,
 ) -> _RepeatedLiteralOptions:
     return _RepeatedLiteralOptions(
-        min_length=_option_int(expected, "minLength", default=DEFAULT_MIN_LENGTH),
-        max_occurrences=_option_int(
+        min_length=option_int(expected, "minLength", default=DEFAULT_MIN_LENGTH),
+        max_occurrences=option_int(
             expected,
             "maxOccurrences",
             default=DEFAULT_MAX_OCCURRENCES,
         ),
-        allow=_option_list(expected, "allow"),
+        allow=option_list(expected, "allow"),
     )
 
 
@@ -97,17 +67,6 @@ def _build_index(
     )
 
 
-def _sort_diagnostics(diagnostics: list[Diagnostic]) -> list[Diagnostic]:
-    return sorted(
-        diagnostics,
-        key=lambda diagnostic: (
-            diagnostic.line if diagnostic.line is not None else -1,
-            diagnostic.column if diagnostic.column is not None else -1,
-            diagnostic.found or "",
-        ),
-    )
-
-
 def check_restrict_repeated_literals(
     *,
     expected: Literal[True] | RestrictRepeatedLiteralsOptionsV1,
@@ -128,9 +87,7 @@ def check_restrict_repeated_literals(
         lambda structures: _build_index(structures=structures, options=options),
     )
 
-    expected_text = (
-        f"at most {options.max_occurrences} occurrence(s) of each string literal"
-    )
+    expected_text = f"at most {options.max_occurrences} occurrence(s) of each string literal"
     diagnostics: list[Diagnostic] = []
 
     for occurrences in index.values():
@@ -156,7 +113,7 @@ def check_restrict_repeated_literals(
                 )
             )
 
-    return _sort_diagnostics(diagnostics)
+    return sort_diagnostics(diagnostics)
 
 
 __all__ = [

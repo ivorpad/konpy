@@ -12,6 +12,7 @@ from konpy.config.package_json import (
     PackageJsonDocument,
     PackageJsonLookupFailure,
     find_package_konpy_json,
+    format_top_level_lookup,
 )
 from konpy.config.schema import ReusableConventionsPackageV1, ReusableConventionV1
 
@@ -113,22 +114,12 @@ def _format_package_lookup_error(
     if failure.kind == "missing-json":
         return (
             f"{source}installed Python distribution does not contain konpy.json. "
-            f"Looked for {_format_top_level_lookup(failure.top_level_packages)} and a "
+            f"Looked for {format_top_level_lookup(failure.top_level_packages)} and a "
             "distribution file named konpy.json."
         )
 
     detail = f" {failure.detail}" if failure.detail else ""
     return f"{source}could not read installed Python distribution data:{detail}."
-
-
-def _format_top_level_lookup(top_level_packages: tuple[str, ...]) -> str:
-    if len(top_level_packages) == 1:
-        return f"{top_level_packages[0]}/konpy.json"
-    if top_level_packages:
-        return "one of " + ", ".join(
-            f"{package_name}/konpy.json" for package_name in top_level_packages
-        )
-    return "<top-level import package>/konpy.json"
 
 
 def _parse_and_validate_package_document(
@@ -160,8 +151,7 @@ def _load_from_path(
         raw = resolved_path.read_text(encoding="utf-8")
     except OSError:
         return Err(
-            f'Convention source "{prefix}" → "{value}": could not read file at '
-            f"{resolved_path}."
+            f'Convention source "{prefix}" → "{value}": could not read file at {resolved_path}.'
         )
 
     return _parse_and_validate(
@@ -185,8 +175,7 @@ def _parse_and_validate(
         json_value = json.loads(raw)
     except json.JSONDecodeError:
         return Err(
-            f'Convention source "{prefix}" → {source_label}: malformed JSON at '
-            f"{location_label}."
+            f'Convention source "{prefix}" → {source_label}: malformed JSON at {location_label}.'
         )
 
     try:

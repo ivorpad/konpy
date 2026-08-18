@@ -653,7 +653,7 @@ class TestAgentSelectionAndModel:
             )
 
         monkeypatch.setattr(
-            "konpy.cli.extract_rules.run_agent_subprocess",
+            "konpy.cli.agent_runner.run_agent_subprocess",
             fake_run_agent_subprocess,
         )
 
