@@ -27,4 +27,16 @@ def _matches_any(value: str, patterns: tuple[str, ...]) -> bool:
     return any(_matches_pattern(value, pattern) for pattern in patterns)
 
 
-__all__: list[str] = []
+def is_forbidden(
+    *,
+    candidates: tuple[str, ...],
+    forbid: tuple[str, ...],
+    allow: tuple[str, ...],
+) -> bool:
+    """Return True when a candidate matches `forbid` and none match `allow`."""
+    if not any(_matches_any(candidate, forbid) for candidate in candidates):
+        return False
+    return not any(_matches_any(candidate, allow) for candidate in candidates)
+
+
+__all__ = ["is_forbidden"]

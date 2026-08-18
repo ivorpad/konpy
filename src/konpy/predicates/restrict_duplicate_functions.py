@@ -10,6 +10,7 @@ from konpy.predicates._duplication_index import (
     _build_duplicate_function_index,
     _DuplicateFunctionIndex,
 )
+from konpy.predicates._utils import option_bool, option_int, option_list, sort_diagnostics
 from konpy.python_ast.structure import PyFileStructure
 
 if TYPE_CHECKING:
@@ -32,60 +33,17 @@ class _DuplicateFunctionOptions:
     allow_names: tuple[str, ...]
 
 
-def _get_value(obj: object, key: str, default: object = None) -> object:
-    if isinstance(obj, dict):
-        return obj.get(key, default)
-    return getattr(obj, key, default)
-
-
-def _option_int(
-    expected: Literal[True] | RestrictDuplicateFunctionsOptionsV1,
-    key: str,
-    *,
-    default: int,
-) -> int:
-    if expected is True:
-        return default
-    value = _get_value(expected, key)
-    return default if not isinstance(value, int | str) else int(value)
-
-
-def _option_bool(
-    expected: Literal[True] | RestrictDuplicateFunctionsOptionsV1,
-    key: str,
-    *,
-    default: bool,
-) -> bool:
-    if expected is True:
-        return default
-    value = _get_value(expected, key)
-    return default if value is None else bool(value)
-
-
-def _option_list(
-    expected: Literal[True] | RestrictDuplicateFunctionsOptionsV1,
-    key: str,
-) -> tuple[str, ...]:
-    if expected is True:
-        return ()
-
-    value = _get_value(expected, key)
-    if not isinstance(value, list):
-        return ()
-    return tuple(str(item) for item in value)
-
-
 def _normalize_options(
     expected: Literal[True] | RestrictDuplicateFunctionsOptionsV1,
 ) -> _DuplicateFunctionOptions:
     return _DuplicateFunctionOptions(
-        min_statements=_option_int(
+        min_statements=option_int(
             expected,
             "minStatements",
             default=DEFAULT_MIN_STATEMENTS,
         ),
-        public_only=_option_bool(expected, "publicOnly", default=False),
-        allow_names=_option_list(expected, "allowNames"),
+        public_only=option_bool(expected, "publicOnly", default=False),
+        allow_names=option_list(expected, "allowNames"),
     )
 
 
@@ -108,17 +66,6 @@ def _build_index(
         min_statements=options.min_statements,
         public_only=options.public_only,
         allow_names=options.allow_names,
-    )
-
-
-def _sort_diagnostics(diagnostics: list[Diagnostic]) -> list[Diagnostic]:
-    return sorted(
-        diagnostics,
-        key=lambda diagnostic: (
-            diagnostic.line if diagnostic.line is not None else -1,
-            diagnostic.column if diagnostic.column is not None else -1,
-            diagnostic.found or "",
-        ),
     )
 
 
@@ -168,7 +115,7 @@ def check_restrict_duplicate_functions(
                 )
             )
 
-    return _sort_diagnostics(diagnostics)
+    return sort_diagnostics(diagnostics)
 
 
 __all__ = ["DEFAULT_MIN_STATEMENTS", "FIX_HINT", "check_restrict_duplicate_functions"]

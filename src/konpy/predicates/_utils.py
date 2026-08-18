@@ -26,6 +26,44 @@ DefinitionEntry = (
 )
 
 
+def option_list(expected: object, key: str) -> tuple[str, ...]:
+    """Read a string-list option, treating a bare `True` predicate as empty."""
+    if expected is True:
+        return ()
+    value = get_value(expected, key)
+    if not isinstance(value, list):
+        return ()
+    return tuple(str(item) for item in value)
+
+
+def option_bool(expected: object, key: str, *, default: bool) -> bool:
+    """Read a boolean option, treating a bare `True` predicate as `default`."""
+    if expected is True:
+        return default
+    value = get_value(expected, key)
+    return default if value is None else bool(value)
+
+
+def option_int(expected: object, key: str, *, default: int) -> int:
+    """Read an integer option, treating a bare `True` predicate as `default`."""
+    if expected is True:
+        return default
+    value = get_value(expected, key)
+    return default if not isinstance(value, int | str) else int(value)
+
+
+def sort_diagnostics(diagnostics: list[Diagnostic]) -> list[Diagnostic]:
+    """Order diagnostics by line, column, then found text."""
+    return sorted(
+        diagnostics,
+        key=lambda diagnostic: (
+            diagnostic.line if diagnostic.line is not None else -1,
+            diagnostic.column if diagnostic.column is not None else -1,
+            diagnostic.found or "",
+        ),
+    )
+
+
 def get_value(obj: object, key: str, default: object = None) -> object:
     """Read `key` from a mapping or attribute-style object, falling back to `default`."""
     if isinstance(obj, Mapping):
@@ -114,8 +152,7 @@ def check_function_signature(
 
     if resolved_param:
         has_param = any(
-            type_matches(param.type_name, resolved_param)
-            for param in function_info.params
+            type_matches(param.type_name, resolved_param) for param in function_info.params
         )
         if not has_param:
             diagnostics.append(
@@ -161,8 +198,7 @@ def check_function_signature(
                 file_path=context.path,
                 predicate_name=predicate_name,
                 message=(
-                    f'Function "{resolved_name}" must return value '
-                    f'of type "{resolved_return}"'
+                    f'Function "{resolved_name}" must return value of type "{resolved_return}"'
                 ),
                 convention_name=convention_name,
                 line=function_info.pos.line,

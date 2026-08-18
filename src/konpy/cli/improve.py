@@ -19,11 +19,11 @@ from konpy.cli.agent_runner import (
     DEFAULT_MODEL,
     AgentInvocation,
     AgentRunner,
-    AgentRunResult,
     ExtractAgent,
     _test_invocation_for_runner,
-    run_agent_subprocess,
+    run_agent,
     select_agent_invocation,
+    write_agent_failure,
 )
 from konpy.cli.agent_runner import (
     _normalize_agent as _normalize_agent_value,
@@ -88,19 +88,19 @@ def run_improve_command(
         "minutes)..."
     )
     started = time.monotonic()
-    run_result = _run_agent(
+    run_result = run_agent(
         invocation=invocation,
         prompt=prompt,
         runner=runner,
         model=model,
         timeout=timeout,
+        extra_args=hook_child_args(invocation.agent),
+        env={**os.environ, SENTINEL_ENV: "1"},
     )
-    _write_progress(
-        f'agent "{invocation.agent}" finished in {time.monotonic() - started:.0f}s.'
-    )
+    _write_progress(f'agent "{invocation.agent}" finished in {time.monotonic() - started:.0f}s.')
 
     if run_result.returncode != 0:
-        _write_agent_failure(invocation, run_result)
+        write_agent_failure(invocation, run_result, _write_error)
         return 1
 
     response = run_result.stdout
@@ -117,45 +117,9 @@ def run_improve_command(
     return 0
 
 
-def _run_agent(
-    *,
-    invocation: AgentInvocation,
-    prompt: str,
-    runner: AgentRunner | None,
-    model: str,
-    timeout: float,
-) -> AgentRunResult:
-    if runner is not None:
-        result = runner(invocation, prompt)
-        if isinstance(result, AgentRunResult):
-            return result
-        return AgentRunResult(returncode=0, stdout=result, stderr="")
-
-    return run_agent_subprocess(
-        invocation=invocation,
-        prompt=prompt,
-        model=model,
-        timeout=timeout,
-        env={**os.environ, SENTINEL_ENV: "1"},
-        extra_args=hook_child_args(invocation.agent),
-    )
-
-
 def _looks_like_diff(text: str) -> bool:
     """A cheap diff-shaped sanity check -- never a real patch validation."""
-    return any(
-        line.startswith(_DIFF_LINE_PREFIXES) for line in text.splitlines()
-    )
-
-
-def _write_agent_failure(invocation: AgentInvocation, run_result: AgentRunResult) -> None:
-    _write_error(
-        f'Agent CLI "{invocation.agent}" exited with code {run_result.returncode}.'
-    )
-    if run_result.stderr.strip():
-        _write_error(run_result.stderr.strip())
-    elif run_result.stdout.strip():
-        _write_error(run_result.stdout.strip())
+    return any(line.startswith(_DIFF_LINE_PREFIXES) for line in text.splitlines())
 
 
 def _write_progress(message: str) -> None:

@@ -37,6 +37,17 @@ class PackageJsonLookupFailure:
     top_level_packages: tuple[str, ...] = ()
 
 
+def format_top_level_lookup(top_level_packages: tuple[str, ...]) -> str:
+    """Describe where a distribution's bundled konpy.json was expected to live."""
+    if len(top_level_packages) == 1:
+        return f"{top_level_packages[0]}/konpy.json"
+    if top_level_packages:
+        return "one of " + ", ".join(
+            f"{package_name}/konpy.json" for package_name in top_level_packages
+        )
+    return "<top-level import package>/konpy.json"
+
+
 def is_valid_distribution_name(value: str) -> bool:
     """Check that a string matches the PEP 503-ish distribution-name pattern."""
     return _DISTRIBUTION_NAME_REGEX.fullmatch(value) is not None
@@ -204,5 +215,6 @@ __all__ = [
     "PackageJsonLookupFailure",
     "PackageJsonLookupFailureKind",
     "find_package_konpy_json",
+    "format_top_level_lookup",
     "is_valid_distribution_name",
 ]

@@ -4,7 +4,11 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from konpy.config.package_json import PackageJsonDocument, PackageJsonLookupFailure
+from konpy.config.package_json import (
+    PackageJsonDocument,
+    PackageJsonLookupFailure,
+    format_top_level_lookup,
+)
 
 
 @dataclass(frozen=True)
@@ -65,22 +69,12 @@ def _format_package_lookup_error(
     if failure.kind == "missing-json":
         return (
             f"{source}installed Python distribution does not contain konpy.json. "
-            f"Looked for {_format_top_level_lookup(failure.top_level_packages)} and a "
+            f"Looked for {format_top_level_lookup(failure.top_level_packages)} and a "
             "distribution file named konpy.json."
         )
 
     detail = f" {failure.detail}" if failure.detail else ""
     return f"{source}could not read installed Python distribution data:{detail}."
-
-
-def _format_top_level_lookup(top_level_packages: tuple[str, ...]) -> str:
-    if len(top_level_packages) == 1:
-        return f"{top_level_packages[0]}/konpy.json"
-    if top_level_packages:
-        return "one of " + ", ".join(
-            f"{package_name}/konpy.json" for package_name in top_level_packages
-        )
-    return "<top-level import package>/konpy.json"
 
 
 def _dedupe_plugins(values: list[str]) -> list[str]:

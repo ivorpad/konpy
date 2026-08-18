@@ -10,6 +10,7 @@ from konpy.predicates._restrict_annotations_matching import (
     _RestrictAnnotationMatchOptions,
     _should_report_occurrence,
 )
+from konpy.predicates._utils import option_bool, option_list, sort_diagnostics
 from konpy.python_ast.structure import PyFileStructure, TypeAnnotationInfo
 
 if TYPE_CHECKING:
@@ -29,46 +30,14 @@ class _AnnotationTarget:
     type_name: TypeAnnotationInfo
 
 
-def _get_value(obj: object, key: str, default: object = None) -> object:
-    if isinstance(obj, dict):
-        return obj.get(key, default)
-    return getattr(obj, key, default)
-
-
-def _option_enabled(
-    expected: Literal[True] | RestrictAnnotationsOptionsV1,
-    key: str,
-    *,
-    default: bool,
-) -> bool:
-    if expected is True:
-        return default
-
-    value = _get_value(expected, key)
-    return default if value is None else bool(value)
-
-
-def _option_list(
-    expected: Literal[True] | RestrictAnnotationsOptionsV1,
-    key: str,
-) -> tuple[str, ...]:
-    if expected is True:
-        return ()
-
-    value = _get_value(expected, key)
-    if not isinstance(value, list):
-        return ()
-    return tuple(str(item) for item in value)
-
-
 def _normalize_options(
     expected: Literal[True] | RestrictAnnotationsOptionsV1,
 ) -> _RestrictAnnotationMatchOptions:
     return _RestrictAnnotationMatchOptions(
-        forbid=_option_list(expected, "forbid"),
-        allow=_option_list(expected, "allow"),
-        defaults=_option_enabled(expected, "defaults", default=True),
-        public_only=_option_enabled(expected, "publicOnly", default=True),
+        forbid=option_list(expected, "forbid"),
+        allow=option_list(expected, "allow"),
+        defaults=option_bool(expected, "defaults", default=True),
+        public_only=option_bool(expected, "publicOnly", default=True),
     )
 
 
@@ -83,10 +52,7 @@ def _iter_function_annotation_targets(
                 continue
             targets.append(
                 _AnnotationTarget(
-                    label=(
-                        f'parameter "{param.name}" of function '
-                        f'"{function.qualified_name}"'
-                    ),
+                    label=(f'parameter "{param.name}" of function "{function.qualified_name}"'),
                     is_public=function.is_public,
                     type_name=param.type_name,
                 )
@@ -139,17 +105,6 @@ def _iter_annotation_targets(structure: PyFileStructure) -> tuple[_AnnotationTar
     )
 
 
-def _sort_diagnostics(diagnostics: list[Diagnostic]) -> list[Diagnostic]:
-    return sorted(
-        diagnostics,
-        key=lambda diagnostic: (
-            diagnostic.line if diagnostic.line is not None else -1,
-            diagnostic.column if diagnostic.column is not None else -1,
-            diagnostic.found or "",
-        ),
-    )
-
-
 def check_restrict_annotations(
     *,
     expected: Literal[True] | RestrictAnnotationsOptionsV1,
@@ -199,7 +154,7 @@ def check_restrict_annotations(
                 )
             )
 
-    return _sort_diagnostics(diagnostics)
+    return sort_diagnostics(diagnostics)
 
 
 __all__ = ["check_restrict_annotations"]

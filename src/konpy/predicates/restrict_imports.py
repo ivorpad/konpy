@@ -13,7 +13,8 @@ from typing import TYPE_CHECKING, Literal
 
 from konpy.core.context import PredicateContext
 from konpy.core.diagnostics import Diagnostic, DiagnosticSeverity, create_diagnostic
-from konpy.predicates._wildcards import _matches_any
+from konpy.predicates._utils import get_value, option_bool, option_list, sort_diagnostics
+from konpy.predicates._wildcards import is_forbidden
 from konpy.python_ast.structure import PyFileStructure
 
 if TYPE_CHECKING:
@@ -22,49 +23,9 @@ if TYPE_CHECKING:
 _ImportScope = Literal["any", "module", "function"]
 
 
-def _get_value(obj: object, key: str, default: object = None) -> object:
-    if isinstance(obj, dict):
-        return obj.get(key, default)
-    return getattr(obj, key, default)
-
-
-def _option_list(expected: RestrictImportsOptionsV1, key: str) -> tuple[str, ...]:
-    value = _get_value(expected, key)
-    if not isinstance(value, list):
-        return ()
-    return tuple(str(item) for item in value)
-
-
 def _option_scope(expected: RestrictImportsOptionsV1) -> _ImportScope:
-    value = _get_value(expected, "scope", "any")
+    value = get_value(expected, "scope", "any")
     return value if value in ("any", "module", "function") else "any"
-
-
-def _option_bool(expected: RestrictImportsOptionsV1, key: str, *, default: bool) -> bool:
-    value = _get_value(expected, key, default)
-    return default if value is None else bool(value)
-
-
-def _is_forbidden(
-    *,
-    candidates: tuple[str, str],
-    forbid: tuple[str, ...],
-    allow: tuple[str, ...],
-) -> bool:
-    if not any(_matches_any(candidate, forbid) for candidate in candidates):
-        return False
-    return not any(_matches_any(candidate, allow) for candidate in candidates)
-
-
-def _sort_diagnostics(diagnostics: list[Diagnostic]) -> list[Diagnostic]:
-    return sorted(
-        diagnostics,
-        key=lambda diagnostic: (
-            diagnostic.line if diagnostic.line is not None else -1,
-            diagnostic.column if diagnostic.column is not None else -1,
-            diagnostic.found or "",
-        ),
-    )
 
 
 def check_restrict_imports(
@@ -76,10 +37,10 @@ def check_restrict_imports(
     severity: DiagnosticSeverity | None = None,
 ) -> list[Diagnostic]:
     """Flag imports whose source or symbol path matches a forbidden pattern."""
-    forbid = _option_list(expected, "forbid")
-    allow = _option_list(expected, "allow")
+    forbid = option_list(expected, "forbid")
+    allow = option_list(expected, "allow")
     scope = _option_scope(expected)
-    include_type_checking = _option_bool(expected, "includeTypeChecking", default=False)
+    include_type_checking = option_bool(expected, "includeTypeChecking", default=False)
 
     diagnostics: list[Diagnostic] = []
     for entry in structure.scoped_imports:
@@ -87,7 +48,7 @@ def check_restrict_imports(
             continue
         if scope != "any" and entry.scope != scope:
             continue
-        if not _is_forbidden(
+        if not is_forbidden(
             candidates=(entry.source, entry.symbol_path),
             forbid=forbid,
             allow=allow,
@@ -113,7 +74,7 @@ def check_restrict_imports(
             )
         )
 
-    return _sort_diagnostics(diagnostics)
+    return sort_diagnostics(diagnostics)
 
 
 __all__ = ["check_restrict_imports"]

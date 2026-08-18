@@ -25,8 +25,10 @@ from konpy.cli.agent_runner import (
     _test_invocation_for_runner,
     first_json_object,
     iter_json_objects,
+    run_agent,
     run_agent_subprocess,
     select_agent_invocation,
+    write_agent_failure,
 )
 from konpy.cli.agent_runner import _normalize_agent as _normalize_agent_value
 from konpy.config.errors import Err, Ok, Result, format_validation_error
@@ -87,25 +89,25 @@ def run_extract_rules_command(
         verbose=verbose,
         enabled=runner is None,
     )
-    run_result = _run_agent(
+    run_result = run_agent(
         invocation=invocation,
         prompt=prompt,
         runner=runner,
         model=model,
         timeout=timeout,
-        reporter=reporter,
+        extra_args=() if reporter is None else reporter.extra_args,
+        on_progress=None if reporter is None else reporter.on_progress,
+        on_output_line=None if reporter is None else reporter.output_line_callback,
     )
     if reporter is not None:
         reporter.finish()
 
     if run_result.returncode != 0:
-        _write_agent_failure(invocation, run_result)
+        write_agent_failure(invocation, run_result, _write_error)
         return 1
 
     response_text = (
-        run_result.stdout
-        if reporter is None
-        else reporter.finalize_stdout(run_result.stdout)
+        run_result.stdout if reporter is None else reporter.finalize_stdout(run_result.stdout)
     )
     parsed_result = extract_agent_json_object(response_text)
     if isinstance(parsed_result, Err):
@@ -122,8 +124,7 @@ def run_extract_rules_command(
         pack = ReusableConventionsPackageV1.model_validate(pack_value)
     except ValidationError as error:
         _write_error(
-            "Invalid extracted reusable-convention package:\n"
-            f"{format_validation_error(error)}"
+            f"Invalid extracted reusable-convention package:\n{format_validation_error(error)}"
         )
         return 1
 
@@ -131,11 +132,7 @@ def run_extract_rules_command(
         semanticRulesSpecVersion="v1",
         rules=semantic,
     )
-    destination = (
-        _default_output_path(source_file)
-        if output_path is None
-        else Path(output_path)
-    )
+    destination = _default_output_path(source_file) if output_path is None else Path(output_path)
     artifacts_result = write_extraction_artifacts(
         pack=pack,
         semantic_package=semantic_package,
@@ -198,49 +195,8 @@ def _start_reporter(
         model=model,
         verbose=verbose,
     )
-    reporter.announce(
-        f"extracting from {source_path} (prompt {len(prompt)} chars)"
-    )
+    reporter.announce(f"extracting from {source_path} (prompt {len(prompt)} chars)")
     return reporter
-
-
-def _run_agent(
-    *,
-    invocation: AgentInvocation,
-    prompt: str,
-    runner: AgentRunner | None,
-    model: str,
-    timeout: float | None,
-    reporter: AgentProgressReporter | None,
-) -> AgentRunResult:
-    if runner is not None:
-        result = runner(invocation, prompt)
-        if isinstance(result, AgentRunResult):
-            return result
-        return AgentRunResult(returncode=0, stdout=result, stderr="")
-
-    return run_agent_subprocess(
-        invocation=invocation,
-        prompt=prompt,
-        model=model,
-        timeout=timeout,
-        extra_args=() if reporter is None else reporter.extra_args,
-        on_progress=None if reporter is None else reporter.on_progress,
-        on_output_line=None if reporter is None else reporter.output_line_callback,
-    )
-
-
-def _write_agent_failure(
-    invocation: AgentInvocation,
-    run_result: AgentRunResult,
-) -> None:
-    _write_error(
-        f'Agent CLI "{invocation.agent}" exited with code {run_result.returncode}.'
-    )
-    if run_result.stderr.strip():
-        _write_error(run_result.stderr.strip())
-    elif run_result.stdout.strip():
-        _write_error(run_result.stdout.strip())
 
 
 def _default_output_path(source_file: str) -> Path:

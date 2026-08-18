@@ -19,7 +19,7 @@ from konpy.cli._review_outcome import (
     combined_review_status,
 )
 from konpy.cli._semantic_rules import SemanticRuleV1
-from konpy.cli.agent_runner import AgentInvocation, AgentRunResult
+from konpy.cli.agent_runner import AgentInvocation, AgentRunResult, agent_run_failed
 from konpy.config.errors import Err, Result
 
 type RunVerifier = Callable[[str], AgentRunResult]
@@ -67,7 +67,7 @@ def run_rules_verifications(
                 rules=rules,
             )
         )
-        if _agent_run_failed(invocation, run_result, write_error):
+        if agent_run_failed(invocation, run_result, write_error):
             if stop_on_first_failure:
                 return ReviewOutcome(status="unavailable")
             saw_unavailable = True
@@ -79,15 +79,12 @@ def run_rules_verifications(
 
         verdict = parse_rules_verdict(run_result.stdout)
         if verdict is None:
-            write_error(
-                f'Agent CLI "{invocation.agent}" did not return a valid verdict.'
-            )
+            write_error(f'Agent CLI "{invocation.agent}" did not return a valid verdict.')
             if stop_on_first_failure:
                 return ReviewOutcome(status="invalid-response")
             saw_invalid_response = True
             warnings.append(
-                f'Agent CLI "{invocation.agent}" did not return a valid '
-                f"verdict for {path}."
+                f'Agent CLI "{invocation.agent}" did not return a valid verdict for {path}.'
             )
             continue
 
@@ -98,8 +95,7 @@ def run_rules_verifications(
         )
         if isinstance(normalized, Err):
             write_error(
-                f'Agent CLI "{invocation.agent}" returned an invalid verdict: '
-                f"{normalized.error}"
+                f'Agent CLI "{invocation.agent}" returned an invalid verdict: {normalized.error}'
             )
             if stop_on_first_failure:
                 return ReviewOutcome(status="invalid-response")
@@ -138,9 +134,7 @@ def run_rules_verifications(
                 if isinstance(result, Err):
                     batch_warnings.append(result.error)
 
-            findings.append(
-                ReviewFinding(path=path, rule=rule.name, reasons=tuple(reasons))
-            )
+            findings.append(ReviewFinding(path=path, rule=rule.name, reasons=tuple(reasons)))
 
         for warning in batch_warnings:
             write_error(f"konpy {command_name}: --log warning: {warning}")
@@ -162,24 +156,6 @@ def run_rules_verifications(
         findings=tuple(findings),
         warnings=tuple(warnings),
     )
-
-
-def _agent_run_failed(
-    invocation: AgentInvocation,
-    result: AgentRunResult,
-    write_error: WriteError,
-) -> bool:
-    if result.returncode == 0:
-        return False
-
-    write_error(
-        f'Agent CLI "{invocation.agent}" exited with code {result.returncode}.'
-    )
-    if result.stderr.strip():
-        write_error(result.stderr.strip())
-    elif result.stdout.strip():
-        write_error(result.stdout.strip())
-    return True
 
 
 __all__ = ["run_rules_verifications"]

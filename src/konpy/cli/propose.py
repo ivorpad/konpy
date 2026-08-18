@@ -13,7 +13,9 @@ from konpy.cli._hook_findings import read_hook_findings
 from konpy.cli._propose_prompt import build_propose_prompt
 from konpy.cli._propose_support import aggregate_findings
 from konpy.cli._rule_artifacts import (
-    derive_rules_output_path,
+    rules_destination as resolve_rules_destination,
+)
+from konpy.cli._rule_artifacts import (
     validate_artifact_destinations,
     write_model_artifact,
     write_text_artifact,
@@ -23,11 +25,11 @@ from konpy.cli.agent_runner import (
     DEFAULT_MODEL,
     AgentInvocation,
     AgentRunner,
-    AgentRunResult,
     ExtractAgent,
     _test_invocation_for_runner,
-    run_agent_subprocess,
+    run_agent,
     select_agent_invocation,
+    write_agent_failure,
 )
 from konpy.cli.agent_runner import _normalize_agent as _normalize_agent_value
 from konpy.cli.extract_rules import (
@@ -58,9 +60,7 @@ def run_propose_command(
         _write_error(warning)
 
     if not findings:
-        sys.stdout.write(
-            f"No fail findings to promote from {findings_path}.\n"
-        )
+        sys.stdout.write(f"No fail findings to promote from {findings_path}.\n")
         return 0
 
     aggregated = aggregate_findings(findings)
@@ -97,25 +97,25 @@ def run_propose_command(
         verbose=verbose,
         enabled=runner is None,
     )
-    run_result = _run_agent(
+    run_result = run_agent(
         invocation=invocation,
         prompt=prompt,
         runner=runner,
         model=model,
         timeout=timeout,
-        reporter=reporter,
+        extra_args=() if reporter is None else reporter.extra_args,
+        on_progress=None if reporter is None else reporter.on_progress,
+        on_output_line=None if reporter is None else reporter.output_line_callback,
     )
     if reporter is not None:
         reporter.finish()
 
     if run_result.returncode != 0:
-        _write_agent_failure(invocation, run_result)
+        write_agent_failure(invocation, run_result, _write_error)
         return 1
 
     response_text = (
-        run_result.stdout
-        if reporter is None
-        else reporter.finalize_stdout(run_result.stdout)
+        run_result.stdout if reporter is None else reporter.finalize_stdout(run_result.stdout)
     )
     parsed_result = extract_agent_json_object(response_text)
     if isinstance(parsed_result, Err):
@@ -132,8 +132,7 @@ def run_propose_command(
         pack = ReusableConventionsPackageV1.model_validate(pack_value)
     except ValidationError as error:
         _write_error(
-            "Invalid proposed reusable-convention package:\n"
-            f"{format_validation_error(error)}"
+            f"Invalid proposed reusable-convention package:\n{format_validation_error(error)}"
         )
         return 1
 
@@ -141,10 +140,8 @@ def run_propose_command(
         semanticRulesSpecVersion="v1",
         rules=semantic,
     )
-    destination = (
-        _default_output_path() if output_path is None else Path(output_path)
-    )
-    rules_destination = _rules_destination(
+    destination = _default_output_path() if output_path is None else Path(output_path)
+    rules_destination = resolve_rules_destination(
         destination=destination,
         rules_output_path=rules_output_path,
         has_rules=bool(semantic),
@@ -205,9 +202,7 @@ def run_propose_command(
             )
         )
     else:
-        sys.stdout.write(
-            f"Wrote rule-routing report to {report_destination}\n"
-        )
+        sys.stdout.write(f"Wrote rule-routing report to {report_destination}\n")
     return 0
 
 
@@ -229,62 +224,9 @@ def _start_reporter(
         verbose=verbose,
     )
     reporter.announce(
-        f"proposing conventions from {group_count} finding group(s) "
-        f"(prompt {len(prompt)} chars)"
+        f"proposing conventions from {group_count} finding group(s) (prompt {len(prompt)} chars)"
     )
     return reporter
-
-
-def _run_agent(
-    *,
-    invocation: AgentInvocation,
-    prompt: str,
-    runner: AgentRunner | None,
-    model: str,
-    timeout: float | None,
-    reporter: AgentProgressReporter | None,
-) -> AgentRunResult:
-    if runner is not None:
-        result = runner(invocation, prompt)
-        if isinstance(result, AgentRunResult):
-            return result
-        return AgentRunResult(returncode=0, stdout=result, stderr="")
-
-    return run_agent_subprocess(
-        invocation=invocation,
-        prompt=prompt,
-        model=model,
-        timeout=timeout,
-        extra_args=() if reporter is None else reporter.extra_args,
-        on_progress=None if reporter is None else reporter.on_progress,
-        on_output_line=None if reporter is None else reporter.output_line_callback,
-    )
-
-
-def _write_agent_failure(
-    invocation: AgentInvocation,
-    run_result: AgentRunResult,
-) -> None:
-    _write_error(
-        f'Agent CLI "{invocation.agent}" exited with code {run_result.returncode}.'
-    )
-    if run_result.stderr.strip():
-        _write_error(run_result.stderr.strip())
-    elif run_result.stdout.strip():
-        _write_error(run_result.stdout.strip())
-
-
-def _rules_destination(
-    *,
-    destination: Path,
-    rules_output_path: str | None,
-    has_rules: bool,
-) -> Path | None:
-    if not has_rules:
-        return None
-    if rules_output_path is not None:
-        return Path(rules_output_path)
-    return derive_rules_output_path(destination)
 
 
 def _default_output_path() -> Path:
